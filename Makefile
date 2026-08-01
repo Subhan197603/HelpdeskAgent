@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap up down logs db-install db-runtime-role db-demo db-reset migrate migration seed \
+.PHONY: help bootstrap up down logs db-install db-runtime-role db-demo db-reset migrate migration migration-check migration-current migration-history db-stamp-baseline db-validate-baseline seed \
 	api worker web lint format format-check typecheck test test-integration test-e2e \
 	openapi clean compose-validate db-demo-bootstrap db-demo-ticket db-test
 
@@ -13,11 +13,14 @@ API_HOST ?= 127.0.0.1
 API_PORT ?= 8000
 API_RELOAD ?= false
 POSTGRES_APP_PASSWORD ?= helpdesk
+MIGRATOR := $(COMPOSE) --profile tools run --rm migrator
 
 help:
 	@echo "Fusion AI Helpdesk development commands"
 	@echo "  bootstrap        Install locked dependencies and create .env if missing"
 	@echo "  up/down/logs     Manage local dependency containers"
+	@echo "  db-validate-baseline/db-stamp-baseline  Adopt the physical baseline"
+	@echo "  migrate/migration/migration-check       Manage reviewed Alembic changes"
 	@echo "  lint/typecheck/test/format-check  Run quality gates"
 
 bootstrap:
@@ -73,9 +76,28 @@ db-reset:
 	$(COMPOSE) exec -T $(DB_SERVICE) createdb -U postgres helpdesk
 	$(MAKE) db-install DB_NAME=helpdesk
 
-migrate migration:
-	@echo "$@ is deferred to Milestone 1, Task 1.2 (Alembic adoption)."
-	@exit 1
+migrate:
+	$(MIGRATOR) python -m apps.api.app.db.migrations_cli upgrade head
+
+migration:
+	@test -n "$(MIGRATION_ID)" || (echo "MIGRATION_ID is required (for example 0002_identity_subject_index)." && exit 1)
+	@test -n "$(MIGRATION_MESSAGE)" || (echo "MIGRATION_MESSAGE is required." && exit 1)
+	uv run alembic -c apps/api/alembic.ini revision --rev-id "$(MIGRATION_ID)" -m "$(MIGRATION_MESSAGE)"
+
+migration-check:
+	uv run python -m apps.api.app.db.migrations_cli check
+
+migration-current:
+	$(MIGRATOR) python -m apps.api.app.db.migrations_cli current
+
+migration-history:
+	$(MIGRATOR) python -m apps.api.app.db.migrations_cli history
+
+db-validate-baseline:
+	$(MIGRATOR) python -m apps.api.app.db.migrations_cli validate
+
+db-stamp-baseline:
+	$(MIGRATOR) python -m apps.api.app.db.migrations_cli stamp
 
 seed:
 	@echo "seed is deferred until application reference-data tasks."
@@ -90,6 +112,7 @@ worker web:
 
 lint:
 	uv run ruff check .
+	uv run python -m apps.api.app.db.migrations_cli check
 	pnpm lint
 
 format:

@@ -62,7 +62,7 @@ jobs:
           enable-cache: true
       - name: Install Python dependencies
         run: uv sync --frozen
-      - name: Test PostgreSQL baseline and API foundation
+      - name: Test PostgreSQL baseline, Alembic adoption, and API foundation
         run: make db-test
 
   vulnerability-scan:

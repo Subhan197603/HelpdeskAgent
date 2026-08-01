@@ -154,6 +154,29 @@ services:
       - no-new-privileges:true
     logging: *default-logging
 
+  migrator:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    image: fusion-ai-helpdesk-api:local
+    profiles: ["tools"]
+    command: ["python", "-m", "apps.api.app.db.migrations_cli", "history"]
+    env_file: .env
+    environment:
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/helpdesk}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./database/baseline/fusion_helpdesk_postgres:/workspace/database/baseline/fusion_helpdesk_postgres:ro
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    logging: *default-logging
+
   worker:
     image: python:3.12-slim
     profiles: ["application"]

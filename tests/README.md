@@ -5,4 +5,5 @@
 - `performance/` contains load and latency tests.
 - `ai_evaluation/` contains versioned AI evaluation datasets and runners.
 
-Only repository-scaffold tests are active in Task 0.1.
+Active integration coverage uses isolated Docker Compose projects for the physical PostgreSQL
+baseline, Alembic adoption and locking, Redis health, and the FastAPI container.

@@ -75,5 +75,5 @@ and verifies liveness/readiness. No SQLite substitute is used.
 
 Known limitations: the S3-compatible probe checks the provider readiness endpoint, not bucket
 authorization; trace extraction and OpenTelemetry export are configuration-only; and protected
-routes, identity, authorization, repositories, outbox behavior, and Alembic adoption are deferred.
-The empty physical-baseline Alembic marker belongs to Task 1.2.
+routes, identity, authorization, repositories, and outbox behavior are deferred. Database changes
+follow the separate [Alembic operations guide](database-migrations.md).

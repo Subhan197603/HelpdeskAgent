@@ -27,6 +27,9 @@ Install the physical database baseline once into a clean local database:
 
 ```sh
 make db-install
+make db-validate-baseline
+make db-stamp-baseline
+make migrate
 make db-test
 ```
 
@@ -62,7 +65,7 @@ make test
 make test-integration
 ```
 
-CI runs the same checks, validates the Compose model, installs the baseline into an isolated PostgreSQL 16/pgvector database, scans for secrets, and performs a filesystem vulnerability scan. API details are in [the foundation operations guide](docs/operations/api-foundation.md). Alembic adoption remains deferred to Task 1.2.
+CI runs the same checks, validates the Compose model, installs and adopts the baseline in isolated PostgreSQL 16/pgvector databases, scans for secrets, and scans the source and API image for vulnerabilities. API details are in [the foundation operations guide](docs/operations/api-foundation.md); migration operations are in [the database migration guide](docs/operations/database-migrations.md).
 
 ## Security notes
 

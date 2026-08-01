@@ -37,4 +37,4 @@ The baseline defines enforceable storage contracts only. It does not implement c
 
 ## Migration boundary
 
-The modular SQL installer is the physical baseline and is intentionally unsupported as a repeatable production migration. Task 1.2 will create an empty Alembic marker revision named `0000_physical_baseline` for databases that already contain this baseline. Every subsequent schema change must use reviewed Alembic migrations. The baseline installer must never be rerun as a production migration.
+The modular SQL installer is the physical baseline and is intentionally unsupported as a repeatable production migration. Databases that pass baseline validation are stamped with the empty Alembic marker revision `0000_physical_baseline`. Every subsequent schema change uses reviewed Alembic migrations. The baseline installer must never be rerun as a production migration. Operational details are in [the database migration guide](../operations/database-migrations.md).

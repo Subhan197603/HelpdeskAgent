@@ -38,3 +38,17 @@ non-owner `helpdesk_app` role. Its password is a local-only placeholder controll
 
 See [API foundation operations](api-foundation.md) for host and Compose startup, health endpoint
 semantics, correlation IDs, structured logging, pool configuration, and transaction boundaries.
+
+## Migrations
+
+After installing a new physical baseline, validate and stamp it before applying later revisions:
+
+```sh
+make db-validate-baseline
+make db-stamp-baseline
+make migration-current
+make migrate
+```
+
+See [database migrations](database-migrations.md) for existing-database adoption, revision review,
+locking, downgrade, and recovery guidance.

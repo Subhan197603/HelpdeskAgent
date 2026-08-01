@@ -16,6 +16,8 @@ RUN uv sync --frozen --no-dev --no-install-project \
 COPY --chown=app:app apps/__init__.py ./apps/__init__.py
 COPY --chown=app:app apps/api/__init__.py ./apps/api/__init__.py
 COPY --chown=app:app apps/api/app ./apps/api/app
+COPY --chown=app:app apps/api/alembic.ini ./apps/api/alembic.ini
+COPY --chown=app:app apps/api/alembic ./apps/api/alembic
 
 USER app
 EXPOSE 8000

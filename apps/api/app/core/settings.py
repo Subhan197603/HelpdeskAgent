@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Self
 
-from pydantic import SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     database_url: SecretStr = SecretStr(
         "postgresql+psycopg://helpdesk:helpdesk@localhost:5432/helpdesk"
     )
+    migration_database_url: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("MIGRATION_DATABASE_URL", "DATABASE_ADMIN_URL"),
+    )
+    migration_lock_timeout_seconds: float = Field(default=10.0, gt=0, le=300)
     database_pool_size: int = 5
     database_max_overflow: int = 10
     database_pool_timeout: float = 30.0
