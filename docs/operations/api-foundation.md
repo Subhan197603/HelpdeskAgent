@@ -41,6 +41,10 @@ Clients may send a UUID in `X-Correlation-ID`. Invalid or missing values are rep
 selected value is returned in the response and RFC 7807 error payload. A separate generated
 `X-Request-ID` identifies one request. Context variables isolate concurrent requests.
 
+Protected routes use the database-backed local identity and centralized authorization foundation
+described in [Developer identity and authorization](developer-identity.md). Production OIDC
+remains deferred. Health endpoints intentionally retain anonymous request contexts.
+
 ## Configuration and logging
 
 `.env.example` documents all foundation settings. Database pool behavior is controlled by

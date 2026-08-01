@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Self
 
-from pydantic import AliasChoices, Field, SecretStr, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -65,7 +65,11 @@ class Settings(BaseSettings):
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
     trusted_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
     rls_enabled: bool = False
-    dev_identity_enabled: bool = False
+    developer_identity_enabled: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("DEVELOPER_IDENTITY_ENABLED", "DEV_IDENTITY_ENABLED"),
+    )
+    developer_identity_header: str = "X-Developer-User"
     ai_globally_enabled: bool = False
 
     @model_validator(mode="after")
@@ -80,8 +84,8 @@ class Settings(BaseSettings):
             errors.append("APP_DEBUG must be false")
         if not self.json_logs:
             errors.append("JSON_LOGS must be true")
-        if self.dev_identity_enabled:
-            errors.append("DEV_IDENTITY_ENABLED must be false")
+        if self.developer_identity_enabled:
+            errors.append("DEVELOPER_IDENTITY_ENABLED must be false")
         if "*" in self.cors_allowed_origins:
             errors.append("CORS_ALLOWED_ORIGINS cannot contain '*'")
         if "*" in self.trusted_hosts:
@@ -121,3 +125,28 @@ class Settings(BaseSettings):
     @property
     def debug(self) -> bool:
         return self.app_debug
+
+    @field_validator("developer_identity_header")
+    @classmethod
+    def validate_developer_identity_header(cls, value: str) -> str:
+        forbidden = {
+            "x-tenant-id",
+            "x-user-id",
+            "x-roles",
+            "x-permissions",
+            "x-support-group-ids",
+            "x-business-unit-id",
+        }
+        normalized = value.strip()
+        if not normalized or len(normalized) > 64:
+            raise ValueError("DEVELOPER_IDENTITY_HEADER must be a non-empty header name")
+        if normalized.lower() in forbidden:
+            raise ValueError("DEVELOPER_IDENTITY_HEADER cannot be an authorization-data header")
+        if not all(character.isalnum() or character == "-" for character in normalized):
+            raise ValueError("DEVELOPER_IDENTITY_HEADER is not a valid HTTP header name")
+        return normalized
+
+    @property
+    def dev_identity_enabled(self) -> bool:
+        """Compatibility alias for the Task 1.1 setting name."""
+        return self.developer_identity_enabled

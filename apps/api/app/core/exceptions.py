@@ -33,6 +33,10 @@ class AuthorizationError(AppError):
     status_code, title, error_code = 403, "Access denied", "authorization_denied"
 
 
+class AuthenticationError(AppError):
+    status_code, title, error_code = 401, "Authentication required", "authentication_required"
+
+
 class ValidationError(AppError):
     status_code, title, error_code = 422, "Validation failed", "validation_failed"
 
@@ -79,6 +83,7 @@ class LLMProviderError(AppError):
 
 __all__: list[str] = [
     "AppError",
+    "AuthenticationError",
     "AuthorizationError",
     "ConcurrencyError",
     "ConflictError",

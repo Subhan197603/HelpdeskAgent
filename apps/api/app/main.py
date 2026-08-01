@@ -2,17 +2,22 @@
 
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from typing import cast
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.app.api.router import api_router
+from apps.api.app.core.context import RequestContext
 from apps.api.app.core.logging import configure_logging
 from apps.api.app.core.middleware import RequestContextMiddleware
 from apps.api.app.core.problem_details import install_exception_handlers
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
+from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
+from apps.api.app.identity.authorization import AuthorizationService
+from apps.api.app.identity.service import DeveloperIdentityService
 from apps.api.app.infrastructure.clamav_health import ClamAVHealthProbe
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
@@ -52,10 +57,26 @@ def create_app(
         lifespan=lifespan,
         docs_url=None if settings.is_production else "/docs",
         redoc_url=None,
-        openapi_tags=[{"name": "health", "description": "Process and dependency health."}],
+        openapi_tags=[
+            {"name": "health", "description": "Process and dependency health."},
+            {"name": "identity", "description": "Authenticated caller identity."},
+        ],
     )
     app.state.settings = settings
     app.state.resources = resources
+
+    def unit_of_work_factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
+        database = cast(Database, resources.database)
+        return SqlAlchemyUnitOfWork(
+            database.session_factory,
+            context,
+            rls_enabled=settings.rls_enabled,
+        )
+
+    app.state.developer_identity_service = DeveloperIdentityService(
+        unit_of_work_factory, rls_enabled=settings.rls_enabled
+    )
+    app.state.authorization_service = AuthorizationService()
     install_exception_handlers(app)
     app.include_router(api_router)
 
@@ -64,7 +85,12 @@ def create_app(
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Accept", "Content-Type", "X-Correlation-ID"],
+        allow_headers=[
+            "Accept",
+            "Content-Type",
+            "X-Correlation-ID",
+            *([settings.developer_identity_header] if settings.developer_identity_enabled else []),
+        ],
     )
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
     app.add_middleware(RequestContextMiddleware, hsts=settings.is_production)

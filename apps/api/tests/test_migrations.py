@@ -40,10 +40,12 @@ def test_alembic_configuration_and_linear_history_load() -> None:
     script = ScriptDirectory.from_config(config)
     revisions = list(script.walk_revisions())
     assert [revision.revision for revision in revisions] == [
+        "0003_rls_runtime_privileges",
+        "0002_identity_role_activation",
         "0001_migration_metadata",
         BASELINE_MARKER,
     ]
-    assert script.get_heads() == ["0001_migration_metadata"]
+    assert script.get_heads() == ["0003_rls_runtime_privileges"]
     assert config.get_main_option("sqlalchemy.url") is None
     assert VERSION_TABLE_SCHEMA == "config"
 
@@ -113,6 +115,21 @@ def test_destructive_guard_rejects_unapproved_operation(tmp_path: Path) -> None:
     )
     _, findings = inspect_revision(revision, ROOT)
     assert any(finding.rule == "destructive-operation" for finding in findings)
+
+
+def test_destructive_downgrade_does_not_require_upgrade_approval(tmp_path: Path) -> None:
+    revision = tmp_path / "0002_test_add.py"
+    revision.write_text(
+        "revision: str = '0002_test_add'\n"
+        "down_revision: str | None = '0001_migration_metadata'\n"
+        "def upgrade():\n"
+        "    op.add_column('app_user', column, schema='identity')\n"
+        "def downgrade():\n"
+        "    op.drop_column('app_user', 'value', schema='identity')\n",
+        encoding="utf-8",
+    )
+    _, findings = inspect_revision(revision, ROOT)
+    assert not any(finding.rule == "destructive-operation" for finding in findings)
 
 
 def test_destructive_override_requires_matching_adr(tmp_path: Path) -> None:

@@ -22,6 +22,16 @@ make db-demo-bootstrap
 make db-demo-ticket
 ```
 
+Developer identity fixtures are separately opt-in after Alembic migrations:
+
+```sh
+make migrate
+make seed
+```
+
+They are prohibited outside `APP_ENV=development` and documented in
+[Developer identity and authorization](developer-identity.md).
+
 Reset is destructive and restricted to the fixed local `helpdesk` database. It requires both safeguards:
 
 ```sh

@@ -22,6 +22,14 @@ class RequestContext:
     def anonymous(cls, correlation_id: str, request_id: str) -> "RequestContext":
         return cls(None, None, None, frozenset(), frozenset(), None, correlation_id, request_id)
 
+    @property
+    def is_authenticated(self) -> bool:
+        return (
+            self.tenant_id is not None
+            and self.user_id is not None
+            and self.external_subject is not None
+        )
+
 
 _request_context: ContextVar[RequestContext | None] = ContextVar("request_context", default=None)
 

@@ -1,6 +1,79 @@
 {
   "components": {
     "schemas": {
+      "CurrentIdentityResponse": {
+        "properties": {
+          "authentication_mode": {
+            "const": "developer_header",
+            "title": "Authentication Mode",
+            "type": "string"
+          },
+          "business_unit_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Unit Id"
+          },
+          "business_unit_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Unit Name"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "role_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Role Codes",
+            "type": "array"
+          },
+          "support_group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Support Group Ids",
+            "type": "array"
+          },
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "tenant_id",
+          "display_name",
+          "business_unit_id",
+          "business_unit_name",
+          "role_codes",
+          "support_group_ids",
+          "authentication_mode"
+        ],
+        "title": "CurrentIdentityResponse",
+        "type": "object"
+      },
       "DependencyHealth": {
         "properties": {
           "duration_ms": {
@@ -67,6 +140,23 @@
         ],
         "title": "HealthResponse",
         "type": "object"
+      },
+      "IdentityDiagnosticResponse": {
+        "properties": {
+          "authentication_mode": {
+            "const": "developer_header",
+            "title": "Authentication Mode",
+            "type": "string"
+          },
+          "status": {
+            "const": "authorized",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": ["status", "authentication_mode"],
+        "title": "IdentityDiagnosticResponse",
+        "type": "object"
       }
     }
   },
@@ -94,6 +184,44 @@
         },
         "summary": "Readiness",
         "tags": ["health"]
+      }
+    },
+    "/api/v1/identity/diagnostics": {
+      "get": {
+        "operationId": "identity_diagnostics_api_v1_identity_diagnostics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityDiagnosticResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Identity Diagnostics",
+        "tags": ["identity"]
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "operationId": "current_identity_api_v1_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentIdentityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current Identity",
+        "tags": ["identity"]
       }
     },
     "/health/live": {
@@ -139,6 +267,10 @@
     {
       "description": "Process and dependency health.",
       "name": "health"
+    },
+    {
+      "description": "Authenticated caller identity.",
+      "name": "identity"
     }
   ]
 }

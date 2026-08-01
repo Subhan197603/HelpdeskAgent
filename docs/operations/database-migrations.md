@@ -9,8 +9,9 @@ data. Alembic owns every reviewed database change after that baseline. Never pla
 
 Alembic records state in `config.alembic_version`. The `config` schema must already exist, which is
 one reason the marker cannot replace physical-baseline installation. The root revision,
-`0000_physical_baseline`, has empty upgrade and downgrade functions. The current sample head,
-`0001_migration_metadata`, only adds a reversible comment to Alembic's own version table.
+`0000_physical_baseline`, has empty upgrade and downgrade functions. The current head is
+`0003_rls_runtime_privileges`; the identity revisions and their rationale are documented in the
+[developer identity guide](developer-identity.md).
 
 ## Adopt a new local database
 
@@ -90,7 +91,7 @@ objects with no model are excluded, so missing metadata cannot generate mass `DR
 operations. Use reviewed explicit operations when a table is not yet modeled. pgvector and
 extension-owned/system objects are outside the current comparison set.
 
-The guard rejects table/schema/column/constraint/extension removal, type or enum destruction,
+For upgrade paths, the guard rejects table/schema/column/constraint/extension removal, type or enum destruction,
 type/rewrite-sensitive SQL, non-null conversion without review, and foreign-key additions that
 need size/index review. An exceptional approved revision must contain:
 

@@ -239,6 +239,8 @@ def test_validated_stamp_upgrade_downgrade_and_history(
 
     _migration_command(url, "upgrade", "head")
     assert _psql(database, "SELECT version_num FROM config.alembic_version") == SAMPLE_REVISION
+    fingerprint_at_head = _baseline_fingerprint(database)
+    assert fingerprint_at_head != fingerprint_before
     assert "Fusion Helpdesk physical baseline" in _psql(
         database, "SELECT obj_description('config.alembic_version'::regclass)"
     )
@@ -254,7 +256,7 @@ def test_validated_stamp_upgrade_downgrade_and_history(
 
     _migration_command(url, "stamp")
     _migration_command(url, "upgrade", "head")
-    assert _baseline_fingerprint(database) == fingerprint_before
+    assert _baseline_fingerprint(database) == fingerprint_at_head
 
 
 @pytest.mark.integration

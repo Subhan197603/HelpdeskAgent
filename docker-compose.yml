@@ -18,6 +18,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database/baseline/fusion_helpdesk_postgres/sql:/baseline:ro
+      - ./database/development:/development:ro
       - ./infrastructure/docker:/runtime-config:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d helpdesk"]

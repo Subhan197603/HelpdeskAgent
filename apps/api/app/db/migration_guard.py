@@ -99,6 +99,13 @@ def inspect_revision(
     info = RevisionInfo(path, revision, down_revision)
     findings: list[MigrationFinding] = []
     approved = _valid_approval(source, revision, repository_root)
+    upgrade_calls = {
+        id(child)
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "upgrade"
+        for child in ast.walk(node)
+        if isinstance(child, ast.Call)
+    }
 
     if not REVISION_PATTERN.fullmatch(revision) or len(revision) > 32:
         findings.append(MigrationFinding(path, 1, "revision-name", "Invalid stable revision ID"))
@@ -144,7 +151,7 @@ def inspect_revision(
             and DESTRUCTIVE_SQL.search(node.args[0].value)
         ):
             risky_message = "Raw SQL contains a destructive or rewrite-sensitive operation"
-        if risky_message and not approved:
+        if risky_message and id(node) in upgrade_calls and not approved:
             findings.append(
                 MigrationFinding(path, node.lineno, "destructive-operation", risky_message)
             )

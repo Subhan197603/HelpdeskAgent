@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated dependency, VCS, cache, and scan-output directories"
+paths = [
+  '''(^|[\\/])\.git([\\/]|$)''',
+  '''(^|[\\/])\.venv([\\/]|$)''',
+  '''(^|[\\/])node_modules([\\/]|$)''',
+  '''(^|[\\/])reports([\\/]|$)''',
+]
