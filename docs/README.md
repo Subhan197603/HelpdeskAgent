@@ -9,3 +9,4 @@ Architecture, API, operational, security, and decision records are maintained al
 - [Production OIDC authentication](operations/oidc-authentication.md)
 - [Service catalogue and dynamic request forms](operations/service-catalogue.md)
 - [Ticket draft and submission](operations/ticket-submission.md)
+- [Minimal employee and analyst portal](operations/minimal-portal.md)

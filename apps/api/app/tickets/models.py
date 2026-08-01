@@ -56,3 +56,13 @@ class TicketView:
     created_at: datetime
     updated_at: datetime
     created_event_at: datetime | None
+    row_version: int
+
+
+@dataclass(frozen=True, slots=True)
+class PublicComment:
+    comment_id: UUID
+    author_user_id: UUID
+    author_name: str
+    body: str
+    created_at: datetime

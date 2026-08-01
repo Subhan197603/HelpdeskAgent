@@ -16,6 +16,7 @@ from apps.api.app.tickets.schemas import (
     DraftResponse,
     DraftValidationResponse,
     DraftVersionRequest,
+    PublicCommentCreateRequest,
     TicketPage,
     TicketResponse,
 )
@@ -171,6 +172,59 @@ async def my_tickets(
 ) -> TicketPage:
     items, next_cursor = await _service(request).my_tickets(context, limit, cursor)
     return TicketPage(items=items, limit=limit, next_cursor=next_cursor)
+
+
+@router.get("/api/v1/agent/tickets", response_model=TicketPage, responses=ERRORS)
+async def analyst_tickets(
+    request: Request,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    cursor: Annotated[str | None, Query(max_length=500)] = None,
+) -> TicketPage:
+    items, next_cursor = await _service(request).analyst_tickets(context, limit, cursor)
+    return TicketPage(items=items, limit=limit, next_cursor=next_cursor)
+
+
+@router.get("/api/v1/agent/tickets/{ticket_key}", response_model=TicketResponse, responses=ERRORS)
+async def analyst_ticket(
+    request: Request,
+    ticket_key: str,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> TicketResponse:
+    return await _service(request).analyst_ticket(context, ticket_key)
+
+
+@router.post(
+    "/api/v1/tickets/{ticket_key}/comments",
+    response_model=TicketResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=SUBMIT_RESPONSES,
+)
+async def add_public_comment(
+    response: Response,
+    request: Request,
+    ticket_key: str,
+    command: PublicCommentCreateRequest,
+    context: Annotated[
+        RequestContext, Depends(require_permission(Permission.TICKET_COMMENT_PUBLIC))
+    ],
+    idempotency_key: Annotated[
+        str,
+        Header(
+            alias="Idempotency-Key",
+            min_length=8,
+            max_length=255,
+            pattern=r"^[A-Za-z0-9._:-]+$",
+        ),
+    ],
+) -> TicketResponse:
+    ticket, replay = await _service(request).add_public_comment(
+        context, ticket_key, command, idempotency_key
+    )
+    if replay:
+        response.status_code = status.HTTP_200_OK
+        response.headers["Idempotent-Replayed"] = "true"
+    return ticket
 
 
 def _match_version(if_match: str | None, row_version: int) -> None:

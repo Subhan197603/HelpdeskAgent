@@ -8,8 +8,16 @@ export default tseslint.config(
       "**/.venv/**",
       "**/.next/**",
       "**/coverage/**",
+      "**/dist/**",
       "database/baseline/**",
+      "packages/api-client/src/generated.ts",
     ],
+  },
+  {
+    files: ["apps/web/server.mjs"],
+    languageOptions: {
+      globals: { process: "readonly", URL: "readonly" },
+    },
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked.map((config) => ({

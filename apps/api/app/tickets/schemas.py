@@ -101,6 +101,21 @@ class TicketResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     creation_event_at: datetime | None
+    row_version: int
+    public_comments: list["PublicCommentResponse"] = Field(default_factory=list)
+
+
+class PublicCommentResponse(BaseModel):
+    id: UUID
+    author_user_id: UUID
+    author_name: str
+    body: str
+    created_at: datetime
+
+
+class PublicCommentCreateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=10_000)
 
 
 class TicketPage(BaseModel):

@@ -26,7 +26,7 @@ from apps.api.app.identity.authorization import (
     AuthorizationService,
     Permission,
 )
-from apps.api.app.tickets.models import TicketDraft, TicketView
+from apps.api.app.tickets.models import PublicComment, TicketDraft, TicketView
 from apps.api.app.tickets.repository import TicketRepository
 from apps.api.app.tickets.schemas import (
     CustomFieldInput,
@@ -34,6 +34,8 @@ from apps.api.app.tickets.schemas import (
     DraftPatchRequest,
     DraftResponse,
     NormalizedField,
+    PublicCommentCreateRequest,
+    PublicCommentResponse,
     TicketResponse,
 )
 from apps.api.app.tickets.validation import validate_and_normalize
@@ -383,7 +385,8 @@ class TicketService:
                     await uow.commit()
                 self._metrics.idempotent_replays += 1
                 self._record("submit_draft", started, "replayed")
-                return _ticket_response(ticket), True
+                comments = await repo.public_comments(ticket.ticket_id)
+                return _ticket_response(ticket, comments), True
             draft = await repo.draft(tenant_id, draft_id, lock=True)
             self._own(draft, user_id)
             assert draft is not None
@@ -445,7 +448,8 @@ class TicketService:
             ticket = await TicketRepository(uow.session).ticket(tenant_id, user_id, key=ticket_key)
             if ticket is None:
                 raise NotFoundError("Ticket was not found.")
-            return _ticket_response(ticket)
+            comments = await TicketRepository(uow.session).public_comments(ticket.ticket_id)
+            return _ticket_response(ticket, comments)
 
     async def my_tickets(
         self, context: RequestContext, limit: int, cursor: str | None
@@ -454,13 +458,134 @@ class TicketService:
         self._authorize(context, Permission.TICKET_READ_OWN)
         before_at, before_id = _decode_cursor(cursor)
         async with self._factory(context) as uow:
-            rows = await TicketRepository(uow.session).tickets(
-                tenant_id, user_id, limit + 1, before_at, before_id
-            )
-        more = len(rows) > limit
-        rows = rows[:limit]
+            repo = TicketRepository(uow.session)
+            rows = await repo.tickets(tenant_id, user_id, limit + 1, before_at, before_id)
+            more = len(rows) > limit
+            rows = rows[:limit]
+            responses = [
+                _ticket_response(row, await repo.public_comments(row.ticket_id)) for row in rows
+            ]
         next_cursor = _encode_cursor(rows[-1]) if more and rows else None
-        return [_ticket_response(row) for row in rows], next_cursor
+        return responses, next_cursor
+
+    async def analyst_ticket(self, context: RequestContext, ticket_key: str) -> TicketResponse:
+        tenant_id, _ = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        include_all = self._authorization.is_allowed(context, Permission.TICKET_READ_ALL)
+        async with self._factory(context) as uow:
+            repo = TicketRepository(uow.session)
+            ticket = await repo.analyst_ticket(
+                tenant_id,
+                context.support_group_ids,
+                key=ticket_key,
+                include_all=include_all,
+            )
+            if ticket is None:
+                raise NotFoundError("Ticket was not found.")
+            comments = await repo.public_comments(ticket.ticket_id)
+            return _ticket_response(ticket, comments)
+
+    async def analyst_tickets(
+        self, context: RequestContext, limit: int, cursor: str | None
+    ) -> tuple[list[TicketResponse], str | None]:
+        tenant_id, _ = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        include_all = self._authorization.is_allowed(context, Permission.TICKET_READ_ALL)
+        before_at, before_id = _decode_cursor(cursor)
+        async with self._factory(context) as uow:
+            repo = TicketRepository(uow.session)
+            rows = await repo.analyst_tickets(
+                tenant_id,
+                context.support_group_ids,
+                limit + 1,
+                before_at,
+                before_id,
+                include_all=include_all,
+            )
+            more = len(rows) > limit
+            rows = rows[:limit]
+            responses = [
+                _ticket_response(row, await repo.public_comments(row.ticket_id)) for row in rows
+            ]
+        next_cursor = _encode_cursor(rows[-1]) if more and rows else None
+        return responses, next_cursor
+
+    async def add_public_comment(
+        self,
+        context: RequestContext,
+        ticket_key: str,
+        command: PublicCommentCreateRequest,
+        idempotency_key: str,
+    ) -> tuple[TicketResponse, bool]:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_COMMENT_PUBLIC)
+        body = command.body.strip()
+        if not body:
+            raise ValidationError(
+                "Comment body is required.", field_errors={"body": ["Enter a public comment."]}
+            )
+        request_hash = hashlib.sha256(f"{ticket_key}:{body}".encode()).hexdigest()
+        async with self._factory(context) as uow:
+            repo = TicketRepository(uow.session)
+            ticket = await self._commentable_ticket(repo, context, ticket_key, lock=True)
+            idem = await repo.claim_idempotency(
+                tenant_id,
+                user_id,
+                idempotency_key,
+                request_hash,
+                "TICKET_PUBLIC_COMMENT_CREATE",
+            )
+            if idem.request_hash != request_hash or idem.principal_id != str(user_id):
+                raise IdempotencyConflict()
+            if idem.processing_status == "COMPLETED":
+                comments = await repo.public_comments(ticket.ticket_id)
+                return _ticket_response(ticket, comments), True
+            comment_id = await repo.add_public_comment(
+                tenant_id,
+                ticket.ticket_id,
+                user_id,
+                body,
+                context.correlation_id,
+                context.request_id,
+            )
+            await repo.complete_idempotency(
+                idem.idempotency_record_id,
+                "TICKET_COMMENT",
+                comment_id,
+                {"comment_id": str(comment_id), "ticket_key": ticket_key},
+            )
+            await uow.commit()
+        return await self._ticket_for_context(context, ticket_key), False
+
+    async def _ticket_for_context(self, context: RequestContext, ticket_key: str) -> TicketResponse:
+        if self._authorization.is_allowed(context, Permission.TICKET_ANALYST_READ):
+            return await self.analyst_ticket(context, ticket_key)
+        return await self.get_ticket(context, ticket_key)
+
+    async def _commentable_ticket(
+        self,
+        repo: TicketRepository,
+        context: RequestContext,
+        ticket_key: str,
+        *,
+        lock: bool,
+    ) -> TicketView:
+        tenant_id, user_id = _identity(context)
+        own = await repo.ticket(tenant_id, user_id, key=ticket_key, lock=lock)
+        if own is not None:
+            return own
+        if not self._authorization.is_allowed(context, Permission.TICKET_ANALYST_READ):
+            raise NotFoundError("Ticket was not found.")
+        analyst = await repo.analyst_ticket(
+            tenant_id,
+            context.support_group_ids,
+            key=ticket_key,
+            include_all=self._authorization.is_allowed(context, Permission.TICKET_READ_ALL),
+            lock=lock,
+        )
+        if analyst is None:
+            raise NotFoundError("Ticket was not found.")
+        return analyst
 
     async def _priority(
         self,
@@ -646,7 +771,9 @@ def _draft_response(
     )
 
 
-def _ticket_response(ticket: TicketView) -> TicketResponse:
+def _ticket_response(
+    ticket: TicketView, comments: list[PublicComment] | None = None
+) -> TicketResponse:
     return TicketResponse(
         id=ticket.ticket_id,
         key=ticket.ticket_key,
@@ -669,6 +796,17 @@ def _ticket_response(ticket: TicketView) -> TicketResponse:
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         creation_event_at=ticket.created_event_at,
+        row_version=ticket.row_version,
+        public_comments=[
+            PublicCommentResponse(
+                id=comment.comment_id,
+                author_user_id=comment.author_user_id,
+                author_name=comment.author_name,
+                body=comment.body,
+                created_at=comment.created_at,
+            )
+            for comment in comments or []
+        ],
     )
 
 

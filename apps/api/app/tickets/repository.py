@@ -5,13 +5,13 @@ import json
 from dataclasses import asdict
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.tickets.models import TicketDraft, TicketView
+from apps.api.app.tickets.models import PublicComment, TicketDraft, TicketView
 
 
 class TicketRepository:
@@ -213,14 +213,19 @@ class TicketRepository:
         return rows[0].workflow_version_id, rows[0].status_id
 
     async def claim_idempotency(
-        self, tenant_id: UUID, user_id: UUID, key: str, request_hash: str
+        self,
+        tenant_id: UUID,
+        user_id: UUID,
+        key: str,
+        request_hash: str,
+        operation_code: str = "TICKET_DRAFT_SUBMIT",
     ) -> Any:
         await self._session.execute(
             text("""
             INSERT INTO integration.idempotency_record(
               tenant_id, principal_type, principal_id, operation_code, idempotency_key,
               request_hash, lease_expires_at, expires_at)
-            VALUES (:tenant_id,'USER',:principal_id,'TICKET_DRAFT_SUBMIT',:key,
+            VALUES (:tenant_id,'USER',:principal_id,:operation_code,:key,
                     :request_hash, now()+interval '60 seconds', now()+interval '24 hours')
             ON CONFLICT (tenant_id, operation_code, idempotency_key) DO NOTHING
         """),
@@ -229,16 +234,17 @@ class TicketRepository:
                 "principal_id": str(user_id),
                 "key": key,
                 "request_hash": request_hash,
+                "operation_code": operation_code,
             },
         )
         return (
             await self._session.execute(
                 text("""
             SELECT * FROM integration.idempotency_record
-            WHERE tenant_id=:tenant_id AND operation_code='TICKET_DRAFT_SUBMIT'
+            WHERE tenant_id=:tenant_id AND operation_code=:operation_code
               AND idempotency_key=:key FOR UPDATE
         """),
-                {"tenant_id": tenant_id, "key": key},
+                {"tenant_id": tenant_id, "key": key, "operation_code": operation_code},
             )
         ).one()
 
@@ -422,6 +428,183 @@ class TicketRepository:
             },
         )
 
+    async def analyst_ticket(
+        self,
+        tenant_id: UUID,
+        support_group_ids: frozenset[UUID],
+        *,
+        key: str,
+        include_all: bool,
+        lock: bool = False,
+    ) -> TicketView | None:
+        suffix = " FOR UPDATE OF ticket" if lock else ""
+        row = (
+            await self._session.execute(
+                text(
+                    _TICKET_SELECT
+                    + """
+          WHERE ticket.tenant_id=:tenant_id AND ticket.ticket_key=:key
+            AND (:include_all OR ticket.assignment_group_id IS NULL
+                 OR ticket.assignment_group_id = ANY(CAST(:support_group_ids AS uuid[])))
+        """
+                    + suffix
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "key": key,
+                    "include_all": include_all,
+                    "support_group_ids": list(support_group_ids),
+                },
+            )
+        ).one_or_none()
+        return _ticket(row) if row is not None else None
+
+    async def analyst_tickets(
+        self,
+        tenant_id: UUID,
+        support_group_ids: frozenset[UUID],
+        limit: int,
+        before_at: datetime | None,
+        before_id: UUID | None,
+        *,
+        include_all: bool,
+    ) -> list[TicketView]:
+        rows = (
+            await self._session.execute(
+                text(
+                    _TICKET_SELECT
+                    + """
+          WHERE ticket.tenant_id=:tenant_id
+            AND (:include_all OR ticket.assignment_group_id IS NULL
+                 OR ticket.assignment_group_id = ANY(CAST(:support_group_ids AS uuid[])))
+            AND (CAST(:before_at AS timestamptz) IS NULL OR
+                 (ticket.created_at,ticket.ticket_id) <
+                 (CAST(:before_at AS timestamptz),CAST(:before_id AS uuid)))
+          ORDER BY ticket.created_at DESC,ticket.ticket_id DESC LIMIT :limit
+        """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "support_group_ids": list(support_group_ids),
+                    "include_all": include_all,
+                    "limit": limit,
+                    "before_at": before_at,
+                    "before_id": before_id,
+                },
+            )
+        ).all()
+        return [_ticket(row) for row in rows]
+
+    async def public_comments(self, ticket_id: UUID) -> list[PublicComment]:
+        rows = (
+            await self._session.execute(
+                text("""
+                    SELECT comment.comment_id, comment.author_user_id,
+                           author.display_name AS author_name,
+                           comment.comment_body, comment.created_at
+                    FROM itsm.ticket_comment AS comment
+                    JOIN identity.app_user AS author ON author.user_id=comment.author_user_id
+                    WHERE comment.ticket_id=:ticket_id AND comment.visibility_code='PUBLIC'
+                    ORDER BY comment.created_at, comment.comment_id
+                """),
+                {"ticket_id": ticket_id},
+            )
+        ).all()
+        return [
+            PublicComment(
+                row.comment_id,
+                row.author_user_id,
+                row.author_name,
+                row.comment_body,
+                row.created_at,
+            )
+            for row in rows
+        ]
+
+    async def add_public_comment(
+        self,
+        tenant_id: UUID,
+        ticket_id: UUID,
+        actor_user_id: UUID,
+        body: str,
+        correlation_id: str,
+        request_id: str,
+    ) -> UUID:
+        row = (
+            await self._session.execute(
+                text("""
+                    INSERT INTO itsm.ticket_comment(
+                      ticket_id,author_user_id,visibility_code,comment_body,source_channel)
+                    VALUES (:ticket_id,:actor_user_id,'PUBLIC',:body,'PORTAL')
+                    RETURNING comment_id
+                """),
+                {"ticket_id": ticket_id, "actor_user_id": actor_user_id, "body": body},
+            )
+        ).one()
+        await self._session.execute(
+            text("""
+                INSERT INTO itsm.ticket_event(
+                  tenant_id,ticket_id,event_type,actor_type,actor_user_id,event_data_json)
+                VALUES (:tenant_id,:ticket_id,'PUBLIC_COMMENT_ADDED','USER',:actor_user_id,
+                  jsonb_build_object('comment_id',CAST(:comment_id AS varchar),
+                    'visibility','PUBLIC','source_channel','PORTAL',
+                    'correlation_id',CAST(:correlation_id AS varchar),
+                    'request_id',CAST(:request_id AS varchar)))
+            """),
+            {
+                "tenant_id": tenant_id,
+                "ticket_id": ticket_id,
+                "actor_user_id": actor_user_id,
+                "comment_id": row.comment_id,
+                "correlation_id": correlation_id,
+                "request_id": request_id,
+            },
+        )
+        await self._session.execute(
+            text("""
+                INSERT INTO audit.audit_event(
+                  tenant_id,actor_id,actor_type,action_code,resource_type,resource_id,
+                  change_summary_json,correlation_id,request_id,source_channel,outcome_code)
+                VALUES (:tenant_id,CAST(:actor_user_id AS varchar),'USER',
+                  'TICKET_PUBLIC_COMMENT_ADDED','TICKET_COMMENT',CAST(:comment_id AS varchar),
+                  jsonb_build_object('ticket_id',CAST(:ticket_id AS varchar),'visibility','PUBLIC'),
+                  CAST(:correlation_id AS uuid),:request_id,'PORTAL','SUCCESS')
+            """),
+            {
+                "tenant_id": tenant_id,
+                "ticket_id": ticket_id,
+                "actor_user_id": actor_user_id,
+                "comment_id": row.comment_id,
+                "correlation_id": correlation_id,
+                "request_id": request_id,
+            },
+        )
+        return cast("UUID", row.comment_id)
+
+    async def complete_idempotency(
+        self,
+        idempotency_record_id: UUID,
+        resource_type: str,
+        resource_id: UUID,
+        response_payload: dict[str, Any],
+    ) -> None:
+        await self._session.execute(
+            text("""
+                UPDATE integration.idempotency_record
+                SET processing_status='COMPLETED',result_resource_type=:resource_type,
+                    result_resource_id=CAST(:resource_id AS varchar),response_status=201,
+                    response_payload_json=CAST(:response_payload AS jsonb),completed_at=now(),
+                    lease_expires_at=NULL
+                WHERE idempotency_record_id=:idempotency_record_id
+            """),
+            {
+                "idempotency_record_id": idempotency_record_id,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "response_payload": json.dumps(response_payload),
+            },
+        )
+
     async def ticket(
         self,
         tenant_id: UUID,
@@ -429,7 +612,9 @@ class TicketRepository:
         *,
         key: str | None = None,
         ticket_id: UUID | None = None,
+        lock: bool = False,
     ) -> TicketView | None:
+        suffix = " FOR UPDATE OF ticket" if lock else ""
         row = (
             await self._session.execute(
                 text(
@@ -440,6 +625,7 @@ class TicketRepository:
             AND (CAST(:ticket_id AS uuid) IS NULL OR ticket.ticket_id=CAST(:ticket_id AS uuid))
             AND (ticket.reporter_user_id=:user_id OR ticket.requested_for_user_id=:user_id)
         """
+                    + suffix
                 ),
                 {"tenant_id": tenant_id, "user_id": user_id, "key": key, "ticket_id": ticket_id},
             )
@@ -488,7 +674,7 @@ SELECT ticket.ticket_id,ticket.ticket_key,ticket.summary,ticket.description,
  coalesce(status.customer_visible_name,status.status_name) status_name,
  ticket.priority_code,ticket.reporter_user_id,reporter.display_name reporter_name,
  ticket.requested_for_user_id,requested.display_name requested_for_name,
- ticket.created_at,ticket.updated_at,event.created_at created_event_at
+ ticket.created_at,ticket.updated_at,event.created_at created_event_at,ticket.row_version
 FROM itsm.ticket ticket
 JOIN config.service_project project ON project.project_id=ticket.project_id
 JOIN config.request_type request_type ON request_type.request_type_id=ticket.request_type_id

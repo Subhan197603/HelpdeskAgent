@@ -605,3 +605,74 @@ def test_customer_ticket_pagination_is_stable_and_tenant_safe(client: TestClient
     assert created_ids <= first_ids | second_ids
     other = client.get("/api/v1/my/tickets", headers={"X-Developer-User": "OTHER/customer"})
     assert other.status_code == 200 and other.json()["items"] == []
+
+
+@pytest.mark.integration
+def test_analyst_reads_unassigned_ticket_and_public_comment_is_idempotent(
+    client: TestClient,
+) -> None:
+    draft = _draft(client)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"analyst-flow-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert submitted.status_code == 201
+    ticket_key = submitted.json()["key"]
+
+    analyst_headers = {"X-Developer-User": "DEV/agent"}
+    listing = client.get("/api/v1/agent/tickets", headers=analyst_headers)
+    assert listing.status_code == 200
+    assert ticket_key in {item["key"] for item in listing.json()["items"]}
+    assert (
+        client.get(f"/api/v1/agent/tickets/{ticket_key}", headers=analyst_headers).status_code
+        == 200
+    )
+    assert (
+        client.get(
+            "/api/v1/agent/tickets", headers={"X-Developer-User": "DEV/customer"}
+        ).status_code
+        == 403
+    )
+
+    comment_key = f"comment-{uuid4()}"
+    comment_headers = {**analyst_headers, "Idempotency-Key": comment_key}
+    comment_path = f"/api/v1/tickets/{ticket_key}/comments"
+    created = client.post(
+        comment_path,
+        headers=comment_headers,
+        json={"body": "  Please retry the invoice validation and confirm the result.  "},
+    )
+    assert created.status_code == 201
+    replay = client.post(
+        comment_path,
+        headers=comment_headers,
+        json={"body": "Please retry the invoice validation and confirm the result."},
+    )
+    assert replay.status_code == 200
+    assert len(replay.json()["public_comments"]) == 1
+
+    customer = client.get(
+        f"/api/v1/tickets/{ticket_key}", headers={"X-Developer-User": "DEV/customer"}
+    )
+    assert customer.status_code == 200
+    assert customer.json()["public_comments"][0]["author_name"] == "Development Agent"
+    ticket_id = submitted.json()["id"]
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.ticket_event "
+            f"WHERE ticket_id='{ticket_id}' AND event_type='PUBLIC_COMMENT_ADDED'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM audit.audit_event "
+            "WHERE action_code='TICKET_PUBLIC_COMMENT_ADDED' "
+            f"AND change_summary_json->>'ticket_id'='{ticket_id}'"
+        )
+        == "1"
+    )

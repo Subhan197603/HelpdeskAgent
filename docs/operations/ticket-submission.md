@@ -88,5 +88,5 @@ uv run python -m apps.api.app.openapi
 
 Known limitations are intentional: requested-for-other is restricted to the platform-admin
 permission, expiry has no cleanup worker, event consumers are absent, and routing, SLA
-execution, notifications, attachments, comments, analyst access, and later workflow
-transitions are deferred.
+execution, notifications, attachments, internal comments, and later workflow transitions are
+deferred. Task 3.3 adds tenant-safe analyst reads and public comments only.

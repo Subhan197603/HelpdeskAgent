@@ -1,5 +1,10 @@
 {
   "name": "@fusion-helpdesk/api-client",
   "version": "0.0.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
+  }
 }

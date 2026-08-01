@@ -116,11 +116,14 @@ db-seed-catalogue:
 		-f /development/catalogue.sql
 
 api:
-	uv run uvicorn apps.api.app.main:app --host $(API_HOST) --port $(API_PORT) $(if $(filter true,$(API_RELOAD)),--reload,)
+	API_HOST=$(API_HOST) API_PORT=$(API_PORT) uv run python -m apps.api.app.server
 
-worker web:
+worker:
 	@echo "$@ runtime will be implemented in its foundation task."
 	@exit 1
+
+web:
+	pnpm --filter @fusion-helpdesk/web dev
 
 lint:
 	uv run ruff check .
@@ -149,7 +152,7 @@ test-integration:
 db-test: test-integration
 
 test-e2e:
-	@echo "End-to-end tests begin with the web vertical slice."
+	pnpm test:e2e
 
 openapi:
 	uv run python -m apps.api.app.openapi
