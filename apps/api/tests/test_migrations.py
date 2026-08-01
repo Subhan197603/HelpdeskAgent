@@ -40,13 +40,14 @@ def test_alembic_configuration_and_linear_history_load() -> None:
     script = ScriptDirectory.from_config(config)
     revisions = list(script.walk_revisions())
     assert [revision.revision for revision in revisions] == [
+        "0005_catalogue_form_immutability",
         "0004_oidc_external_identity",
         "0003_rls_runtime_privileges",
         "0002_identity_role_activation",
         "0001_migration_metadata",
         BASELINE_MARKER,
     ]
-    assert script.get_heads() == ["0004_oidc_external_identity"]
+    assert script.get_heads() == ["0005_catalogue_form_immutability"]
     assert config.get_main_option("sqlalchemy.url") is None
     assert VERSION_TABLE_SCHEMA == "config"
 

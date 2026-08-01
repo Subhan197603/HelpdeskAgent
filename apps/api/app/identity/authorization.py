@@ -11,6 +11,10 @@ class Permission(StrEnum):
     SYSTEM_HEALTH_READ = "SYSTEM_HEALTH_READ"
     IDENTITY_SELF_READ = "IDENTITY_SELF_READ"
     ADMIN_IDENTITY_READ = "ADMIN_IDENTITY_READ"
+    CATALOG_PROJECT_LIST = "CATALOG_PROJECT_LIST"
+    CATALOG_SERVICE_READ = "CATALOG_SERVICE_READ"
+    CATALOG_REQUEST_TYPE_LIST = "CATALOG_REQUEST_TYPE_LIST"
+    CATALOG_FORM_READ = "CATALOG_FORM_READ"
     PROJECT_ADMIN = "PROJECT_ADMIN"
     TICKET_CREATE = "TICKET_CREATE"
     TICKET_READ_OWN = "TICKET_READ_OWN"
@@ -39,12 +43,24 @@ INITIAL_ROLE_CODES = frozenset(
     }
 )
 
-# Task 2.1 deliberately grants only the implemented administrative diagnostic permission.
+CATALOGUE_READ_PERMISSIONS = frozenset(
+    {
+        Permission.CATALOG_PROJECT_LIST,
+        Permission.CATALOG_SERVICE_READ,
+        Permission.CATALOG_REQUEST_TYPE_LIST,
+        Permission.CATALOG_FORM_READ,
+    }
+)
+
 # Self-read is an authenticated-caller permission and does not depend on a role assignment.
+# Catalogue access requires at least one recognized employee role; roleless JIT users remain
+# privilege-free until an administrator assigns an application role.
 ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
-    role_code: frozenset() for role_code in INITIAL_ROLE_CODES
+    role_code: CATALOGUE_READ_PERMISSIONS for role_code in INITIAL_ROLE_CODES
 }
-ROLE_PERMISSIONS["PLATFORM_ADMIN"] = frozenset({Permission.ADMIN_IDENTITY_READ})
+ROLE_PERMISSIONS["PLATFORM_ADMIN"] = CATALOGUE_READ_PERMISSIONS | frozenset(
+    {Permission.ADMIN_IDENTITY_READ}
+)
 
 
 @dataclass(frozen=True, slots=True)

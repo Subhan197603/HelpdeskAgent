@@ -285,6 +285,7 @@ def test_policy_denies_unknown_roles_and_cross_tenant_resources() -> None:
     service = AuthorizationService()
     unknown = identity(roles=frozenset({"INVENTED_ADMIN"})).context
     assert not service.is_allowed(unknown, Permission.ADMIN_IDENTITY_READ)
+    assert not service.is_allowed(unknown, Permission.CATALOG_PROJECT_LIST)
     assert not service.is_allowed(
         unknown,
         Permission.IDENTITY_SELF_READ,

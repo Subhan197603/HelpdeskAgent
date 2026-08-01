@@ -3,7 +3,7 @@ SHELL := /bin/sh
 
 .PHONY: help bootstrap up down logs db-install db-runtime-role db-demo db-reset migrate migration migration-check migration-current migration-history db-stamp-baseline db-validate-baseline seed db-seed-identities \
 	api worker web lint format format-check typecheck test test-integration test-e2e \
-	openapi clean compose-validate db-demo-bootstrap db-demo-ticket db-test
+	openapi clean compose-validate db-demo-bootstrap db-demo-ticket db-test db-seed-catalogue
 
 COMPOSE ?= docker compose
 DB_SERVICE ?= postgres
@@ -99,7 +99,7 @@ db-validate-baseline:
 db-stamp-baseline:
 	$(MIGRATOR) python -m apps.api.app.db.migrations_cli stamp
 
-seed: db-seed-identities
+seed: db-seed-identities db-seed-catalogue
 
 db-seed-identities:
 	@test "$(APP_ENV)" = "development" || \
@@ -107,6 +107,13 @@ db-seed-identities:
 	$(COMPOSE) up -d --wait $(DB_SERVICE)
 	$(COMPOSE) exec -T $(DB_SERVICE) psql -v ON_ERROR_STOP=1 -U postgres -d $(DB_NAME) \
 		-f /development/identity_personas.sql
+
+db-seed-catalogue:
+	@test "$(APP_ENV)" = "development" || \
+		(echo "Refusing catalogue seed: APP_ENV must be development." && exit 1)
+	$(COMPOSE) up -d --wait $(DB_SERVICE)
+	$(COMPOSE) exec -T $(DB_SERVICE) psql -v ON_ERROR_STOP=1 -U postgres -d $(DB_NAME) \
+		-f /development/catalogue.sql
 
 api:
 	uv run uvicorn apps.api.app.main:app --host $(API_HOST) --port $(API_PORT) $(if $(filter true,$(API_RELOAD)),--reload,)

@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.app.api.router import api_router
+from apps.api.app.catalog.service import CatalogueMetrics, CatalogueService
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.logging import configure_logging
 from apps.api.app.core.middleware import RequestContextMiddleware
@@ -68,11 +69,16 @@ def create_app(
         openapi_tags=[
             {"name": "health", "description": "Process and dependency health."},
             {"name": "identity", "description": "Authenticated caller identity."},
+            {
+                "name": "catalogue",
+                "description": "Published service catalogue and request forms.",
+            },
         ],
     )
     app.state.settings = settings
     app.state.resources = resources
     app.state.authentication_metrics = authentication_metrics
+    app.state.catalogue_metrics = CatalogueMetrics()
 
     def unit_of_work_factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
         database = cast(Database, resources.database)
@@ -97,6 +103,11 @@ def create_app(
         else None
     )
     app.state.authorization_service = AuthorizationService()
+    app.state.catalogue_service = CatalogueService(
+        unit_of_work_factory,
+        app.state.authorization_service,
+        app.state.catalogue_metrics,
+    )
     install_exception_handlers(app)
     app.include_router(api_router)
 

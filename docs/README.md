@@ -7,3 +7,4 @@ Architecture, API, operational, security, and decision records are maintained al
 - [Local development](operations/local-development.md)
 - [Developer identity and authorization](operations/developer-identity.md)
 - [Production OIDC authentication](operations/oidc-authentication.md)
+- [Service catalogue and dynamic request forms](operations/service-catalogue.md)

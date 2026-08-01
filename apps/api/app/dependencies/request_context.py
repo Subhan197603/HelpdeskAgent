@@ -5,6 +5,7 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated, cast
 
 from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.exc import SQLAlchemyError
 
 from apps.api.app.audit.security_events import SecurityEvent
@@ -30,6 +31,10 @@ from apps.api.app.identity.oidc_service import OidcIdentityService
 from apps.api.app.identity.service import DeveloperIdentityService
 
 logger = logging.getLogger(__name__)
+_BEARER_SCHEME = HTTPBearer(
+    auto_error=False,
+    description="OIDC bearer token. Local developer identity is separately opt-in.",
+)
 _FORBIDDEN_IDENTITY_HEADERS = frozenset(
     {
         "x-tenant-id",
@@ -66,7 +71,10 @@ async def _record_or_fail(
         raise ExternalDependencyError("Authentication service is unavailable.") from None
 
 
-async def require_authenticated_context(request: Request) -> RequestContext:
+async def require_authenticated_context(
+    request: Request,
+    _: Annotated[HTTPAuthorizationCredentials | None, Depends(_BEARER_SCHEME)],
+) -> RequestContext:
     current = get_request_context(request)
     if current.is_authenticated:
         return current

@@ -1,1 +1,1 @@
-"""Service catalog module."""
+"""Read-only service catalogue application package."""

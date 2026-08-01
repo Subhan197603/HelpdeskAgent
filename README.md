@@ -48,6 +48,10 @@ Production bearer authentication uses exact OIDC issuer/audience validation and 
 tenant mappings. See [the OIDC operations guide](docs/operations/oidc-authentication.md) before
 enabling it or provisioning external identities.
 
+The authenticated read-only catalogue and dynamic form API is documented in the
+[service catalogue operations guide](docs/operations/service-catalogue.md). Optional development
+catalogue data is loaded alongside developer identities by `make seed`.
+
 See [the baseline README](database/baseline/fusion_helpdesk_postgres/README.md) for reset safeguards, direct `psql` usage, and the baseline/Alembic boundary.
 
 Local service endpoints:
