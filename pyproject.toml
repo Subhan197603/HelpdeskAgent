@@ -1,0 +1,40 @@
+[project]
+name = "fusion-ai-helpdesk"
+version = "0.0.0"
+description = "Fusion AI Helpdesk modular monorepo"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+  "mypy>=1.15,<2",
+  "pytest>=9.0.3,<10",
+  "pyyaml>=6.0.2,<7",
+  "ruff>=0.11,<1",
+  "types-pyyaml>=6.0.12,<7",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers"
+testpaths = ["apps/api/tests", "apps/worker/tests", "tests"]
+markers = [
+  "integration: tests requiring local infrastructure",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["database/baseline"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["apps", "ingestion", "tests"]
+exclude = ["database/baseline"]

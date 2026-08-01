@@ -1,0 +1,9 @@
+.git
+.venv
+node_modules
+.next
+.data
+BUILD_SPEC.md
+uv.lock
+pnpm-lock.yaml
+database/baseline
