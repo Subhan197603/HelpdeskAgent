@@ -4,7 +4,7 @@
       "CurrentIdentityResponse": {
         "properties": {
           "authentication_mode": {
-            "const": "developer_header",
+            "enum": ["developer_header", "oidc"],
             "title": "Authentication Mode",
             "type": "string"
           },
@@ -34,6 +34,17 @@
           "display_name": {
             "title": "Display Name",
             "type": "string"
+          },
+          "provider_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Code"
           },
           "role_codes": {
             "items": {
@@ -143,10 +154,57 @@
       },
       "IdentityDiagnosticResponse": {
         "properties": {
+          "allowed_algorithms": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Algorithms",
+            "type": "array"
+          },
+          "audience_configured": {
+            "title": "Audience Configured",
+            "type": "boolean"
+          },
           "authentication_mode": {
-            "const": "developer_header",
+            "enum": ["developer_header", "oidc"],
             "title": "Authentication Mode",
             "type": "string"
+          },
+          "group_synchronization_enabled": {
+            "title": "Group Synchronization Enabled",
+            "type": "boolean"
+          },
+          "issuer_configured": {
+            "title": "Issuer Configured",
+            "type": "boolean"
+          },
+          "jit_provisioning_enabled": {
+            "title": "Jit Provisioning Enabled",
+            "type": "boolean"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "title": "Metrics",
+            "type": "object"
+          },
+          "oidc_enabled": {
+            "title": "Oidc Enabled",
+            "type": "boolean"
+          },
+          "profile_synchronization_enabled": {
+            "title": "Profile Synchronization Enabled",
+            "type": "boolean"
+          },
+          "provider_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Code"
           },
           "status": {
             "const": "authorized",
@@ -154,7 +212,19 @@
             "type": "string"
           }
         },
-        "required": ["status", "authentication_mode"],
+        "required": [
+          "status",
+          "authentication_mode",
+          "provider_code",
+          "oidc_enabled",
+          "issuer_configured",
+          "audience_configured",
+          "allowed_algorithms",
+          "jit_provisioning_enabled",
+          "profile_synchronization_enabled",
+          "group_synchronization_enabled",
+          "metrics"
+        ],
         "title": "IdentityDiagnosticResponse",
         "type": "object"
       }

@@ -42,8 +42,9 @@ selected value is returned in the response and RFC 7807 error payload. A separat
 `X-Request-ID` identifies one request. Context variables isolate concurrent requests.
 
 Protected routes use the database-backed local identity and centralized authorization foundation
-described in [Developer identity and authorization](developer-identity.md). Production OIDC
-remains deferred. Health endpoints intentionally retain anonymous request contexts.
+described in [Developer identity and authorization](developer-identity.md) or the provider-neutral
+[production OIDC flow](oidc-authentication.md). Health endpoints intentionally retain anonymous
+request contexts.
 
 ## Configuration and logging
 
@@ -68,8 +69,8 @@ When enabled, the transaction hook uses parameterized PostgreSQL
 `set_config('app.tenant_id', value, true)` and `set_config('app.user_id', value, true)`. The final
 `true` is PostgreSQL's transaction-local equivalent of `SET LOCAL`; the values are omitted for an
 anonymous context and reset before a pooled connection is reused. `RLS_ENABLED` remains false.
-RLS must not be enabled until Task 2.1 implements and tests authenticated identity and policy
-loading.
+The authenticated integration suites exercise this mode with both developer and production
+identity resolution.
 
 ## Validation
 
@@ -78,6 +79,6 @@ creates isolated Compose projects and uses real PostgreSQL and Redis; it also bu
 and verifies liveness/readiness. No SQLite substitute is used.
 
 Known limitations: the S3-compatible probe checks the provider readiness endpoint, not bucket
-authorization; trace extraction and OpenTelemetry export are configuration-only; and protected
-routes, identity, authorization, repositories, and outbox behavior are deferred. Database changes
-follow the separate [Alembic operations guide](database-migrations.md).
+authorization; trace extraction and OpenTelemetry export are configuration-only; and business
+routes and outbox behavior are deferred. Database changes follow the separate
+[Alembic operations guide](database-migrations.md).

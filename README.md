@@ -44,6 +44,10 @@ Developer identity is separately opt-in. After migrations, run `make seed`, set
 `DEVELOPER_IDENTITY_ENABLED=true` only in a local development `.env`, and use the documented
 selectors. See [the developer identity guide](docs/operations/developer-identity.md).
 
+Production bearer authentication uses exact OIDC issuer/audience validation and server-managed
+tenant mappings. See [the OIDC operations guide](docs/operations/oidc-authentication.md) before
+enabling it or provisioning external identities.
+
 See [the baseline README](database/baseline/fusion_helpdesk_postgres/README.md) for reset safeguards, direct `psql` usage, and the baseline/Alembic boundary.
 
 Local service endpoints:

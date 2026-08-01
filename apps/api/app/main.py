@@ -17,6 +17,8 @@ from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService
+from apps.api.app.identity.oidc import AuthenticationMetrics, OidcProviderClient, OidcTokenValidator
+from apps.api.app.identity.oidc_service import OidcIdentityService
 from apps.api.app.identity.service import DeveloperIdentityService
 from apps.api.app.infrastructure.clamav_health import ClamAVHealthProbe
 from apps.api.app.infrastructure.health import ApplicationResources
@@ -41,12 +43,18 @@ def create_app(
     settings = settings or Settings()
     configure_logging(settings)
     resources = resource_factory(settings)
+    authentication_metrics = AuthenticationMetrics()
+    oidc_provider = (
+        OidcProviderClient(settings, authentication_metrics) if settings.oidc_enabled else None
+    )
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
+            if oidc_provider is not None:
+                await oidc_provider.close()
             await resources.close()
 
     app = FastAPI(
@@ -64,6 +72,7 @@ def create_app(
     )
     app.state.settings = settings
     app.state.resources = resources
+    app.state.authentication_metrics = authentication_metrics
 
     def unit_of_work_factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
         database = cast(Database, resources.database)
@@ -75,6 +84,17 @@ def create_app(
 
     app.state.developer_identity_service = DeveloperIdentityService(
         unit_of_work_factory, rls_enabled=settings.rls_enabled
+    )
+    app.state.oidc_provider = oidc_provider
+    app.state.oidc_identity_service = (
+        OidcIdentityService(
+            settings,
+            OidcTokenValidator(settings, oidc_provider, authentication_metrics),
+            unit_of_work_factory,
+            authentication_metrics,
+        )
+        if oidc_provider is not None
+        else None
     )
     app.state.authorization_service = AuthorizationService()
     install_exception_handlers(app)
@@ -89,6 +109,7 @@ def create_app(
             "Accept",
             "Content-Type",
             "X-Correlation-ID",
+            *(["Authorization"] if settings.oidc_enabled else []),
             *([settings.developer_identity_header] if settings.developer_identity_enabled else []),
         ],
     )

@@ -14,7 +14,13 @@ def _correlation_id(request: Request) -> str:
     return str(getattr(request.state, "correlation_id", "unknown"))
 
 
-def _response(request: Request, status: int, payload: dict[str, Any]) -> JSONResponse:
+def _response(
+    request: Request,
+    status: int,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
     body = {
         "type": payload.pop("type"),
         "title": payload.pop("title"),
@@ -24,7 +30,12 @@ def _response(request: Request, status: int, payload: dict[str, Any]) -> JSONRes
         "correlation_id": _correlation_id(request),
         **payload,
     }
-    return JSONResponse(body, status_code=status, media_type="application/problem+json")
+    return JSONResponse(
+        body,
+        status_code=status,
+        media_type="application/problem+json",
+        headers=headers,
+    )
 
 
 def install_exception_handlers(app: FastAPI) -> None:
@@ -37,6 +48,7 @@ def install_exception_handlers(app: FastAPI) -> None:
             request,
             exc.status_code,
             {"type": exc.problem_type, "title": exc.title, "detail": exc.detail, **extra},
+            headers=exc.headers,
         )
 
     @app.exception_handler(RequestValidationError)

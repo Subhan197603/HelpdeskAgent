@@ -2,8 +2,8 @@
 
 ## Purpose and safety boundary
 
-Developer identity is a local-only substitute for production OIDC, which is deferred to the next
-assigned identity task. It is disabled by default, and settings validation refuses to start a
+Developer identity is a local-only substitute for [production OIDC](oidc-authentication.md). It is
+disabled by default, and settings validation refuses to start a
 production process when it is enabled. It is not an identity provider, does not validate tokens,
 and must never be exposed in a shared or production environment.
 
@@ -130,7 +130,7 @@ baseline is unchanged.
 Run `make format-check`, `make lint`, `make typecheck`, `make test`, and
 `make test-integration`.
 
-Known limitations: production OIDC, external-directory synchronization, sessions,
-configuration-driven permission mappings, caching, project-scoped administration, and business
-domain authorization remain deferred. Developer selectors are bearer-like local conveniences and
-are intentionally not signed credentials.
+Known limitations: interactive login/session handling, external group mapping, automatic mapping
+administration, project-scoped administration, and business-domain authorization remain deferred.
+Developer selectors are bearer-like local conveniences and are intentionally not signed
+credentials.

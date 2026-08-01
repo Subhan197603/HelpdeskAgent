@@ -5,3 +5,5 @@ Architecture, API, operational, security, and decision records are maintained al
 - [API foundation operations](operations/api-foundation.md)
 - [Physical baseline and Alembic migrations](operations/database-migrations.md)
 - [Local development](operations/local-development.md)
+- [Developer identity and authorization](operations/developer-identity.md)
+- [Production OIDC authentication](operations/oidc-authentication.md)

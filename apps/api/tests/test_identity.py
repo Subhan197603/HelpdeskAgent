@@ -11,12 +11,14 @@ from pydantic import ValidationError as PydanticValidationError
 from apps.api.app.audit.security_events import SecurityEvent
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import AuthenticationError
+from apps.api.app.core.settings import Settings
 from apps.api.app.identity.authorization import (
     AuthorizationResource,
     AuthorizationService,
     Permission,
 )
 from apps.api.app.identity.models import AuthenticatedIdentity
+from apps.api.app.identity.oidc import OidcAuthenticationError, OidcFailureReason
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.main import create_app
 
@@ -69,6 +71,38 @@ class FakeDeveloperIdentityService:
         self.events.append(event)
 
 
+class FakeOidcIdentityService:
+    def __init__(self, resolved: AuthenticatedIdentity) -> None:
+        self.resolved = resolved
+        self.tokens: list[str] = []
+        self.failure: AuthenticationError | None = None
+
+    async def authenticate(
+        self, token: str, anonymous_context: RequestContext
+    ) -> AuthenticatedIdentity:
+        self.tokens.append(token)
+        if self.failure is not None:
+            raise self.failure
+        original = self.resolved.context
+        context = RequestContext(
+            original.tenant_id,
+            original.user_id,
+            original.external_subject,
+            original.roles,
+            original.support_group_ids,
+            original.business_unit_id,
+            anonymous_context.correlation_id,
+            anonymous_context.request_id,
+        )
+        return AuthenticatedIdentity(
+            context,
+            self.resolved.display_name,
+            self.resolved.business_unit_name,
+            authentication_mode="oidc",
+            provider_code="TEST_OIDC",
+        )
+
+
 @contextmanager
 def identity_client(
     service: FakeDeveloperIdentityService, *, enabled: bool = True
@@ -81,6 +115,47 @@ def identity_client(
     app.state.developer_identity_service = service
     with TestClient(app) as client:
         yield client
+
+
+@contextmanager
+def oidc_client(
+    oidc_service: FakeOidcIdentityService,
+    developer_service: FakeDeveloperIdentityService | None = None,
+) -> Iterator[TestClient]:
+    resources = ApplicationResources(FakeProbe(), FakeProbe(), FakeProbe(), FakeProbe())
+    app = create_app(
+        make_test_settings(
+            oidc_enabled=True,
+            oidc_provider_code="TEST_OIDC",
+            oidc_issuer_url="https://identity.example.test/issuer",
+            oidc_audience="helpdesk-api",
+            developer_identity_enabled=True,
+        ),
+        resource_factory=lambda _: resources,
+    )
+    app.state.oidc_identity_service = oidc_service
+    app.state.developer_identity_service = developer_service or FakeDeveloperIdentityService()
+    with TestClient(app) as client:
+        yield client
+
+
+def production_oidc_settings(*, diagnostics: bool) -> Settings:
+    return make_test_settings(
+        app_env="production",
+        json_logs=True,
+        otel_exporter_otlp_endpoint="https://telemetry.example.test",
+        object_storage_enabled=False,
+        database_url="postgresql+psycopg://api:secret@db.example.test/helpdesk",
+        redis_url="rediss://cache.example.test/0",
+        trusted_hosts=["testserver"],
+        cors_allowed_origins=["https://helpdesk.example.test"],
+        oidc_enabled=True,
+        oidc_provider_code="TEST_OIDC",
+        oidc_issuer_url="https://identity.example.test/issuer",
+        oidc_audience="helpdesk-api",
+        oidc_client_id="helpdesk-web",
+        oidc_diagnostics_enabled=diagnostics,
+    )
 
 
 def test_developer_identity_is_disabled_by_default() -> None:
@@ -103,6 +178,11 @@ def test_developer_identity_is_rejected_in_production() -> None:
             database_url="postgresql+psycopg://api:secret@db.example.test/helpdesk",
             redis_url="rediss://cache.example.test/0",
             object_storage_endpoint="https://objects.example.test",
+            oidc_enabled=True,
+            oidc_provider_code="ENTERPRISE_OIDC",
+            oidc_issuer_url="https://identity.example.test/issuer",
+            oidc_audience="helpdesk-api",
+            oidc_client_id="helpdesk-web",
         )
 
 
@@ -140,6 +220,53 @@ def test_me_returns_only_authenticated_profile_fields() -> None:
     assert response.json()["display_name"] == "Development Customer"
     assert response.json()["authentication_mode"] == "developer_header"
     assert "email" not in response.text
+
+
+def test_oidc_mode_uses_bearer_identity_and_reports_provider() -> None:
+    service = FakeOidcIdentityService(identity())
+    with oidc_client(service) as client:
+        response = client.get("/api/v1/me", headers={"Authorization": "Bearer signed-token"})
+    assert response.status_code == 200
+    assert response.json()["authentication_mode"] == "oidc"
+    assert response.json()["provider_code"] == "TEST_OIDC"
+    assert service.tokens == ["signed-token"]
+
+
+def test_invalid_bearer_never_falls_back_to_developer_identity() -> None:
+    oidc_service = FakeOidcIdentityService(identity())
+    oidc_service.failure = OidcAuthenticationError(OidcFailureReason.INVALID_SIGNATURE)
+    developer_service = FakeDeveloperIdentityService()
+    with oidc_client(oidc_service, developer_service) as client:
+        response = client.get("/api/v1/me", headers={"Authorization": "Bearer invalid"})
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == 'Bearer error="invalid_token"'
+    assert developer_service.events == []
+
+
+def test_multiple_authentication_mechanisms_are_rejected_before_resolution() -> None:
+    oidc_service = FakeOidcIdentityService(identity())
+    developer_service = FakeDeveloperIdentityService()
+    with oidc_client(oidc_service, developer_service) as client:
+        response = client.get(
+            "/api/v1/me",
+            headers={
+                "Authorization": "Bearer signed-token",
+                "X-Developer-User": "DEV/customer",
+            },
+        )
+    assert response.status_code == 401
+    assert oidc_service.tokens == []
+    assert developer_service.events[0].event_type == "MULTIPLE_AUTHENTICATION_MECHANISMS"
+
+
+@pytest.mark.parametrize("authorization", ["Basic value", "Bearer", "Bearer too many"])
+def test_malformed_authorization_header_is_controlled(authorization: str) -> None:
+    service = FakeOidcIdentityService(identity())
+    with oidc_client(service) as client:
+        response = client.get("/api/v1/me", headers={"Authorization": authorization})
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == 'Bearer error="invalid_token"'
+    assert service.tokens == []
 
 
 @pytest.mark.parametrize("header", ["X-Tenant-ID", "X-Roles", "X-Permissions"])
@@ -185,6 +312,36 @@ def test_admin_diagnostic_allows_platform_admin_and_audits_access() -> None:
         )
     assert response.status_code == 200
     assert service.events[-1].event_type == "PRIVILEGED_ENDPOINT_ACCESSED"
+
+
+def test_production_diagnostic_is_absent_until_explicitly_enabled() -> None:
+    resources = ApplicationResources(FakeProbe(), FakeProbe(), FakeProbe(), FakeProbe())
+    app = create_app(
+        production_oidc_settings(diagnostics=False), resource_factory=lambda _: resources
+    )
+    with TestClient(app) as client:
+        response = client.get("/api/v1/identity/diagnostics")
+    assert response.status_code == 404
+
+
+def test_enabled_production_diagnostic_remains_admin_only_and_sanitized() -> None:
+    resources = ApplicationResources(FakeProbe(), FakeProbe(), FakeProbe(), FakeProbe())
+    app = create_app(
+        production_oidc_settings(diagnostics=True), resource_factory=lambda _: resources
+    )
+    app.state.oidc_identity_service = FakeOidcIdentityService(
+        identity(roles=frozenset({"PLATFORM_ADMIN"}))
+    )
+    app.state.developer_identity_service = FakeDeveloperIdentityService()
+    with TestClient(app) as client:
+        response = client.get(
+            "/api/v1/identity/diagnostics", headers={"Authorization": "Bearer signed-token"}
+        )
+    assert response.status_code == 200
+    assert response.json()["issuer_configured"] is True
+    assert response.json()["audience_configured"] is True
+    assert "issuer_url" not in response.text
+    assert "client_id" not in response.text
 
 
 def test_health_remains_anonymous_when_developer_header_is_present() -> None:

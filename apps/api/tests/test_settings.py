@@ -40,8 +40,43 @@ def test_production_accepts_explicit_secure_configuration() -> None:
         object_storage_endpoint="https://objects.example.test",
         trusted_hosts=["api.example.test"],
         cors_allowed_origins=["https://helpdesk.example.test"],
+        oidc_enabled=True,
+        oidc_provider_code="ENTERPRISE_OIDC",
+        oidc_issuer_url="https://identity.example.test/issuer",
+        oidc_audience="helpdesk-api",
+        oidc_client_id="helpdesk-web",
     )
     assert settings.is_production
+
+
+def test_oidc_requires_complete_configuration_and_asymmetric_algorithms() -> None:
+    with pytest.raises(PydanticValidationError, match="OIDC_PROVIDER_CODE"):
+        make_test_settings(oidc_enabled=True)
+    with pytest.raises(PydanticValidationError, match="asymmetric algorithms"):
+        make_test_settings(oidc_allowed_algorithms=["HS256"])
+
+
+def test_production_requires_oidc_and_https_issuer() -> None:
+    common: dict[str, object] = {
+        "app_env": "production",
+        "json_logs": True,
+        "otel_exporter_otlp_endpoint": "https://telemetry.example.test",
+        "object_storage_enabled": False,
+        "database_url": "postgresql+psycopg://api:secret@db.example.test/helpdesk",
+        "redis_url": "rediss://cache.example.test/0",
+        "trusted_hosts": ["api.example.test"],
+    }
+    with pytest.raises(PydanticValidationError, match="OIDC_ENABLED"):
+        make_test_settings(**common)
+    with pytest.raises(PydanticValidationError, match="must use HTTPS"):
+        make_test_settings(
+            **common,
+            oidc_enabled=True,
+            oidc_provider_code="ENTERPRISE_OIDC",
+            oidc_issuer_url="http://identity.example.test/issuer",
+            oidc_audience="helpdesk-api",
+            oidc_client_id="helpdesk-web",
+        )
 
 
 def test_secret_settings_are_redacted() -> None:

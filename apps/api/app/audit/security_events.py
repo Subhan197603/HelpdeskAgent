@@ -31,6 +31,7 @@ class SecurityEvent:
     resource_type: str | None = None
     resource_id: str | None = None
     details: dict[str, str] = field(default_factory=dict)
+    authentication_mode: str = "developer_header"
 
 
 class _SecurityEventRepository:
@@ -41,7 +42,7 @@ class _SecurityEventRepository:
         safe_details = {
             "correlation_id": request_context.correlation_id,
             "request_id": request_context.request_id,
-            "authentication_mode": "developer_header",
+            "authentication_mode": event.authentication_mode,
             **event.details,
         }
         await self._session.execute(

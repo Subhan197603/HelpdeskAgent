@@ -13,12 +13,14 @@ class AppError(Exception):
         detail: str | None = None,
         *,
         field_errors: Mapping[str, Sequence[str]] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         super().__init__(detail or self.title)
         self.detail = detail or self.title
         self.field_errors: dict[str, list[str]] | None = (
             {key: list(values) for key, values in field_errors.items()} if field_errors else None
         )
+        self.headers = dict(headers or {})
 
     @property
     def problem_type(self) -> str:
