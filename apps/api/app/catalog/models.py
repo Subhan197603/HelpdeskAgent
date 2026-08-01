@@ -80,3 +80,17 @@ class ApplicationEnvironmentReference:
     environment_code: str
     environment_name: str
     service_node_id: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class RequestTypeBinding:
+    """Immutable catalogue identifiers required by ticket submission."""
+
+    request_type_id: UUID
+    request_type_version_id: UUID
+    project_id: UUID
+    work_type_id: UUID
+    workflow_id: UUID
+    version_status: str
+    active: bool
+    employee_visible: bool

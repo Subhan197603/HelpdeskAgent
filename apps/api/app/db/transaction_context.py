@@ -17,7 +17,10 @@ async def apply_transaction_context(
     PostgreSQL's parameterized ``set_config(..., true)`` is transaction-local and avoids
     interpolating caller-controlled values into SQL.
     """
-    if not rls_enabled or (context.tenant_id is None and context.user_id is None):
+    # Context is inexpensive and safe to set even when the optional baseline RLS
+    # package is disabled. Alembic-owned tables may enforce tenant RLS independently.
+    del rls_enabled
+    if context.tenant_id is None and context.user_id is None:
         return
     if not session.in_transaction():
         raise RuntimeError("PostgreSQL request context requires an active transaction")

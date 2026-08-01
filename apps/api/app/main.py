@@ -25,6 +25,7 @@ from apps.api.app.infrastructure.clamav_health import ClamAVHealthProbe
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
 from apps.api.app.infrastructure.redis_health import RedisHealthProbe
+from apps.api.app.tickets.service import TicketMetrics, TicketService
 
 ResourceFactory = Callable[[Settings], ApplicationResources]
 
@@ -73,12 +74,14 @@ def create_app(
                 "name": "catalogue",
                 "description": "Published service catalogue and request forms.",
             },
+            {"name": "tickets", "description": "Ticket drafts and confirmed submissions."},
         ],
     )
     app.state.settings = settings
     app.state.resources = resources
     app.state.authentication_metrics = authentication_metrics
     app.state.catalogue_metrics = CatalogueMetrics()
+    app.state.ticket_metrics = TicketMetrics()
 
     def unit_of_work_factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
         database = cast(Database, resources.database)
@@ -108,6 +111,9 @@ def create_app(
         app.state.authorization_service,
         app.state.catalogue_metrics,
     )
+    app.state.ticket_service = TicketService(
+        unit_of_work_factory, app.state.authorization_service, app.state.ticket_metrics
+    )
     install_exception_handlers(app)
     app.include_router(api_router)
 
@@ -120,6 +126,8 @@ def create_app(
             "Accept",
             "Content-Type",
             "X-Correlation-ID",
+            "Idempotency-Key",
+            "If-Match",
             *(["Authorization"] if settings.oidc_enabled else []),
             *([settings.developer_identity_header] if settings.developer_identity_enabled else []),
         ],

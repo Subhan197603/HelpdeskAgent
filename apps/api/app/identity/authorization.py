@@ -17,6 +17,11 @@ class Permission(StrEnum):
     CATALOG_FORM_READ = "CATALOG_FORM_READ"
     PROJECT_ADMIN = "PROJECT_ADMIN"
     TICKET_CREATE = "TICKET_CREATE"
+    TICKET_DRAFT_CREATE = "TICKET_DRAFT_CREATE"
+    TICKET_DRAFT_READ_OWN = "TICKET_DRAFT_READ_OWN"
+    TICKET_DRAFT_UPDATE_OWN = "TICKET_DRAFT_UPDATE_OWN"
+    TICKET_SUBMIT = "TICKET_SUBMIT"
+    TICKET_REQUEST_FOR_OTHER = "TICKET_REQUEST_FOR_OTHER"
     TICKET_READ_OWN = "TICKET_READ_OWN"
     TICKET_READ_GROUP = "TICKET_READ_GROUP"
     TICKET_UPDATE_GROUP = "TICKET_UPDATE_GROUP"
@@ -56,10 +61,28 @@ CATALOGUE_READ_PERMISSIONS = frozenset(
 # Catalogue access requires at least one recognized employee role; roleless JIT users remain
 # privilege-free until an administrator assigns an application role.
 ROLE_PERMISSIONS: dict[str, frozenset[Permission]] = {
-    role_code: CATALOGUE_READ_PERMISSIONS for role_code in INITIAL_ROLE_CODES
+    role_code: CATALOGUE_READ_PERMISSIONS
+    | frozenset(
+        {
+            Permission.TICKET_DRAFT_CREATE,
+            Permission.TICKET_DRAFT_READ_OWN,
+            Permission.TICKET_DRAFT_UPDATE_OWN,
+            Permission.TICKET_SUBMIT,
+            Permission.TICKET_READ_OWN,
+        }
+    )
+    for role_code in INITIAL_ROLE_CODES
 }
 ROLE_PERMISSIONS["PLATFORM_ADMIN"] = CATALOGUE_READ_PERMISSIONS | frozenset(
-    {Permission.ADMIN_IDENTITY_READ}
+    {
+        Permission.ADMIN_IDENTITY_READ,
+        Permission.TICKET_DRAFT_CREATE,
+        Permission.TICKET_DRAFT_READ_OWN,
+        Permission.TICKET_DRAFT_UPDATE_OWN,
+        Permission.TICKET_SUBMIT,
+        Permission.TICKET_READ_OWN,
+        Permission.TICKET_REQUEST_FOR_OTHER,
+    }
 )
 
 

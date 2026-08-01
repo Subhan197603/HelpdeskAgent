@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apps.api.app.catalog.models import (
     ApplicationEnvironmentReference,
     FormFieldRecord,
+    RequestTypeBinding,
     RequestTypeSummary,
     RequestTypeVersion,
     ServiceNode,
@@ -209,6 +210,20 @@ _LIST_ENVIRONMENTS = text(
     """
 )
 
+_REQUEST_TYPE_BINDING = text(
+    """
+    SELECT request_type.request_type_id, version.request_type_version_id,
+           request_type.project_id, request_type.work_type_id,
+           request_type.workflow_id, version.version_status,
+           request_type.active_flag, request_type.employee_visible_flag
+    FROM config.request_type AS request_type
+    JOIN config.request_type_version AS version USING (request_type_id)
+    WHERE request_type.tenant_id = :tenant_id
+      AND request_type.request_type_id = :request_type_id
+      AND version.request_type_version_id = :request_type_version_id
+    """
+)
+
 
 class CatalogueRepository:
     def __init__(self, session: AsyncSession) -> None:
@@ -236,6 +251,32 @@ class CatalogueRepository:
                 _SERVICE_NODE_EXISTS,
                 {"tenant_id": tenant_id, "service_node_id": service_node_id},
             )
+        )
+
+    async def request_type_binding(
+        self, tenant_id: UUID, request_type_id: UUID, request_type_version_id: UUID
+    ) -> RequestTypeBinding | None:
+        row = (
+            await self._session.execute(
+                _REQUEST_TYPE_BINDING,
+                {
+                    "tenant_id": tenant_id,
+                    "request_type_id": request_type_id,
+                    "request_type_version_id": request_type_version_id,
+                },
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return RequestTypeBinding(
+            request_type_id=row.request_type_id,
+            request_type_version_id=row.request_type_version_id,
+            project_id=row.project_id,
+            work_type_id=row.work_type_id,
+            workflow_id=row.workflow_id,
+            version_status=row.version_status,
+            active=row.active_flag,
+            employee_visible=row.employee_visible_flag,
         )
 
     async def list_service_nodes(

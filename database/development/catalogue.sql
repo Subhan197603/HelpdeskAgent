@@ -47,6 +47,15 @@ INSERT INTO config.workflow_version(
     '22000000-0000-0000-0000-000000000001'
 ) ON CONFLICT (workflow_version_id) DO NOTHING;
 
+INSERT INTO config.workflow_status(
+    status_id, workflow_version_id, status_code, status_name,
+    status_category, initial_flag, customer_visible_name, display_order
+) VALUES (
+    '32200000-0000-0000-0000-000000000001',
+    '32100000-0000-0000-0000-000000000001',
+    'NEW', 'New', 'TO_DO', true, 'Submitted', 10
+) ON CONFLICT (status_id) DO NOTHING;
+
 INSERT INTO config.request_type(
     request_type_id, tenant_id, project_id, work_type_id, workflow_id,
     request_type_code, request_type_name, portal_description, portal_group, display_order
@@ -65,7 +74,8 @@ FROM (VALUES
     ('33000000-0000-0000-0000-000000000005'::uuid,'30000000-0000-0000-0000-000000000002'::uuid,'INCIDENT','REPORT_DATA_ISSUE','Report incorrect or missing data','Report a data-quality issue.','Oracle Fusion',20),
     ('33000000-0000-0000-0000-000000000006'::uuid,'30000000-0000-0000-0000-000000000002'::uuid,'INCIDENT','REPORT_INTEGRATION_FAILURE','Report an integration failure','Report a failed integration.','Oracle Fusion',30),
     ('33000000-0000-0000-0000-000000000007'::uuid,'30000000-0000-0000-0000-000000000002'::uuid,'INCIDENT','REPORT_SCHEDULED_PROCESS_FAILURE','Report a scheduled-process failure','Report a failed scheduled process.','Oracle Fusion',40),
-    ('33000000-0000-0000-0000-000000000008'::uuid,'30000000-0000-0000-0000-000000000001'::uuid,'QUESTION','GENERAL_IT_QUESTION','General IT question','Ask the Corporate IT team a question.','General',10)
+    ('33000000-0000-0000-0000-000000000008'::uuid,'30000000-0000-0000-0000-000000000001'::uuid,'QUESTION','GENERAL_IT_QUESTION','General IT question','Ask the Corporate IT team a question.','General',10),
+    ('33000000-0000-0000-0000-000000000009'::uuid,'30000000-0000-0000-0000-000000000001'::uuid,'INCIDENT','BASIC_INCIDENT','Report a general incident','Report an interruption or degradation.','General',20)
 ) AS fixture(
     request_type_id, project_id, work_type_code, request_type_code,
     request_type_name, portal_description, portal_group, display_order
@@ -89,7 +99,7 @@ SELECT
 FROM config.request_type
 WHERE request_type_id BETWEEN
     '33000000-0000-0000-0000-000000000001' AND
-    '33000000-0000-0000-0000-000000000008'
+    '33000000-0000-0000-0000-000000000009'
 ON CONFLICT (request_type_version_id) DO NOTHING;
 
 INSERT INTO config.custom_field(
@@ -124,7 +134,7 @@ FROM config.request_type_version AS version
 CROSS JOIN config.custom_field AS field
 WHERE version.request_type_id BETWEEN
         '33000000-0000-0000-0000-000000000001' AND
-        '33000000-0000-0000-0000-000000000008'
+        '33000000-0000-0000-0000-000000000009'
   AND field.custom_field_id IN (
         '34000000-0000-0000-0000-000000000001',
         '34000000-0000-0000-0000-000000000002'
@@ -147,7 +157,7 @@ SET version_status = 'PUBLISHED',
     published_at = '2025-01-01T00:00:00Z'
 WHERE request_type_id BETWEEN
     '33000000-0000-0000-0000-000000000001' AND
-    '33000000-0000-0000-0000-000000000008'
+    '33000000-0000-0000-0000-000000000009'
   AND version_status = 'DRAFT';
 
 COMMIT;

@@ -1,12 +1,12 @@
 FROM ghcr.io/astral-sh/uv:0.11.24 AS uv
 
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/workspace/.venv/bin:${PATH}"
 
-RUN groupadd --system app && useradd --system --gid app --home-dir /nonexistent app
+RUN addgroup -S app && adduser -S -G app -h /nonexistent app
 WORKDIR /workspace
 
 COPY --from=uv /uv /uvx /bin/

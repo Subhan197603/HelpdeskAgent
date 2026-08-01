@@ -10,9 +10,11 @@ from typing import cast
 from uuid import UUID
 
 from pydantic import ValidationError as PydanticValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.catalog.models import (
     FormFieldRecord,
+    RequestTypeBinding,
     RequestTypeSummary,
     ServiceNode,
     ServiceProject,
@@ -40,6 +42,33 @@ from apps.api.app.identity.authorization import (
 
 logger = logging.getLogger(__name__)
 UnitOfWorkFactory = Callable[[RequestContext], SqlAlchemyUnitOfWork]
+
+
+class CatalogueConfigurationService:
+    """Public same-transaction catalogue interface for other application modules."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        self._repository = CatalogueRepository(session)
+
+    async def published_request_type(
+        self, tenant_id: UUID, request_type_id: UUID, evaluated_at: datetime
+    ) -> RequestTypeSummary | None:
+        return await self._repository.request_type(tenant_id, request_type_id, evaluated_at)
+
+    async def request_type_binding(
+        self, tenant_id: UUID, request_type_id: UUID, request_type_version_id: UUID
+    ) -> RequestTypeBinding | None:
+        return await self._repository.request_type_binding(
+            tenant_id, request_type_id, request_type_version_id
+        )
+
+    async def form_fields(
+        self, tenant_id: UUID, request_type_version_id: UUID
+    ) -> list[FormFieldRecord]:
+        return await self._repository.form_fields(tenant_id, request_type_version_id)
+
+    async def service_node_exists(self, tenant_id: UUID, service_node_id: UUID) -> bool:
+        return await self._repository.service_node_exists(tenant_id, service_node_id)
 
 
 class CatalogueConfigurationError(ConflictError):

@@ -1,0 +1,537 @@
+"""Tenant-scoped PostgreSQL persistence for ticket drafts and submission."""
+# ruff: noqa: E501
+
+import json
+from dataclasses import asdict
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from apps.api.app.tickets.models import TicketDraft, TicketView
+
+
+class TicketRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create_draft(self, values: dict[str, Any]) -> TicketDraft:
+        row = (
+            await self._session.execute(
+                text("""
+                    INSERT INTO itsm.ticket_draft(
+                        tenant_id, owner_user_id, requested_for_user_id, project_id,
+                        service_node_id, request_type_id, request_type_version_id,
+                        work_type_id, application_environment_id, summary, description,
+                        custom_values_json, impact_code, urgency_code, priority_code,
+                        priority_matrix_id, expires_at
+                    ) VALUES (
+                        :tenant_id, :owner_user_id, :requested_for_user_id, :project_id,
+                        :service_node_id, :request_type_id, :request_type_version_id,
+                        :work_type_id, :application_environment_id, :summary, :description,
+                        CAST(:custom_values AS jsonb), :impact_code, :urgency_code,
+                        :priority_code, :priority_matrix_id, :expires_at
+                    ) RETURNING *
+                """),
+                values,
+            )
+        ).one()
+        return _draft(row)
+
+    async def draft(
+        self, tenant_id: UUID, draft_id: UUID, *, lock: bool = False
+    ) -> TicketDraft | None:
+        suffix = " FOR UPDATE" if lock else ""
+        row = (
+            await self._session.execute(
+                text(
+                    f"SELECT * FROM itsm.ticket_draft WHERE tenant_id=:tenant_id AND draft_id=:draft_id{suffix}"
+                ),
+                {"tenant_id": tenant_id, "draft_id": draft_id},
+            )
+        ).one_or_none()
+        return _draft(row) if row is not None else None
+
+    async def update_draft(
+        self, draft_id: UUID, row_version: int, values: dict[str, Any]
+    ) -> TicketDraft | None:
+        row = (
+            await self._session.execute(
+                text("""
+                    UPDATE itsm.ticket_draft SET
+                        requested_for_user_id=:requested_for_user_id,
+                        service_node_id=:service_node_id,
+                        application_environment_id=:application_environment_id,
+                        summary=:summary, description=:description,
+                        custom_values_json=CAST(:custom_values AS jsonb),
+                        impact_code=:impact_code, urgency_code=:urgency_code,
+                        priority_code=:priority_code, priority_matrix_id=:priority_matrix_id,
+                        draft_status='DRAFT'
+                    WHERE draft_id=:draft_id AND row_version=:row_version
+                      AND draft_status IN ('DRAFT','READY_FOR_REVIEW')
+                    RETURNING *
+                """),
+                {"draft_id": draft_id, "row_version": row_version, **values},
+            )
+        ).one_or_none()
+        return _draft(row) if row is not None else None
+
+    async def set_ready(
+        self, draft_id: UUID, row_version: int, priority: tuple[str, UUID]
+    ) -> TicketDraft | None:
+        row = (
+            await self._session.execute(
+                text("""
+                    UPDATE itsm.ticket_draft
+                    SET draft_status='READY_FOR_REVIEW', priority_code=:priority_code,
+                        priority_matrix_id=:priority_matrix_id
+                    WHERE draft_id=:draft_id AND row_version=:row_version
+                      AND draft_status IN ('DRAFT','READY_FOR_REVIEW')
+                    RETURNING *
+                """),
+                {
+                    "draft_id": draft_id,
+                    "row_version": row_version,
+                    "priority_code": priority[0],
+                    "priority_matrix_id": priority[1],
+                },
+            )
+        ).one_or_none()
+        return _draft(row) if row is not None else None
+
+    async def cancel(self, draft_id: UUID, row_version: int) -> TicketDraft | None:
+        row = (
+            await self._session.execute(
+                text("""
+                    UPDATE itsm.ticket_draft SET draft_status='CANCELLED'
+                    WHERE draft_id=:draft_id AND row_version=:row_version
+                      AND draft_status IN ('DRAFT','READY_FOR_REVIEW') RETURNING *
+                """),
+                {"draft_id": draft_id, "row_version": row_version},
+            )
+        ).one_or_none()
+        return _draft(row) if row is not None else None
+
+    async def reference_user_exists(self, tenant_id: UUID, user_id: UUID) -> bool:
+        return bool(
+            await self._session.scalar(
+                text("""
+            SELECT EXISTS(SELECT 1 FROM identity.app_user
+             WHERE tenant_id=:tenant_id AND user_id=:user_id AND active_flag)
+        """),
+                {"tenant_id": tenant_id, "user_id": user_id},
+            )
+        )
+
+    async def environment_exists(
+        self, tenant_id: UUID, environment_id: UUID, service_id: UUID | None
+    ) -> bool:
+        return bool(
+            await self._session.scalar(
+                text("""
+            SELECT EXISTS(SELECT 1 FROM config.application_environment
+             WHERE tenant_id=:tenant_id AND application_environment_id=:environment_id
+               AND active_flag AND (:service_id IS NULL OR service_node_id=:service_id))
+        """),
+                {
+                    "tenant_id": tenant_id,
+                    "environment_id": environment_id,
+                    "service_id": service_id,
+                },
+            )
+        )
+
+    async def priority(
+        self, tenant_id: UUID, project_id: UUID, service_id: UUID | None, impact: str, urgency: str
+    ) -> tuple[str, UUID] | None:
+        rows = (
+            await self._session.execute(
+                text("""
+            WITH candidates AS (
+              SELECT matrix.priority_code, matrix.priority_matrix_id,
+                     CASE WHEN matrix.service_node_id IS NOT NULL THEN 3
+                          WHEN matrix.project_id IS NOT NULL THEN 2
+                          WHEN matrix.tenant_id IS NOT NULL THEN 1 ELSE 0 END specificity,
+                     matrix.evaluation_order
+              FROM config.priority_matrix matrix
+              JOIN config.impact impact ON impact.impact_code=matrix.impact_code AND impact.active_flag
+              JOIN config.urgency urgency ON urgency.urgency_code=matrix.urgency_code AND urgency.active_flag
+              JOIN config.priority priority ON priority.priority_code=matrix.priority_code AND priority.active_flag
+              WHERE matrix.impact_code=:impact AND matrix.urgency_code=:urgency
+                AND matrix.approval_status='APPROVED'
+                AND matrix.effective_from <= now()
+                AND (matrix.effective_to IS NULL OR matrix.effective_to > now())
+                AND (matrix.tenant_id IS NULL OR matrix.tenant_id=:tenant_id)
+                AND (matrix.project_id IS NULL OR matrix.project_id=:project_id)
+                AND (matrix.service_node_id IS NULL OR matrix.service_node_id=:service_id)
+            ), ranked AS (
+              SELECT *, dense_rank() OVER (ORDER BY specificity DESC, evaluation_order) rank
+              FROM candidates
+            ) SELECT priority_code, priority_matrix_id FROM ranked WHERE rank=1
+        """),
+                {
+                    "tenant_id": tenant_id,
+                    "project_id": project_id,
+                    "service_id": service_id,
+                    "impact": impact,
+                    "urgency": urgency,
+                },
+            )
+        ).all()
+        if not rows:
+            return None
+        if len(rows) != 1:
+            raise RuntimeError("overlapping_priority_matrix")
+        return rows[0].priority_code, rows[0].priority_matrix_id
+
+    async def workflow_initial(self, workflow_id: UUID) -> tuple[UUID, UUID] | None:
+        rows = (
+            await self._session.execute(
+                text("""
+            WITH versions AS (
+              SELECT workflow_version_id,
+                     count(*) OVER () version_count
+              FROM config.workflow_version
+              WHERE workflow_id=:workflow_id AND version_status='PUBLISHED'
+                AND published_at IS NOT NULL AND published_at <= now()
+                AND (effective_from IS NULL OR effective_from <= now())
+                AND (effective_to IS NULL OR effective_to > now())
+            )
+            SELECT version.workflow_version_id, status.status_id, version.version_count
+            FROM versions version
+            JOIN config.workflow_status status USING (workflow_version_id)
+            WHERE status.initial_flag
+        """),
+                {"workflow_id": workflow_id},
+            )
+        ).all()
+        if len(rows) != 1 or rows[0].version_count != 1:
+            return None
+        return rows[0].workflow_version_id, rows[0].status_id
+
+    async def claim_idempotency(
+        self, tenant_id: UUID, user_id: UUID, key: str, request_hash: str
+    ) -> Any:
+        await self._session.execute(
+            text("""
+            INSERT INTO integration.idempotency_record(
+              tenant_id, principal_type, principal_id, operation_code, idempotency_key,
+              request_hash, lease_expires_at, expires_at)
+            VALUES (:tenant_id,'USER',:principal_id,'TICKET_DRAFT_SUBMIT',:key,
+                    :request_hash, now()+interval '60 seconds', now()+interval '24 hours')
+            ON CONFLICT (tenant_id, operation_code, idempotency_key) DO NOTHING
+        """),
+            {
+                "tenant_id": tenant_id,
+                "principal_id": str(user_id),
+                "key": key,
+                "request_hash": request_hash,
+            },
+        )
+        return (
+            await self._session.execute(
+                text("""
+            SELECT * FROM integration.idempotency_record
+            WHERE tenant_id=:tenant_id AND operation_code='TICKET_DRAFT_SUBMIT'
+              AND idempotency_key=:key FOR UPDATE
+        """),
+                {"tenant_id": tenant_id, "key": key},
+            )
+        ).one()
+
+    async def create_ticket(
+        self,
+        draft: TicketDraft,
+        workflow: tuple[UUID, UUID],
+        *,
+        correlation_id: str,
+        request_id: str,
+    ) -> tuple[UUID, str]:
+        await self._session.execute(
+            text(
+                "SELECT set_config('app.correlation_id',:correlation_id,true), "
+                "set_config('app.request_id',:request_id,true)"
+            ),
+            {"correlation_id": correlation_id, "request_id": request_id},
+        )
+        row = (
+            await self._session.execute(
+                text("""
+            INSERT INTO itsm.ticket(
+              tenant_id, project_id, request_type_id, request_type_version_id, work_type_id,
+              workflow_version_id, status_id, summary, description, reporter_user_id,
+              requested_for_user_id, service_node_id, impact_code, urgency_code,
+              priority_code, priority_matrix_id, channel_code, application_environment_id,
+              environment_code, created_by, updated_by)
+            SELECT :tenant_id,:project_id,:request_type_id,:request_type_version_id,:work_type_id,
+              :workflow_version_id,:status_id,:summary,:description,:owner_user_id,
+              :requested_for_user_id,:service_node_id,:impact_code,:urgency_code,
+              :priority_code,:priority_matrix_id,'PORTAL',:application_environment_id,
+              environment.environment_code,:owner_user_id,:owner_user_id
+            FROM (SELECT 1) one
+            LEFT JOIN config.application_environment environment
+              ON environment.application_environment_id=:application_environment_id
+            RETURNING ticket_id, ticket_key
+        """),
+                {**asdict(draft), "workflow_version_id": workflow[0], "status_id": workflow[1]},
+            )
+        ).one()
+        return row.ticket_id, row.ticket_key
+
+    async def persist_custom_values(
+        self, ticket_id: UUID, version_id: UUID, values: dict[str, Any]
+    ) -> None:
+        for code, value in values.items():
+            if value is None:
+                continue
+            definition = (
+                await self._session.execute(
+                    text("""
+                        SELECT field.custom_field_id, field.data_type,
+                          (SELECT option_id FROM config.custom_field_option
+                           WHERE custom_field_id=field.custom_field_id
+                             AND option_code=:option_code AND active_flag) option_id
+                        FROM config.request_type_field layout
+                        JOIN config.custom_field field USING(custom_field_id)
+                        WHERE layout.request_type_version_id=:version_id
+                          AND field.field_code=:code
+                    """),
+                    {"version_id": version_id, "code": code, "option_code": str(value)},
+                )
+            ).one()
+            typed: dict[str, Any] = {
+                "text_value": None,
+                "number_value": None,
+                "date_value": None,
+                "timestamp_value": None,
+                "boolean_value": None,
+                "user_value": None,
+                "group_value": None,
+                "service_value": None,
+                "option_value": None,
+                "json_value": None,
+            }
+            if definition.data_type in {"TEXT", "LONG_TEXT"}:
+                typed["text_value"] = str(value)
+            elif definition.data_type == "NUMBER":
+                typed["number_value"] = Decimal(str(value))
+            elif definition.data_type == "DATE":
+                typed["date_value"] = date.fromisoformat(str(value))
+            elif definition.data_type == "TIMESTAMP":
+                typed["timestamp_value"] = datetime.fromisoformat(str(value))
+            elif definition.data_type == "BOOLEAN":
+                typed["boolean_value"] = bool(value)
+            elif definition.data_type == "USER":
+                typed["user_value"] = UUID(str(value))
+            elif definition.data_type == "GROUP":
+                typed["group_value"] = UUID(str(value))
+            elif definition.data_type in {"SERVICE", "MODULE"}:
+                typed["service_value"] = UUID(str(value))
+            elif definition.data_type == "SINGLE_SELECT":
+                typed["option_value"] = definition.option_id
+            else:
+                typed["json_value"] = json.dumps(value)
+            await self._session.execute(
+                text("""
+                    INSERT INTO itsm.ticket_custom_value(
+                      ticket_id,custom_field_id,text_value,number_value,date_value,
+                      timestamp_value,boolean_value,user_value,group_value,
+                      service_value,option_value,json_value)
+                    VALUES (:ticket_id,:custom_field_id,:text_value,:number_value,:date_value,
+                      :timestamp_value,:boolean_value,:user_value,:group_value,
+                      :service_value,:option_value,CAST(:json_value AS jsonb))
+                """),
+                {"ticket_id": ticket_id, "custom_field_id": definition.custom_field_id, **typed},
+            )
+
+    async def finish_submission(
+        self,
+        draft_id: UUID,
+        ticket_id: UUID,
+        idem_id: UUID,
+        ticket_key: str,
+        response: dict[str, Any],
+    ) -> None:
+        parameters = {
+            "draft_id": draft_id,
+            "ticket_id": ticket_id,
+            "aggregate_id": str(ticket_id),
+            "ticket_key": ticket_key,
+            "idem_id": idem_id,
+            "response": __import__("json").dumps(response),
+        }
+        await self._session.execute(
+            text("""
+                UPDATE itsm.ticket_draft
+                SET draft_status='SUBMITTED', submitted_ticket_id=:ticket_id
+                WHERE draft_id=:draft_id
+            """),
+            parameters,
+        )
+        await self._session.execute(
+            text("""
+            INSERT INTO integration.outbox_event(tenant_id,aggregate_type,aggregate_id,event_type,payload_json)
+            SELECT tenant_id,'TICKET',CAST(:aggregate_id AS varchar),event_type,
+                   jsonb_build_object('ticket_id',CAST(:aggregate_id AS varchar),
+                     'ticket_key',CAST(:ticket_key AS varchar),'processing','PENDING')
+            FROM itsm.ticket_draft CROSS JOIN unnest(ARRAY['ROUTE_TICKET','START_SLA','NOTIFY_TICKET_CREATED']) event_type
+            WHERE draft_id=:draft_id
+            """),
+            parameters,
+        )
+        await self._session.execute(
+            text("""
+            UPDATE integration.idempotency_record SET processing_status='COMPLETED',
+              result_resource_type='TICKET', result_resource_id=:aggregate_id,
+              response_status=201, response_payload_json=CAST(:response AS jsonb),
+              completed_at=now(), lease_expires_at=NULL
+            WHERE idempotency_record_id=:idem_id
+            """),
+            parameters,
+        )
+
+    async def audit(
+        self,
+        draft: TicketDraft,
+        action: str,
+        outcome: str,
+        correlation_id: str,
+        request_id: str,
+        *,
+        actor_user_id: UUID | None = None,
+    ) -> None:
+        await self._session.execute(
+            text("""
+            INSERT INTO audit.audit_event(tenant_id,actor_id,actor_type,action_code,
+              resource_type,resource_id,change_summary_json,correlation_id,request_id,
+              source_channel,outcome_code)
+            VALUES (:tenant_id,:actor_id,'USER',:action,'TICKET_DRAFT',:resource_id,
+              '{}'::jsonb,CAST(:correlation_id AS uuid),:request_id,'PORTAL',:outcome)
+        """),
+            {
+                "tenant_id": draft.tenant_id,
+                "actor_id": str(actor_user_id or draft.owner_user_id),
+                "action": action,
+                "resource_id": str(draft.draft_id),
+                "outcome": outcome,
+                "correlation_id": correlation_id,
+                "request_id": request_id,
+            },
+        )
+
+    async def ticket(
+        self,
+        tenant_id: UUID,
+        user_id: UUID,
+        *,
+        key: str | None = None,
+        ticket_id: UUID | None = None,
+    ) -> TicketView | None:
+        row = (
+            await self._session.execute(
+                text(
+                    _TICKET_SELECT
+                    + """
+          WHERE ticket.tenant_id=:tenant_id
+            AND (CAST(:key AS varchar) IS NULL OR ticket.ticket_key=CAST(:key AS varchar))
+            AND (CAST(:ticket_id AS uuid) IS NULL OR ticket.ticket_id=CAST(:ticket_id AS uuid))
+            AND (ticket.reporter_user_id=:user_id OR ticket.requested_for_user_id=:user_id)
+        """
+                ),
+                {"tenant_id": tenant_id, "user_id": user_id, "key": key, "ticket_id": ticket_id},
+            )
+        ).one_or_none()
+        return _ticket(row) if row is not None else None
+
+    async def tickets(
+        self,
+        tenant_id: UUID,
+        user_id: UUID,
+        limit: int,
+        before_at: datetime | None,
+        before_id: UUID | None,
+    ) -> list[TicketView]:
+        rows = (
+            await self._session.execute(
+                text(
+                    _TICKET_SELECT
+                    + """
+          WHERE ticket.tenant_id=:tenant_id
+            AND (ticket.reporter_user_id=:user_id OR ticket.requested_for_user_id=:user_id)
+            AND (CAST(:before_at AS timestamptz) IS NULL OR
+                 (ticket.created_at,ticket.ticket_id) <
+                 (CAST(:before_at AS timestamptz),CAST(:before_id AS uuid)))
+          ORDER BY ticket.created_at DESC,ticket.ticket_id DESC LIMIT :limit
+        """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "limit": limit,
+                    "before_at": before_at,
+                    "before_id": before_id,
+                },
+            )
+        ).all()
+        return [_ticket(row) for row in rows]
+
+
+_TICKET_SELECT = """
+SELECT ticket.ticket_id,ticket.ticket_key,ticket.summary,ticket.description,
+ project.project_key project_code,project.project_name,
+ request_type.request_type_code,request_type.request_type_name,
+ service.node_name service_name,environment.environment_name,
+ work_type.work_type_code,status.status_code,
+ coalesce(status.customer_visible_name,status.status_name) status_name,
+ ticket.priority_code,ticket.reporter_user_id,reporter.display_name reporter_name,
+ ticket.requested_for_user_id,requested.display_name requested_for_name,
+ ticket.created_at,ticket.updated_at,event.created_at created_event_at
+FROM itsm.ticket ticket
+JOIN config.service_project project ON project.project_id=ticket.project_id
+JOIN config.request_type request_type ON request_type.request_type_id=ticket.request_type_id
+JOIN config.work_type work_type ON work_type.work_type_id=ticket.work_type_id
+JOIN config.workflow_status status ON status.status_id=ticket.status_id
+JOIN identity.app_user reporter ON reporter.user_id=ticket.reporter_user_id
+LEFT JOIN identity.app_user requested ON requested.user_id=ticket.requested_for_user_id
+LEFT JOIN config.service_node service ON service.service_node_id=ticket.service_node_id
+LEFT JOIN config.application_environment environment
+  ON environment.application_environment_id=ticket.application_environment_id
+LEFT JOIN LATERAL (SELECT created_at FROM itsm.ticket_event
+ WHERE ticket_id=ticket.ticket_id AND event_type='TICKET_CREATED'
+ ORDER BY event_id LIMIT 1) event ON true
+"""
+
+
+def _draft(row: Any) -> TicketDraft:
+    return TicketDraft(
+        row.draft_id,
+        row.tenant_id,
+        row.owner_user_id,
+        row.requested_for_user_id,
+        row.project_id,
+        row.service_node_id,
+        row.request_type_id,
+        row.request_type_version_id,
+        row.work_type_id,
+        row.application_environment_id,
+        row.summary,
+        row.description,
+        dict(row.custom_values_json),
+        row.impact_code,
+        row.urgency_code,
+        row.priority_code,
+        row.priority_matrix_id,
+        row.draft_status,
+        row.submitted_ticket_id,
+        row.created_at,
+        row.updated_at,
+        row.row_version,
+        row.expires_at,
+    )
+
+
+def _ticket(row: Any) -> TicketView:
+    return TicketView(*tuple(row))
