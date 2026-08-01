@@ -34,6 +34,10 @@ jobs:
         run: make typecheck
       - name: Test
         run: make test
+      - name: Audit dependencies
+        run: |
+          uv run pip-audit
+          pnpm audit --audit-level high
       - name: Validate Compose model
         run: make compose-validate
 
@@ -48,9 +52,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  baseline-integration:
+  foundation-integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -58,7 +62,7 @@ jobs:
           enable-cache: true
       - name: Install Python dependencies
         run: uv sync --frozen
-      - name: Test clean PostgreSQL baseline
+      - name: Test PostgreSQL baseline and API foundation
         run: make db-test
 
   vulnerability-scan:
@@ -66,10 +70,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+      - name: Build API image
+        run: docker build --file infrastructure/docker/api.Dockerfile --tag fusion-ai-helpdesk-api:ci .
       - uses: aquasecurity/trivy-action@0.32.0
         with:
           scan-type: fs
           scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - uses: aquasecurity/trivy-action@0.32.0
+        with:
+          image-ref: fusion-ai-helpdesk-api:ci
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true

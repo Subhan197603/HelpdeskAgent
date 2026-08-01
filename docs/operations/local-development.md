@@ -29,3 +29,12 @@ make db-reset APP_ENV=development CONFIRM_DB_RESET=local-helpdesk
 ```
 
 Never use `db-reset` for shared or production databases. Named Docker volumes are not removed by this target.
+
+`make db-install` also provisions the fixed `helpdesk` login as a member of the baseline's
+non-owner `helpdesk_app` role. Its password is a local-only placeholder controlled by
+`POSTGRES_APP_PASSWORD`; production role and secret provisioning is external.
+
+## API
+
+See [API foundation operations](api-foundation.md) for host and Compose startup, health endpoint
+semantics, correlation IDs, structured logging, pool configuration, and transaction boundaries.

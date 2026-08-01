@@ -1,6 +1,6 @@
 # Fusion AI Helpdesk
 
-This repository contains the modular-monolith scaffold and approved initial PostgreSQL physical baseline for the Fusion AI Helpdesk described in [BUILD_SPEC.md](BUILD_SPEC.md). Milestone 0 contains development tooling and governed local infrastructure only; application and business behavior remain deferred.
+This repository contains the modular-monolith scaffold, approved initial PostgreSQL physical baseline, and FastAPI application foundation for the Fusion AI Helpdesk described in [BUILD_SPEC.md](BUILD_SPEC.md). Business behavior remains deferred.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ make up
 
 `bootstrap` installs locked Python and JavaScript development dependencies and creates a local `.env` from `.env.example` only when one does not already exist. Replace all placeholder credentials before using a shared environment.
 
-`make up` starts PostgreSQL, Redis, MinIO, Mailpit, and ClamAV. Check status with `docker compose ps`. The `api`, `worker`, and `web` services are declared under the `application` Compose profile but remain placeholders until their respective foundation tasks.
+`make up` starts PostgreSQL, Redis, MinIO, Mailpit, and ClamAV. Check status with `docker compose ps`. The worker and web services remain placeholders. Start the API locally with `make api` or in Compose with `docker compose --profile application up -d --build --wait api`.
 
 Install the physical database baseline once into a clean local database:
 
@@ -48,6 +48,7 @@ Local service endpoints:
 | MinIO API / console | `http://localhost:9000` / `http://localhost:9001` |
 | Mailpit SMTP / UI   | `localhost:1025` / `http://localhost:8025`        |
 | ClamAV              | `localhost:3310`                                  |
+| API                 | `http://localhost:8000`                           |
 
 Host ports can be changed in `.env` when a recommended port is already occupied; container-to-container URLs remain unchanged.
 
@@ -61,7 +62,7 @@ make test
 make test-integration
 ```
 
-CI runs the same checks, validates the Compose model, installs the baseline into an isolated PostgreSQL 16/pgvector database, scans for secrets, and performs a filesystem vulnerability scan. Alembic, application health endpoints, and end-to-end tests belong to later tasks.
+CI runs the same checks, validates the Compose model, installs the baseline into an isolated PostgreSQL 16/pgvector database, scans for secrets, and performs a filesystem vulnerability scan. API details are in [the foundation operations guide](docs/operations/api-foundation.md). Alembic adoption remains deferred to Task 1.2.
 
 ## Security notes
 

@@ -18,6 +18,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./database/baseline/fusion_helpdesk_postgres/sql:/baseline:ro
+      - ./infrastructure/docker:/runtime-config:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d helpdesk"]
       interval: 5s
@@ -116,10 +117,14 @@ services:
     logging: *default-logging
 
   api:
-    image: python:3.12-slim
+    build:
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    image: fusion-ai-helpdesk-api:local
     profiles: ["application"]
-    command: ["python", "-c", "import time; time.sleep(2147483647)"]
     env_file: .env
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -127,6 +132,20 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=2)",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
     init: true
     read_only: true
     tmpfs:

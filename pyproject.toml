@@ -4,11 +4,20 @@ version = "0.0.0"
 description = "Fusion AI Helpdesk modular monorepo"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic-settings>=2.10,<3",
+  "redis>=6.2,<7",
+  "sqlalchemy[asyncio]>=2.0.41,<3",
+  "uvicorn[standard]>=0.35,<1",
+]
 
 [dependency-groups]
 dev = [
   "mypy>=1.15,<2",
+  "pip-audit>=2.9,<3",
   "pytest>=9.0.3,<10",
   "pyyaml>=6.0.2,<7",
   "ruff>=0.11,<1",
@@ -21,8 +30,10 @@ package = false
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["apps/api/tests", "apps/worker/tests", "tests"]
+pythonpath = ["."]
 markers = [
   "integration: tests requiring local infrastructure",
+  "container: tests requiring Docker and an API image build",
 ]
 
 [tool.ruff]

@@ -1,7 +1,7 @@
 SHELL := /bin/sh
 .DEFAULT_GOAL := help
 
-.PHONY: help bootstrap up down logs db-install db-demo db-reset migrate migration seed \
+.PHONY: help bootstrap up down logs db-install db-runtime-role db-demo db-reset migrate migration seed \
 	api worker web lint format format-check typecheck test test-integration test-e2e \
 	openapi clean compose-validate db-demo-bootstrap db-demo-ticket db-test
 
@@ -9,6 +9,10 @@ COMPOSE ?= docker compose
 DB_SERVICE ?= postgres
 DB_NAME ?= helpdesk
 APP_ENV ?= development
+API_HOST ?= 127.0.0.1
+API_PORT ?= 8000
+API_RELOAD ?= false
+POSTGRES_APP_PASSWORD ?= helpdesk
 
 help:
 	@echo "Fusion AI Helpdesk development commands"
@@ -36,6 +40,12 @@ db-install:
 	$(COMPOSE) up -d --wait $(DB_SERVICE)
 	$(COMPOSE) exec -T $(DB_SERVICE) psql -v ON_ERROR_STOP=1 -U postgres -d $(DB_NAME) \
 		-f /baseline/install_all.sql
+	$(MAKE) db-runtime-role DB_NAME=$(DB_NAME)
+
+db-runtime-role:
+	$(COMPOSE) exec -T $(DB_SERVICE) psql -v ON_ERROR_STOP=1 \
+		-v app_password="$(POSTGRES_APP_PASSWORD)" -U postgres -d $(DB_NAME) \
+		-f /runtime-config/configure_local_runtime.sql
 
 db-demo: db-demo-bootstrap db-demo-ticket
 
@@ -63,11 +73,18 @@ db-reset:
 	$(COMPOSE) exec -T $(DB_SERVICE) createdb -U postgres helpdesk
 	$(MAKE) db-install DB_NAME=helpdesk
 
-migrate migration seed:
-	@echo "$@ will be implemented with the application database foundation."
+migrate migration:
+	@echo "$@ is deferred to Milestone 1, Task 1.2 (Alembic adoption)."
 	@exit 1
 
-api worker web:
+seed:
+	@echo "seed is deferred until application reference-data tasks."
+	@exit 1
+
+api:
+	uv run uvicorn apps.api.app.main:app --host $(API_HOST) --port $(API_PORT) $(if $(filter true,$(API_RELOAD)),--reload,)
+
+worker web:
 	@echo "$@ runtime will be implemented in its foundation task."
 	@exit 1
 
@@ -100,7 +117,7 @@ test-e2e:
 	@echo "End-to-end tests begin with the web vertical slice."
 
 openapi:
-	@echo "OpenAPI generation begins with the FastAPI foundation."
+	uv run python -m apps.api.app.openapi
 
 compose-validate:
 	$(COMPOSE) config --quiet
