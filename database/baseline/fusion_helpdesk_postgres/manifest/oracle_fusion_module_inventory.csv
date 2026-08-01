@@ -1,0 +1,79 @@
+release_family,release_code,product_family,product_code,module_code,module_name,coverage_priority,scope_status,manifest_status,notes
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,SECURITY,Security,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,FUNCTIONAL_SETUP_MANAGER,Functional Setup Manager,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,ENTERPRISE_STRUCTURES,Enterprise Structures,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,FLEXFIELDS,Flexfields and Extensibility,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,SCHEDULED_PROCESSES,Scheduled Processes,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,OTBI,Oracle Transactional Business Intelligence,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,BI_PUBLISHER,BI Publisher,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,REST_API,REST APIs,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,SOAP_SERVICES,SOAP Web Services,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,APPLICATIONS_COMMON,APPLICATIONS_COMMON,TABLES_VIEWS,Tables and Views,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,GENERAL_LEDGER,General Ledger,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,ACCOUNTING_HUB,Accounting Hub,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,ACCOUNTS_PAYABLE,Accounts Payable,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,ACCOUNTS_RECEIVABLE,Accounts Receivable,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,FIXED_ASSETS,Fixed Assets,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,CASH_MANAGEMENT,Cash Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,EXPENSES,Expenses,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,TAX,Tax,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,REVENUE_MANAGEMENT,Revenue Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,FINANCIALS,LEASE_ACCOUNTING,Lease Accounting,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROCUREMENT,PURCHASING,Purchasing,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROCUREMENT,SELF_SERVICE_PROCUREMENT,Self Service Procurement,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROCUREMENT,SUPPLIER_MANAGEMENT,Supplier Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROCUREMENT,SOURCING,Sourcing,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROCUREMENT,PROCUREMENT_CONTRACTS,Procurement Contracts,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROJECT_MANAGEMENT,PROJECT_FINANCIAL_MANAGEMENT,Project Financial Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROJECT_MANAGEMENT,PROJECT_EXECUTION_MANAGEMENT,Project Execution Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROJECT_MANAGEMENT,PROJECT_RESOURCE_MANAGEMENT,Project Resource Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,PROJECT_MANAGEMENT,GRANTS_MANAGEMENT,Grants Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,RISK_MANAGEMENT,ADVANCED_CONTROLS,Advanced Controls,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,RISK_MANAGEMENT,FINANCIAL_REPORTING_COMPLIANCE,Financial Reporting Compliance,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,ERP,RISK_MANAGEMENT,ACCESS_CERTIFICATION,Access Certification,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,PRODUCT_MANAGEMENT,Product Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,PRODUCT_LIFECYCLE_MANAGEMENT,Product Lifecycle Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,SUPPLY_CHAIN_PLANNING,Supply Chain Planning,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,MANUFACTURING,Manufacturing,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,INVENTORY_MANAGEMENT,Inventory Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,COST_MANAGEMENT,Cost Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,ORDER_MANAGEMENT,Order Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,PRICING,Pricing,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,GLOBAL_ORDER_PROMISING,Global Order Promising,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,LOGISTICS,Logistics,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,TRANSPORTATION_MANAGEMENT,Transportation Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,WAREHOUSE_MANAGEMENT,Warehouse Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,MAINTENANCE,Maintenance,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,QUALITY_MANAGEMENT,Quality Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,SCM,SCM,SERVICE_LOGISTICS,Service Logistics,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,GLOBAL_HR,Global Human Resources,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,WORKFORCE_STRUCTURES,Workforce Structures,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,PAYROLL,Payroll,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,TIME_AND_LABOR,Time and Labor,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,ABSENCE_MANAGEMENT,Absence Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,BENEFITS,Benefits,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,RECRUITING,Recruiting,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,ONBOARDING,Onboarding,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,TALENT_MANAGEMENT,Talent Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,GOAL_MANAGEMENT,Goal Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,PERFORMANCE_MANAGEMENT,Performance Management,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,COMPENSATION,Compensation,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,LEARNING,Learning,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,WORKFORCE_SCHEDULING,Workforce Scheduling,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,HCM,HCM,HCM_EXTRACTS,HCM Extracts,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,SALES,Sales,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,FUSION_SERVICE,Fusion Service,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,CUSTOMER_DATA_MANAGEMENT,Customer Data Management,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,SUBSCRIPTION_MANAGEMENT,Subscription Management,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,INCENTIVE_COMPENSATION,Incentive Compensation,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,CONFIGURE_PRICE_QUOTE,Configure Price Quote,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,FIELD_SERVICE,Field Service,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,CX,CX,MARKETING,Marketing,MEDIUM,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,FUSION_AI,FUSION_AI,AI_AGENT_STUDIO,AI Agent Studio,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,FUSION_AI,FUSION_AI,AI_CONNECTORS,AI Agent Studio Connectors,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_APPLICATIONS,26C,FUSION_AI,FUSION_AI,FUSION_AI_FEATURES,AI-Powered Fusion Features,HIGH,IN_SCOPE,NOT_STARTED,Verify exact 26C book catalogue and licensed product scope.
+FUSION_DATA_INTELLIGENCE,26.R2,ANALYTICS,FUSION_DATA_INTELLIGENCE,FDI_PLATFORM,FDI Platform,HIGH,IN_SCOPE,NOT_STARTED,Separate release family from Fusion Applications.
+FUSION_DATA_INTELLIGENCE,26.R2,ANALYTICS,FUSION_DATA_INTELLIGENCE,ERP_ANALYTICS,ERP Analytics,HIGH,IN_SCOPE,NOT_STARTED,Confirm licensed FDI content and release documentation.
+FUSION_DATA_INTELLIGENCE,26.R2,ANALYTICS,FUSION_DATA_INTELLIGENCE,HCM_ANALYTICS,HCM Analytics,HIGH,IN_SCOPE,NOT_STARTED,Confirm licensed FDI content and release documentation.
+FUSION_DATA_INTELLIGENCE,26.R2,ANALYTICS,FUSION_DATA_INTELLIGENCE,SCM_ANALYTICS,SCM Analytics,HIGH,IN_SCOPE,NOT_STARTED,Confirm licensed FDI content and release documentation.
+FUSION_DATA_INTELLIGENCE,26.R2,ANALYTICS,FUSION_DATA_INTELLIGENCE,CX_ANALYTICS,CX Analytics,HIGH,IN_SCOPE,NOT_STARTED,Confirm licensed FDI content and release documentation.

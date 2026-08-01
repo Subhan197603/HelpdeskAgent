@@ -1,6 +1,6 @@
 # Fusion AI Helpdesk
 
-This repository is the modular-monolith scaffold for the Fusion AI Helpdesk described in [BUILD_SPEC.md](BUILD_SPEC.md). Milestone 0, Task 0.1 provides development tooling and local dependency infrastructure only; application and business behavior are intentionally deferred.
+This repository contains the modular-monolith scaffold and approved initial PostgreSQL physical baseline for the Fusion AI Helpdesk described in [BUILD_SPEC.md](BUILD_SPEC.md). Milestone 0 contains development tooling and governed local infrastructure only; application and business behavior remain deferred.
 
 ## Prerequisites
 
@@ -23,6 +23,22 @@ make up
 
 `make up` starts PostgreSQL, Redis, MinIO, Mailpit, and ClamAV. Check status with `docker compose ps`. The `api`, `worker`, and `web` services are declared under the `application` Compose profile but remain placeholders until their respective foundation tasks.
 
+Install the physical database baseline once into a clean local database:
+
+```sh
+make db-install
+make db-test
+```
+
+Optional demo configuration and the demo ticket remain separate:
+
+```sh
+make db-demo-bootstrap
+make db-demo-ticket
+```
+
+See [the baseline README](database/baseline/fusion_helpdesk_postgres/README.md) for reset safeguards, direct `psql` usage, and the baseline/Alembic boundary.
+
 Local service endpoints:
 
 | Service             | Endpoint                                          |
@@ -42,9 +58,10 @@ make format
 make lint
 make typecheck
 make test
+make test-integration
 ```
 
-The CI skeleton runs the same checks, validates the Compose model, scans for secrets, and performs a filesystem vulnerability scan. Database baseline, migrations, application health endpoints, and end-to-end tests belong to later tasks and are called out explicitly by their Make targets.
+CI runs the same checks, validates the Compose model, installs the baseline into an isolated PostgreSQL 16/pgvector database, scans for secrets, and performs a filesystem vulnerability scan. Alembic, application health endpoints, and end-to-end tests belong to later tasks.
 
 ## Security notes
 

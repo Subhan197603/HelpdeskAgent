@@ -48,6 +48,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  baseline-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Install Python dependencies
+        run: uv sync --frozen
+      - name: Test clean PostgreSQL baseline
+        run: make db-test
+
   vulnerability-scan:
     runs-on: ubuntu-latest
     timeout-minutes: 10
