@@ -96,6 +96,19 @@ Requirements:
 
 Do not ask Codex to “build the entire application” in one request. Complete one vertical slice or one well-defined task at a time.
 
+### 1.3 Foundational database amendment before Task 0.2
+
+Milestone 0, Task 0.1 establishes the repository and local platform only. Before the PostgreSQL baseline is installed for the first time, Codex must review and apply the normative requirements in Section 8.6.
+
+The implementation rule is:
+
+- Add foundations now when delay would cause expensive schema redesign, unsafe data migration, broken API compatibility, security gaps, or loss of auditability.
+- Do not implement the full future product capability merely because its metadata foundation is added now.
+- Use the existing modular schemas and enrich the current model rather than creating overlapping duplicate domains.
+- After the first approved baseline installation, use Alembic for every schema change.
+
+Where Section 8.6 conflicts with an earlier baseline assumption, Section 8.6 takes precedence.
+
 ---
 
 ## 2. Product vision
@@ -229,8 +242,16 @@ Ticket events, security events, AI tool calls, AI evidence, and approval decisio
 
 Version:
 
+- Request forms and request-type field layouts
 - Workflows
+- Routing rules
+- SLA definitions and goals
+- Business calendars
+- Approval definitions
+- Queue definitions
+- Notification templates
 - Prompt templates
+- AI agent definitions and runtime policies
 - Knowledge documents
 - Embedding models
 - Retrieval configuration
@@ -238,6 +259,8 @@ Version:
 - Company policies
 - Oracle product releases
 - API contracts
+
+Published configuration versions are immutable. Runtime records must reference the configuration version that actually governed the operation. Do not add every version identifier to `itsm.ticket`: use the appropriate related record, for example workflow version on the ticket, routing-rule version on assignment history, SLA/calendar version on the ticket SLA instance, and prompt/tool/retrieval versions on the AI run.
 
 ### 4.8 Security before convenience
 
@@ -685,6 +708,195 @@ Guidelines:
 
 Do not grant runtime roles permission to delete or update immutable event/audit rows.
 
+### 8.6 Normative foundational requirements before first baseline installation
+
+These requirements must be assessed against the supplied starter SQL and incorporated into the approved baseline before its first installation. They define database foundations only; they do not authorize implementation of all future user-facing features.
+
+#### 8.6.1 Configuration versioning
+
+Published configuration is immutable and versioned. The baseline must support versioned request forms, workflows, routing rules, SLA definitions/goals, business calendars, approval definitions, queue definitions, notification templates, AI prompts, AI tool sets, and retrieval configurations.
+
+Each version must support, where relevant:
+
+- Stable configuration identity plus immutable version identity
+- Version number
+- Lifecycle status such as `DRAFT`, `UNDER_REVIEW`, `PUBLISHED`, `RETIRED`
+- Effective start and end timestamps
+- Created by and created at
+- Approved/published by and approved/published at
+- Change reason
+- Previous-version reference
+- Optional rollback-target reference
+
+Do not use one generic JSON version table for every domain when explicit domain tables provide stronger constraints. Prefer an aggregate header plus immutable version rows, or add version rows to the existing aggregate when that pattern already exists.
+
+Runtime records reference only the versions relevant to their operation:
+
+- Ticket → request type/form version and workflow version used at creation
+- Assignment history → routing-rule version used
+- Ticket SLA → SLA goal and business-calendar versions used
+- Approval instance → approval-definition version used
+- Notification delivery → notification-template version used
+- AI run → agent, prompt, tool-set, model-policy, and retrieval-configuration versions used
+
+#### 8.6.2 API idempotency
+
+Add `integration.idempotency_record` or an equivalent strongly constrained table. It must support tenant, principal/integration identity, operation code, key, request hash, processing state, lock/lease expiry, durable result reference, response status, created/completed timestamps, and expiry.
+
+At minimum, enforce a unique constraint on `(tenant_id, operation_code, idempotency_key)`. Do not use only a URL as the operation identity. The application must distinguish completed, in-progress, failed-retryable, and expired records and must prevent concurrent duplicate execution.
+
+#### 8.6.3 Application environment and product-release registry
+
+The existing generic environment and knowledge-release concepts are not sufficient by themselves. Add or confirm explicit entities for:
+
+- Supported application/product
+- Application environment or instance/pod
+- Product release and release family
+- Environment-to-release assignment history
+- Region and instance identifier
+- Current and planned release
+- Maintenance window
+- Business owner, technical owner, and primary support group
+- Criticality, recovery tier, and data classification
+- Approved diagnostic endpoint references; never store diagnostic secrets
+
+Keep Oracle Fusion Cloud Applications releases such as `26C` separate from Fusion Data Intelligence releases such as `26.R2`. Retrieval must resolve the effective release from the selected application environment.
+
+Recommended logical tables include `config.application`, `config.application_environment`, `config.product_release`, and `config.environment_release_assignment`. Reuse `kb.release` for knowledge-document applicability where appropriate, but do not make the knowledge schema the authoritative operational environment registry.
+
+#### 8.6.4 Deterministic priority matrix
+
+The baseline must support configured impact, urgency, priority, and effective-dated matrix rows. Recommended logical tables are `config.impact`, `config.urgency`, `config.priority`, and `config.priority_matrix`.
+
+Support tenant/project/service-specific overrides without duplicating the global matrix. The backend calculates final priority from impact, urgency, and approved exception rules. An LLM may recommend impact and urgency but may not directly set final priority.
+
+#### 8.6.5 Email-correlation foundation
+
+Future inbound email is deferred, but the baseline must not block it. Prefer a general communication model such as `itsm.ticket_communication` plus `integration.email_message` instead of placing all email fields on `itsm.ticket`.
+
+Support:
+
+- Direction and source channel
+- Mailbox/account identity
+- RFC `Message-ID`
+- Provider message and conversation/thread IDs
+- `In-Reply-To` and `References`
+- Sender, recipients, CC, and reply-to
+- Subject and received/sent timestamp
+- Processing status, retry count, and processing error
+- Linked ticket/comment/communication
+- Raw original-message object-storage URI and checksum
+- Sanitized headers JSON where required
+
+Do not store the raw MIME message or large email bodies as unbounded database blobs. Store originals in protected object storage. Scope uniqueness to tenant/mailbox/provider as appropriate because provider identifiers are not universally global.
+
+#### 8.6.6 Retention-policy and legal-hold foundations
+
+Add configurable retention policies and assignments for tickets, comments, attachments, AI conversations, AI tool calls/evidence, knowledge documents, audit events, integration messages, reporting data, and archived exports.
+
+Each policy should support:
+
+- Tenant and optional project/data-classification scope
+- Record/data category
+- Retention and archive duration
+- Final action such as delete, anonymize, or retain
+- Effective dates and approval metadata
+- Legal-hold behavior
+
+Add a legal-hold entity or equivalent mechanism that prevents deletion for identified resources or subjects. The implementation must later coordinate deletion/anonymization across PostgreSQL, object storage, search/vector indexes, caches, reporting stores, and provider-retained data. Backup expiry follows the approved backup-retention process and is not treated as an immediate row-level deletion.
+
+#### 8.6.7 Attachment security metadata
+
+Confirm `itsm.ticket_attachment` can represent the complete quarantine lifecycle described in Section 12.6, including separate object keys where required, detected MIME type, SHA-256 checksum, scan state and engine/version, detected threat, quarantine/release/rejection timestamps, retention-policy reference, legal-hold status, security classification, and deletion timestamp.
+
+Use constrained status values. Files remain unavailable until the security state permits release. Encryption keys and storage credentials must remain in a secret manager, not PostgreSQL.
+
+#### 8.6.8 AI feature switches, runtime policy, budgets, and usage
+
+Add database-controlled AI policy foundations for global, tenant, environment, and agent scope. Support:
+
+- Global and per-agent enabled flags
+- Provider and model deployment aliases
+- Fallback provider/model policy
+- Agent, prompt, tool-set, and retrieval-configuration versions
+- Input/output/context token limits
+- Maximum tool iterations and retrieved chunks
+- Per-user/tenant rate limits
+- Daily and monthly budget amount and currency
+- Warning and hard-stop thresholds
+- Usage ledger or durable usage aggregation
+
+Provider API keys and credentials must never be stored in these tables. Use the platform secret manager. The ticketing application must remain fully usable when AI is disabled, unavailable, over budget, or circuit-broken.
+
+#### 8.6.9 Audit requirements
+
+Audit events are append-only and must cover authentication, authorization failures, ticket mutations, status and assignment changes, comments, attachments, approvals, configuration publication/retirement, AI runs and tool calls, knowledge retrieval, administrative actions, exports, retention actions, and anonymization/deletion.
+
+The audit model must record, as applicable:
+
+- Tenant
+- Actor ID and actor type
+- Action code
+- Resource type and resource ID
+- Previous and new values or a safe structured change summary
+- Reason
+- Correlation ID, request ID, and trace ID
+- Source channel, IP address, and user agent where available and lawful
+- Event timestamp
+
+If the existing `audit.security_event` is intended only for security events, add a broader `audit.audit_event`. If it is intended as the general event store, rename or document it clearly before first installation. Do not add `updated_at`, soft-delete, or normal update permissions to append-only event tables.
+
+#### 8.6.10 Operational columns and partition readiness
+
+Use consistent fields where semantically appropriate:
+
+- Primary key and tenant ID
+- Created at/by
+- Updated at/by for mutable aggregates
+- Optimistic row version for concurrently edited aggregates
+- Effective start/end for effective-dated configuration
+- Lifecycle status or retired timestamp where required
+- Source system and correlation ID where relevant
+
+Do not force `updated_at`, `active_flag`, row version, or soft deletion onto immutable event, decision, and evidence rows. High-volume tables such as ticket events, audit events, AI messages/tool calls, notification attempts, and outbox history must use monotonic/time-friendly indexes and be designed so time-based PostgreSQL partitioning can be introduced without changing public IDs or API contracts.
+
+#### 8.6.11 Service ownership hierarchy
+
+Reuse and enrich `config.service_node` rather than introducing a second overlapping service tree. It must represent business service, technical service, application, module, and business process levels.
+
+Add effective-dated ownership assignments supporting roles such as:
+
+- Business owner
+- Technical owner
+- Service owner
+- Support manager
+- Primary support group
+- Escalation group
+- Vendor owner/contact reference
+
+Also support criticality, support hours/calendar, recovery tier, and data classification at the appropriate node or inherited level. This is a service-ownership foundation, not a full CMDB. Routing, SLA selection, escalation, release filtering, knowledge authorization, and reporting should consume this hierarchy.
+
+#### 8.6.12 Required baseline review and tests
+
+Before first installation, Codex must produce and then implement an approved impact assessment. The clean-database integration test must verify:
+
+- All expected schemas and PostgreSQL extensions
+- Baseline installation from an empty PostgreSQL 16+ database
+- Primary keys, foreign keys, checks, important unique constraints, and indexes
+- Configuration versioning foundations
+- Idempotency uniqueness and state constraints
+- Environment/release separation for Fusion Applications `26C` and FDI `26.R2`
+- Priority-matrix constraints and deterministic seed example
+- Communication/email-correlation metadata without an active inbound gateway
+- Retention and legal-hold foundations
+- Attachment quarantine/security metadata
+- AI kill switch and budget-policy foundations without provider credentials
+- Append-only audit permissions
+- Service ownership hierarchy
+- Optional demo data remaining separate from the physical baseline
+
+Deferred capabilities include the inbound mailbox gateway, full CMDB, major-incident command center, advanced bulk analyst operations, automatic Oracle-document refresh, advanced retrieval reranking, and production AI integrations.
+
 ---
 
 ## 9. Identity and authorization
@@ -966,20 +1178,23 @@ Select request type
 
 ### 12.2 Idempotency
 
-Require an `Idempotency-Key` header for ticket submission and attachment finalization.
+Require an `Idempotency-Key` header for externally initiated mutation operations where duplicate processing could create an additional business effect. This includes ticket submission, attachment finalization, comment creation, workflow transitions, approval decisions, and external webhook or future email processing.
 
 Store idempotency records with:
 
 - Tenant
-- User
-- Endpoint
-- Key
+- Principal/user or external integration identity
+- Stable operation code rather than a version-specific URL alone
+- Idempotency key
 - Request hash
+- Processing state
+- Lock/lease expiry for in-progress requests
 - Response code
-- Response body or result reference
-- Expiry
+- Response body or durable result reference
+- Resource type and resource ID when created
+- Created, completed, and expiry timestamps
 
-A repeated identical request returns the prior result. A repeated key with a different request hash returns conflict.
+Enforce uniqueness at least on tenant, operation code, and idempotency key. A repeated identical request returns the prior result. A repeated key with a different request hash returns conflict. Concurrent duplicate requests must not execute the business operation twice.
 
 ### 12.3 Ticket creation service
 
@@ -1074,14 +1289,20 @@ Do not accept a client-supplied object URI as trusted.
 Store:
 
 - Original filename
-- Generated object key
-- Content type
+- Generated quarantine and protected object keys as applicable
+- Content type declared by the client and content type detected by the server
 - Size
-- Checksum
-- Scanner result
+- SHA-256 checksum
+- Malware-scan status, scanner engine/version, scan timestamp, and detected threat when applicable
+- Quarantine, release, rejection, deletion, and retention status timestamps
+- Storage encryption/key reference where the platform exposes one; never store encryption keys
+- Retention-policy reference and legal-hold status
+- Security classification
 - Uploader
 - Visibility
 - Created timestamp
+
+Do not store raw attachment bytes in PostgreSQL. Keep files in object storage and enforce authorization before issuing a short-lived download URL.
 
 ---
 
@@ -1239,6 +1460,10 @@ AI classification produces structured suggestions. Routing rules remain determin
   "reason": "The user reports an invoice validation hold."
 }
 ```
+
+### 14.2.1 Deterministic priority calculation
+
+After classification, the backend resolves impact and urgency against the effective `config.priority_matrix`. Project/service overrides may apply through explicit precedence rules. The calculated priority and matrix/rule version are recorded in the ticket event history. User input and LLM output are recommendations only; neither can bypass the matrix or emergency-validation rules.
 
 ### 14.3 Routing rule evaluation
 
@@ -1858,6 +2083,12 @@ Implement:
 - Cancellation
 - Fallback provider only when explicitly configured
 - Structured logging without exposing sensitive prompts
+
+### 22.4 AI runtime policy and budget enforcement
+
+Before every provider call, resolve the effective global/tenant/environment/agent policy. Reject or downgrade the call when AI is disabled, a hard budget is reached, the user is rate-limited, the provider circuit is open, or the requested context/tool count exceeds policy. Record the policy and configuration versions used on `ai.agent_run`.
+
+Provider credentials remain in the secret manager. Database configuration may store provider/model deployment aliases, limits, thresholds, and fallback policy but never API secrets. All employee and analyst ticketing workflows require a deterministic non-AI path.
 
 ---
 
@@ -2756,7 +2987,19 @@ Acceptance:
 
 Deliver:
 
+- Review the supplied SQL against Section 8.6 before first installation
+- Incorporate approved foundational baseline amendments
 - Install baseline SQL
+- Configuration-versioning foundations
+- API idempotency persistence
+- Application environment and release registry
+- Deterministic priority matrix
+- Future email-correlation/communication metadata without an inbound gateway
+- Retention-policy and legal-hold foundations
+- Attachment security/quarantine metadata
+- AI feature-switch, runtime-policy, and budget foundations without provider credentials
+- General immutable audit coverage
+- Service ownership hierarchy
 - SQLAlchemy async engine
 - Unit of work
 - Request context
@@ -2767,8 +3010,15 @@ Deliver:
 
 Acceptance:
 
-- Clean database builds from baseline.
-- API can query seeded tenant/project data.
+- Clean PostgreSQL 16+ database builds from the amended baseline.
+- Baseline tests verify the required schemas, extensions, tables, constraints, indexes, and seed/reference data.
+- Fusion Applications `26C` and FDI `26.R2` remain distinct release families.
+- Idempotency uniqueness and concurrent duplicate protection are testable.
+- Priority is deterministically resolvable from seeded impact and urgency values.
+- AI can be disabled through configuration while all non-AI ticketing foundations remain available.
+- No provider credentials, raw email MIME messages, or attachment bytes are stored in PostgreSQL.
+- Append-only audit/event rows cannot be normally updated or deleted by runtime roles.
+- API can query seeded tenant/project/environment/service data.
 - Transaction context is isolated between tests.
 - CI runs database integration tests.
 
@@ -3205,27 +3455,30 @@ Each ADR should state context, decision, alternatives, consequences, and status.
 
 ## 41. Immediate build order
 
-Start with this exact sequence:
+Start with this exact sequence from the current project state:
 
-1. Extract the PostgreSQL starter package under `database/baseline`.
-2. Commit this `BUILD_SPEC.md`.
-3. Initialize repository and Docker Compose.
-4. Install PostgreSQL baseline in local development.
-5. Implement FastAPI health, settings, logging, DB engine, and unit of work.
-6. Add Alembic baseline marker.
-7. Add developer identity and authorization.
-8. Build catalogue APIs.
-9. Build one complete ticket vertical slice.
-10. Build minimal employee and analyst interfaces.
-11. Add workflow transitions.
-12. Add deterministic routing and queues.
-13. Add attachments.
-14. Add SLA and approvals.
-15. Add knowledge administration and ingestion.
-16. Add hybrid retrieval.
-17. Add employee agent.
-18. Add analyst copilot.
-19. Add reporting and production hardening.
+1. Commit and tag the completed Milestone 0, Task 0.1 repository scaffold.
+2. Commit this amended `BUILD_SPEC.md`.
+3. Extract the PostgreSQL starter package under `database/baseline/fusion_helpdesk_postgres/` with no extra nesting level.
+4. Have Codex produce a read-only impact assessment against Section 8.6.
+5. Approve and incorporate only the foundational baseline amendments; do not implement deferred product capabilities.
+6. Validate the amended baseline through a clean PostgreSQL integration test, then commit it.
+7. Install the approved PostgreSQL baseline in local development.
+8. Implement FastAPI health, settings, logging, DB engine, and unit of work.
+9. Add Alembic baseline marker; use Alembic for all subsequent schema changes.
+10. Add developer identity and authorization.
+11. Build catalogue APIs.
+12. Build one complete ticket vertical slice.
+13. Build minimal employee and analyst interfaces.
+14. Add workflow transitions.
+15. Add deterministic priority, routing, and queues.
+16. Add attachments using the quarantine/security lifecycle.
+17. Add SLA and approvals.
+18. Add knowledge administration and ingestion.
+19. Add hybrid retrieval.
+20. Add employee agent.
+21. Add analyst copilot.
+22. Add reporting and production hardening.
 
 The first success criterion is not “the chatbot works.” It is:
 
