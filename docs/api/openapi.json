@@ -160,6 +160,23 @@
         "title": "AcquisitionPermissionResponse",
         "type": "object"
       },
+      "AcquisitionRunCommand": {
+        "properties": {
+          "manifest_entry_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Manifest Entry Ids",
+            "type": "array"
+          }
+        },
+        "required": ["manifest_entry_ids"],
+        "title": "AcquisitionRunCommand",
+        "type": "object"
+      },
       "ActivityItemResponse": {
         "properties": {
           "actor_name": {
@@ -1634,6 +1651,384 @@
         "type": "object"
       },
       "JsonValue": {},
+      "ManifestApprovalCommand": {
+        "properties": {
+          "decision": {
+            "enum": ["APPROVED", "REJECTED"],
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "permission_reference": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Permission Reference",
+            "type": "string"
+          }
+        },
+        "required": ["decision", "permission_reference", "expected_version"],
+        "title": "ManifestApprovalCommand",
+        "type": "object"
+      },
+      "ManifestEntryInput": {
+        "properties": {
+          "acquisition_method": {
+            "enum": [
+              "APPROVED_DIRECT_DOWNLOAD",
+              "API_FEED",
+              "REPOSITORY_CONNECTOR"
+            ],
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "acquisition_url": {
+            "maxLength": 2000,
+            "minLength": 8,
+            "title": "Acquisition Url",
+            "type": "string"
+          },
+          "audience_code": {
+            "enum": [
+              "EMPLOYEE",
+              "ANALYST",
+              "TECHNICAL_SPECIALIST",
+              "ADMIN",
+              "ALL"
+            ],
+            "title": "Audience Code",
+            "type": "string"
+          },
+          "canonical_url": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Url"
+          },
+          "copyright_notice": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copyright Notice"
+          },
+          "declared_content_type": {
+            "maxLength": 150,
+            "minLength": 3,
+            "title": "Declared Content Type",
+            "type": "string"
+          },
+          "declared_size_bytes": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Size Bytes"
+          },
+          "document_title": {
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Document Title",
+            "type": "string"
+          },
+          "document_type": {
+            "enum": [
+              "USER_GUIDE",
+              "IMPLEMENTATION_GUIDE",
+              "ADMINISTRATION_GUIDE",
+              "SECURITY_GUIDE",
+              "API_REFERENCE",
+              "TABLES_AND_VIEWS",
+              "WHATS_NEW",
+              "READINESS",
+              "FAQ",
+              "POLICY",
+              "PROCEDURE",
+              "RUNBOOK",
+              "KNOWN_ERROR",
+              "HISTORICAL_FIX",
+              "ROOT_CAUSE_ANALYSIS",
+              "KNOWLEDGE_ARTICLE",
+              "OTHER"
+            ],
+            "title": "Document Type",
+            "type": "string"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Sha256"
+          },
+          "manifest_key": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]+$",
+            "title": "Manifest Key",
+            "type": "string"
+          },
+          "original_filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^/\\\\\\r\\n]+$",
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "security_classification": {
+            "default": "INTERNAL",
+            "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"],
+            "title": "Security Classification",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_last_modified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Last Modified At"
+          },
+          "target_collection": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Target Collection",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "manifest_key",
+          "document_title",
+          "document_type",
+          "audience_code",
+          "acquisition_url",
+          "target_collection",
+          "acquisition_method",
+          "original_filename",
+          "declared_content_type"
+        ],
+        "title": "ManifestEntryInput",
+        "type": "object"
+      },
+      "ManifestEntryResponse": {
+        "properties": {
+          "acquisition_method": {
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "acquisition_permission": {
+            "title": "Acquisition Permission",
+            "type": "string"
+          },
+          "acquisition_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acquisition Url"
+          },
+          "audience_code": {
+            "title": "Audience Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "declared_content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Content Type"
+          },
+          "declared_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Size Bytes"
+          },
+          "document_title": {
+            "title": "Document Title",
+            "type": "string"
+          },
+          "document_type": {
+            "title": "Document Type",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "expected_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Sha256"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "manifest_key": {
+            "title": "Manifest Key",
+            "type": "string"
+          },
+          "original_filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Filename"
+          },
+          "permission_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission Reference"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "scope": {
+            "enum": ["TENANT", "GLOBAL"],
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "scope",
+          "manifest_key",
+          "document_title",
+          "document_type",
+          "audience_code",
+          "acquisition_url",
+          "acquisition_method",
+          "acquisition_permission",
+          "permission_reference",
+          "enabled",
+          "expected_sha256",
+          "original_filename",
+          "declared_content_type",
+          "declared_size_bytes",
+          "row_version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ManifestEntryResponse",
+        "type": "object"
+      },
+      "ManifestImportCommand": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ManifestEntryInput"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": ["entries"],
+        "title": "ManifestImportCommand",
+        "type": "object"
+      },
+      "ManifestImportResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ManifestEntryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          }
+        },
+        "required": ["items"],
+        "title": "ManifestImportResponse",
+        "type": "object"
+      },
       "ManualAssignmentCommand": {
         "additionalProperties": false,
         "properties": {
@@ -1668,6 +2063,178 @@
         },
         "required": ["assignment_group_id", "reason", "row_version"],
         "title": "ManualAssignmentCommand",
+        "type": "object"
+      },
+      "ManualUploadCommand": {
+        "properties": {
+          "audience_code": {
+            "enum": [
+              "EMPLOYEE",
+              "ANALYST",
+              "TECHNICAL_SPECIALIST",
+              "ADMIN",
+              "ALL"
+            ],
+            "title": "Audience Code",
+            "type": "string"
+          },
+          "content_type": {
+            "maxLength": 150,
+            "minLength": 3,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "copyright_notice": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copyright Notice"
+          },
+          "document_title": {
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Document Title",
+            "type": "string"
+          },
+          "document_type": {
+            "enum": [
+              "USER_GUIDE",
+              "IMPLEMENTATION_GUIDE",
+              "ADMINISTRATION_GUIDE",
+              "SECURITY_GUIDE",
+              "API_REFERENCE",
+              "TABLES_AND_VIEWS",
+              "WHATS_NEW",
+              "READINESS",
+              "FAQ",
+              "POLICY",
+              "PROCEDURE",
+              "RUNBOOK",
+              "KNOWN_ERROR",
+              "HISTORICAL_FIX",
+              "ROOT_CAUSE_ANALYSIS",
+              "KNOWLEDGE_ARTICLE",
+              "OTHER"
+            ],
+            "title": "Document Type",
+            "type": "string"
+          },
+          "file_size_bytes": {
+            "exclusiveMinimum": 0.0,
+            "title": "File Size Bytes",
+            "type": "integer"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "pattern": "^[^/\\\\\\r\\n]+$",
+            "title": "Filename",
+            "type": "string"
+          },
+          "manifest_key": {
+            "maxLength": 500,
+            "minLength": 1,
+            "pattern": "^[^\\r\\n]+$",
+            "title": "Manifest Key",
+            "type": "string"
+          },
+          "security_classification": {
+            "default": "INTERNAL",
+            "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"],
+            "title": "Security Classification",
+            "type": "string"
+          },
+          "sha256_checksum": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256 Checksum",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "target_collection": {
+            "maxLength": 120,
+            "minLength": 2,
+            "title": "Target Collection",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "manifest_key",
+          "document_title",
+          "document_type",
+          "audience_code",
+          "target_collection",
+          "filename",
+          "content_type",
+          "file_size_bytes",
+          "sha256_checksum"
+        ],
+        "title": "ManualUploadCommand",
+        "type": "object"
+      },
+      "ManualUploadResponse": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "manifest_entry_id": {
+            "format": "uuid",
+            "title": "Manifest Entry Id",
+            "type": "string"
+          },
+          "quarantine_object_key": {
+            "title": "Quarantine Object Key",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "upload_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Upload Headers",
+            "type": "object"
+          },
+          "upload_url": {
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "item_id",
+          "manifest_entry_id",
+          "upload_url",
+          "upload_headers",
+          "quarantine_object_key",
+          "expires_at"
+        ],
+        "title": "ManualUploadResponse",
         "type": "object"
       },
       "NormalizedField": {
@@ -2475,6 +3042,252 @@
         },
         "required": ["row_version"],
         "title": "RouteCommand",
+        "type": "object"
+      },
+      "RunItemResponse": {
+        "properties": {
+          "attempt_count": {
+            "title": "Attempt Count",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "declared_content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared Content Type"
+          },
+          "detected_content_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detected Content Type"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "document_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Version Id"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "file_size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Size Bytes"
+          },
+          "filename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filename"
+          },
+          "final_failure": {
+            "title": "Final Failure",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "malware_scan_status": {
+            "title": "Malware Scan Status",
+            "type": "string"
+          },
+          "manifest_entry_id": {
+            "format": "uuid",
+            "title": "Manifest Entry Id",
+            "type": "string"
+          },
+          "next_attempt_at": {
+            "format": "date-time",
+            "title": "Next Attempt At",
+            "type": "string"
+          },
+          "sha256_checksum": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256 Checksum"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "manifest_entry_id",
+          "status",
+          "attempt_count",
+          "document_id",
+          "document_version_id",
+          "sha256_checksum",
+          "filename",
+          "declared_content_type",
+          "detected_content_type",
+          "file_size_bytes",
+          "malware_scan_status",
+          "error_code",
+          "next_attempt_at",
+          "final_failure",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "RunItemResponse",
+        "type": "object"
+      },
+      "RunResponse": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "completed_items": {
+            "title": "Completed Items",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "failed_items": {
+            "title": "Failed Items",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total_items": {
+            "title": "Total Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "requested_by",
+          "total_items",
+          "completed_items",
+          "failed_items",
+          "created_at",
+          "started_at",
+          "completed_at",
+          "row_version",
+          "items"
+        ],
+        "title": "RunResponse",
         "type": "object"
       },
       "ServiceNodeListResponse": {
@@ -3515,6 +4328,32 @@
         "title": "UploadAuthorizationResponse",
         "type": "object"
       },
+      "UploadCompleteResponse": {
+        "properties": {
+          "item_id": {
+            "format": "uuid",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": ["run_id", "item_id", "status"],
+        "title": "UploadCompleteResponse",
+        "type": "object"
+      },
       "UploadRequest": {
         "properties": {
           "content_type": {
@@ -3622,6 +4461,712 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/ingestion/runs": {
+      "post": {
+        "operationId": "create_run_api_v1_admin_ingestion_runs_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcquisitionRunCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported document content"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Run",
+        "tags": ["knowledge-ingestion"]
+      }
+    },
+    "/api/v1/admin/ingestion/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_api_v1_admin_ingestion_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported document content"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Run",
+        "tags": ["knowledge-ingestion"]
+      }
+    },
+    "/api/v1/admin/knowledge/manifest/import": {
+      "post": {
+        "operationId": "import_manifest_api_v1_admin_knowledge_manifest_import_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManifestImportCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManifestImportResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported document content"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Import Manifest",
+        "tags": ["knowledge-ingestion"]
+      }
+    },
+    "/api/v1/admin/knowledge/manifest/{entry_id}/approval-decisions": {
+      "post": {
+        "operationId": "decide_manifest_api_v1_admin_knowledge_manifest__entry_id__approval_decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManifestApprovalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManifestEntryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported document content"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Manifest",
+        "tags": ["knowledge-ingestion"]
+      }
+    },
+    "/api/v1/admin/knowledge/manual-uploads": {
+      "post": {
+        "operationId": "authorize_manual_upload_api_v1_admin_knowledge_manual_uploads_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualUploadCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported document content"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Authorize Manual Upload",
+        "tags": ["knowledge-ingestion"]
+      }
+    },
+    "/api/v1/admin/knowledge/manual-uploads/{item_id}/complete": {
+      "post": {
+        "operationId": "complete_manual_upload_api_v1_admin_knowledge_manual_uploads__item_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadCompleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported document content"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Acquisition validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Complete Manual Upload",
+        "tags": ["knowledge-ingestion"]
+      }
+    },
     "/api/v1/admin/knowledge/sources": {
       "get": {
         "operationId": "list_sources_api_v1_admin_knowledge_sources_get",
@@ -7942,6 +9487,10 @@
     {
       "description": "Governed knowledge sources.",
       "name": "knowledge-admin"
+    },
+    {
+      "description": "Governed document acquisition and quarantine.",
+      "name": "knowledge-ingestion"
     }
   ]
 }

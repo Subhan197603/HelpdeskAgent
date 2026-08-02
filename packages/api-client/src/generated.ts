@@ -4,6 +4,108 @@
  */
 
 export interface paths {
+  "/api/v1/admin/ingestion/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Run */
+    post: operations["create_run_api_v1_admin_ingestion_runs_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/ingestion/runs/{run_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Run */
+    get: operations["get_run_api_v1_admin_ingestion_runs__run_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/manifest/import": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Import Manifest */
+    post: operations["import_manifest_api_v1_admin_knowledge_manifest_import_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/manifest/{entry_id}/approval-decisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Decide Manifest */
+    post: operations["decide_manifest_api_v1_admin_knowledge_manifest__entry_id__approval_decisions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/manual-uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Authorize Manual Upload */
+    post: operations["authorize_manual_upload_api_v1_admin_knowledge_manual_uploads_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/manual-uploads/{item_id}/complete": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Complete Manual Upload */
+    post: operations["complete_manual_upload_api_v1_admin_knowledge_manual_uploads__item_id__complete_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/sources": {
     parameters: {
       query?: never;
@@ -772,6 +874,11 @@ export interface components {
        */
       source_id: string;
     };
+    /** AcquisitionRunCommand */
+    AcquisitionRunCommand: {
+      /** Manifest Entry Ids */
+      manifest_entry_ids: string[];
+    };
     /** ActivityItemResponse */
     ActivityItemResponse: {
       /** Actor Name */
@@ -1302,6 +1409,160 @@ export interface components {
       status: "authorized";
     };
     JsonValue: unknown;
+    /** ManifestApprovalCommand */
+    ManifestApprovalCommand: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "APPROVED" | "REJECTED";
+      /** Expected Version */
+      expected_version: number;
+      /** Permission Reference */
+      permission_reference: string;
+    };
+    /** ManifestEntryInput */
+    ManifestEntryInput: {
+      /**
+       * Acquisition Method
+       * @enum {string}
+       */
+      acquisition_method:
+        "APPROVED_DIRECT_DOWNLOAD" | "API_FEED" | "REPOSITORY_CONNECTOR";
+      /** Acquisition Url */
+      acquisition_url: string;
+      /**
+       * Audience Code
+       * @enum {string}
+       */
+      audience_code:
+        "EMPLOYEE" | "ANALYST" | "TECHNICAL_SPECIALIST" | "ADMIN" | "ALL";
+      /** Canonical Url */
+      canonical_url?: string | null;
+      /** Copyright Notice */
+      copyright_notice?: string | null;
+      /** Declared Content Type */
+      declared_content_type: string;
+      /** Declared Size Bytes */
+      declared_size_bytes?: number | null;
+      /** Document Title */
+      document_title: string;
+      /**
+       * Document Type
+       * @enum {string}
+       */
+      document_type:
+        | "USER_GUIDE"
+        | "IMPLEMENTATION_GUIDE"
+        | "ADMINISTRATION_GUIDE"
+        | "SECURITY_GUIDE"
+        | "API_REFERENCE"
+        | "TABLES_AND_VIEWS"
+        | "WHATS_NEW"
+        | "READINESS"
+        | "FAQ"
+        | "POLICY"
+        | "PROCEDURE"
+        | "RUNBOOK"
+        | "KNOWN_ERROR"
+        | "HISTORICAL_FIX"
+        | "ROOT_CAUSE_ANALYSIS"
+        | "KNOWLEDGE_ARTICLE"
+        | "OTHER";
+      /** Expected Sha256 */
+      expected_sha256?: string | null;
+      /** Manifest Key */
+      manifest_key: string;
+      /** Original Filename */
+      original_filename: string;
+      /**
+       * Security Classification
+       * @default INTERNAL
+       * @enum {string}
+       */
+      security_classification:
+        "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED";
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Source Last Modified At */
+      source_last_modified_at?: string | null;
+      /** Target Collection */
+      target_collection: string;
+    };
+    /** ManifestEntryResponse */
+    ManifestEntryResponse: {
+      /** Acquisition Method */
+      acquisition_method: string;
+      /** Acquisition Permission */
+      acquisition_permission: string;
+      /** Acquisition Url */
+      acquisition_url: string | null;
+      /** Audience Code */
+      audience_code: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Declared Content Type */
+      declared_content_type: string | null;
+      /** Declared Size Bytes */
+      declared_size_bytes: number | null;
+      /** Document Title */
+      document_title: string;
+      /** Document Type */
+      document_type: string;
+      /** Enabled */
+      enabled: boolean;
+      /** Expected Sha256 */
+      expected_sha256: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Manifest Key */
+      manifest_key: string;
+      /** Original Filename */
+      original_filename: string | null;
+      /** Permission Reference */
+      permission_reference: string | null;
+      /** Row Version */
+      row_version: number;
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope: "TENANT" | "GLOBAL";
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** ManifestImportCommand */
+    ManifestImportCommand: {
+      /** Entries */
+      entries: components["schemas"]["ManifestEntryInput"][];
+    };
+    /** ManifestImportResponse */
+    ManifestImportResponse: {
+      /** Items */
+      items: components["schemas"]["ManifestEntryResponse"][];
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+    };
     /** ManualAssignmentCommand */
     ManualAssignmentCommand: {
       /** Assignee User Id */
@@ -1315,6 +1576,101 @@ export interface components {
       reason: string;
       /** Row Version */
       row_version: number;
+    };
+    /** ManualUploadCommand */
+    ManualUploadCommand: {
+      /**
+       * Audience Code
+       * @enum {string}
+       */
+      audience_code:
+        "EMPLOYEE" | "ANALYST" | "TECHNICAL_SPECIALIST" | "ADMIN" | "ALL";
+      /** Content Type */
+      content_type: string;
+      /** Copyright Notice */
+      copyright_notice?: string | null;
+      /** Document Title */
+      document_title: string;
+      /**
+       * Document Type
+       * @enum {string}
+       */
+      document_type:
+        | "USER_GUIDE"
+        | "IMPLEMENTATION_GUIDE"
+        | "ADMINISTRATION_GUIDE"
+        | "SECURITY_GUIDE"
+        | "API_REFERENCE"
+        | "TABLES_AND_VIEWS"
+        | "WHATS_NEW"
+        | "READINESS"
+        | "FAQ"
+        | "POLICY"
+        | "PROCEDURE"
+        | "RUNBOOK"
+        | "KNOWN_ERROR"
+        | "HISTORICAL_FIX"
+        | "ROOT_CAUSE_ANALYSIS"
+        | "KNOWLEDGE_ARTICLE"
+        | "OTHER";
+      /** File Size Bytes */
+      file_size_bytes: number;
+      /** Filename */
+      filename: string;
+      /** Manifest Key */
+      manifest_key: string;
+      /**
+       * Security Classification
+       * @default INTERNAL
+       * @enum {string}
+       */
+      security_classification:
+        "PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED";
+      /** Sha256 Checksum */
+      sha256_checksum: string;
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Target Collection */
+      target_collection: string;
+    };
+    /** ManualUploadResponse */
+    ManualUploadResponse: {
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Item Id
+       * Format: uuid
+       */
+      item_id: string;
+      /**
+       * Manifest Entry Id
+       * Format: uuid
+       */
+      manifest_entry_id: string;
+      /** Quarantine Object Key */
+      quarantine_object_key: string;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /** Upload Headers */
+      upload_headers: {
+        [key: string]: string;
+      };
+      /** Upload Url */
+      upload_url: string;
     };
     /** NormalizedField */
     NormalizedField: {
@@ -1625,6 +1981,97 @@ export interface components {
     RouteCommand: {
       /** Row Version */
       row_version: number;
+    };
+    /** RunItemResponse */
+    RunItemResponse: {
+      /** Attempt Count */
+      attempt_count: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Declared Content Type */
+      declared_content_type: string | null;
+      /** Detected Content Type */
+      detected_content_type: string | null;
+      /** Document Id */
+      document_id: string | null;
+      /** Document Version Id */
+      document_version_id: string | null;
+      /** Error Code */
+      error_code: string | null;
+      /** File Size Bytes */
+      file_size_bytes: number | null;
+      /** Filename */
+      filename: string | null;
+      /** Final Failure */
+      final_failure: boolean;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Malware Scan Status */
+      malware_scan_status: string;
+      /**
+       * Manifest Entry Id
+       * Format: uuid
+       */
+      manifest_entry_id: string;
+      /**
+       * Next Attempt At
+       * Format: date-time
+       */
+      next_attempt_at: string;
+      /** Sha256 Checksum */
+      sha256_checksum: string | null;
+      /** Status */
+      status: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** RunResponse */
+    RunResponse: {
+      /** Completed At */
+      completed_at: string | null;
+      /** Completed Items */
+      completed_items: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Failed Items */
+      failed_items: number;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Items */
+      items: components["schemas"]["RunItemResponse"][];
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /**
+       * Requested By
+       * Format: uuid
+       */
+      requested_by: string;
+      /** Row Version */
+      row_version: number;
+      /** Started At */
+      started_at: string | null;
+      /** Status */
+      status: string;
+      /** Total Items */
+      total_items: number;
     };
     /** ServiceNodeListResponse */
     ServiceNodeListResponse: {
@@ -2024,6 +2471,26 @@ export interface components {
       /** Upload Url */
       upload_url: string;
     };
+    /** UploadCompleteResponse */
+    UploadCompleteResponse: {
+      /**
+       * Item Id
+       * Format: uuid
+       */
+      item_id: string;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /** Status */
+      status: string;
+    };
     /** UploadRequest */
     UploadRequest: {
       /** Content Type */
@@ -2070,6 +2537,536 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  create_run_api_v1_admin_ingestion_runs_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AcquisitionRunCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported document content */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  get_run_api_v1_admin_ingestion_runs__run_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported document content */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  import_manifest_api_v1_admin_knowledge_manifest_import_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManifestImportCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ManifestImportResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported document content */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  decide_manifest_api_v1_admin_knowledge_manifest__entry_id__approval_decisions_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        entry_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManifestApprovalCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ManifestEntryResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported document content */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  authorize_manual_upload_api_v1_admin_knowledge_manual_uploads_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualUploadCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ManualUploadResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported document content */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  complete_manual_upload_api_v1_admin_knowledge_manual_uploads__item_id__complete_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        item_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadCompleteResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported document content */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Acquisition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   list_sources_api_v1_admin_knowledge_sources_get: {
     parameters: {
       query?: {

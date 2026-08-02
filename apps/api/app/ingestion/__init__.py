@@ -1,1 +1,1 @@
-"""Knowledge ingestion module."""
+"""Governed document acquisition and quarantine pipeline."""

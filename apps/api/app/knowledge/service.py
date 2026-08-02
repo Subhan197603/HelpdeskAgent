@@ -4,7 +4,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Literal, cast
+from typing import Literal, Protocol, cast
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
@@ -304,7 +304,7 @@ class KnowledgeSourceService:
             if source is None:
                 raise NotFoundError("Knowledge source was not found.")
             authorization = await repo.effective_authorization(tenant_id, source)
-        reasons = _permission_reasons(source, authorization, self._settings)
+        reasons = acquisition_permission_reasons(source, authorization, self._settings)
         return AcquisitionPermissionResponse(
             source_id=source_id,
             allowed=not reasons,
@@ -390,25 +390,35 @@ def _hash(operation: str, value: dict[str, object]) -> str:
     ).hexdigest()
 
 
-def _permission_reasons(
+class AcquisitionGateSettings(Protocol):
+    oracle_document_acquisition_enabled: bool
+
+
+def acquisition_permission_reasons(
     source: KnowledgeSource,
     authorization: SourceAuthorization | None,
-    settings: Settings,
+    settings: AcquisitionGateSettings,
+    *,
+    external: bool = True,
 ) -> list[str]:
     reasons: list[str] = []
     if source.source_status != "ACTIVE":
         reasons.append("SOURCE_NOT_ACTIVE")
     if source.approval_status != "APPROVED":
         reasons.append("SOURCE_NOT_APPROVED")
-    if source.acquisition_method not in _EXTERNAL_METHODS:
+    if external and source.acquisition_method not in _EXTERNAL_METHODS:
         reasons.append("EXTERNAL_ACQUISITION_NOT_CONFIGURED")
-    if not source.automated_access_allowed:
+    if external and not source.automated_access_allowed:
         reasons.append("AUTOMATED_ACCESS_NOT_AUTHORIZED")
-    if authorization is None or authorization.decision_code != "APPROVED":
+    if external and (authorization is None or authorization.decision_code != "APPROVED"):
         reasons.append("APPROVED_ALLOWLIST_ENTRY_MISSING")
-    elif authorization.acquisition_method != source.acquisition_method:
+    elif (
+        external
+        and authorization is not None
+        and (authorization.acquisition_method != source.acquisition_method)
+    ):
         reasons.append("ALLOWLIST_METHOD_MISMATCH")
-    if (
+    if external and (
         source.source_type == "ORACLE_PUBLIC_DOCUMENTATION"
         and not settings.oracle_document_acquisition_enabled
     ):

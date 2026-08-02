@@ -61,3 +61,21 @@ def test_production_requires_remote_tls_smtp(smtp_host: str, starttls: bool, mes
                 "smtp_starttls": starttls,
             }
         )
+
+
+def test_production_requires_encrypted_object_storage_credentials() -> None:
+    common = {
+        "app_env": "production",
+        "json_logs": True,
+        "worker_database_url": (
+            "postgresql+psycopg://worker:strong-password@database.internal/helpdesk"
+        ),
+        "smtp_host": "smtp.example.invalid",
+        "smtp_starttls": True,
+    }
+    with pytest.raises(ValidationError, match="credentials"):
+        WorkerSettings.model_validate(common)
+    with pytest.raises(ValidationError, match="encryption"):
+        WorkerSettings.model_validate(
+            common | {"object_storage_access_key": "access", "object_storage_secret_key": "secret"}
+        )

@@ -35,6 +35,12 @@ class ObjectStorage(Protocol):
     async def create_download_url(self, key: str, filename: str, expires: int) -> str: ...
 
 
+class WritableObjectStorage(ObjectStorage, Protocol):
+    async def write(self, key: str, content: bytes, content_type: str) -> None: ...
+
+    async def copy(self, source: str, destination: str, content_type: str) -> None: ...
+
+
 class S3ObjectStorage:
     """Use generated opaque keys in one private bucket; never trust client object paths."""
 
@@ -108,7 +114,25 @@ class S3ObjectStorage:
             raise ObjectTooLargeError("Stored object exceeds the permitted size")
         return cast("bytes", body)
 
+    async def write(self, key: str, content: bytes, content_type: str) -> None:
+        parameters: dict[str, object] = {
+            "Bucket": self._bucket,
+            "Key": key,
+            "Body": content,
+            "ContentType": content_type,
+            "ACL": "private",
+        }
+        if self._encryption is not None:
+            parameters["ServerSideEncryption"] = self._encryption
+        if self._encryption_key is not None:
+            parameters["SSEKMSKeyId"] = self._encryption_key
+        await self._call(self._client.put_object, **parameters)
+
     async def promote(self, source: str, destination: str, content_type: str) -> None:
+        await self.copy(source, destination, content_type)
+        await self._call(self._client.delete_object, Bucket=self._bucket, Key=source)
+
+    async def copy(self, source: str, destination: str, content_type: str) -> None:
         parameters: dict[str, object] = {
             "Bucket": self._bucket,
             "Key": destination,
@@ -124,7 +148,6 @@ class S3ObjectStorage:
             self._client.copy_object,
             **parameters,
         )
-        await self._call(self._client.delete_object, Bucket=self._bucket, Key=source)
 
     async def reject(self, key: str) -> None:
         await self._call(self._client.delete_object, Bucket=self._bucket, Key=key)

@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     attachment_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
     attachment_upload_url_seconds: int = Field(default=900, ge=60, le=3600)
     attachment_download_url_seconds: int = Field(default=300, ge=30, le=900)
+    knowledge_document_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
+    knowledge_upload_url_seconds: int = Field(default=900, ge=60, le=3600)
+    acquisition_fetch_timeout_seconds: float = Field(default=30, ge=1, le=120)
 
     clamav_host: str = "localhost"
     clamav_port: int = 3310

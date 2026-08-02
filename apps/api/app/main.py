@@ -29,6 +29,7 @@ from apps.api.app.infrastructure.clamav_health import ClamAVHealthProbe
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
 from apps.api.app.infrastructure.redis_health import RedisHealthProbe
+from apps.api.app.ingestion.service import IngestionService
 from apps.api.app.knowledge.service import KnowledgeSourceService
 from apps.api.app.notifications.service import NotificationService
 from apps.api.app.queues.service import QueueService
@@ -91,6 +92,10 @@ def create_app(
             {"name": "approvals", "description": "Assigned approval decisions."},
             {"name": "notifications", "description": "User notification inbox."},
             {"name": "knowledge-admin", "description": "Governed knowledge sources."},
+            {
+                "name": "knowledge-ingestion",
+                "description": "Governed document acquisition and quarantine.",
+            },
         ],
     )
     app.state.settings = settings
@@ -141,6 +146,12 @@ def create_app(
     )
     app.state.knowledge_source_service = KnowledgeSourceService(
         unit_of_work_factory, app.state.authorization_service, settings
+    )
+    app.state.ingestion_service = IngestionService(
+        unit_of_work_factory,
+        app.state.authorization_service,
+        S3ObjectStorage(settings),
+        settings,
     )
     app.state.routing_service = RoutingService(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service

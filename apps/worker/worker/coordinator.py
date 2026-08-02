@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
+from apps.worker.worker.acquisition_worker import AcquisitionWorker
 from apps.worker.worker.notification_worker import NotificationWorker
 from apps.worker.worker.settings import WorkerSettings
 from apps.worker.worker.sla_worker import SlaWorker
@@ -15,10 +16,12 @@ class ApplicationWorker:
         self,
         sla_worker: SlaWorker,
         notification_worker: NotificationWorker,
+        acquisition_worker: AcquisitionWorker,
         settings: WorkerSettings,
     ) -> None:
         self._sla = sla_worker
         self._notifications = notification_worker
+        self._acquisition = acquisition_worker
         self._settings = settings
 
     async def run_forever(self) -> None:
@@ -30,6 +33,9 @@ class ApplicationWorker:
                     handled += 1
                     continue
                 if await self._notifications.process_one():
+                    handled += 1
+                    continue
+                if await self._acquisition.process_one():
                     handled += 1
                     continue
                 break
@@ -53,6 +59,7 @@ def create_application_worker(settings: WorkerSettings) -> tuple[ApplicationWork
         ApplicationWorker(
             SlaWorker(sessions, settings),
             NotificationWorker(sessions, settings),
+            AcquisitionWorker(sessions, settings),
             settings,
         ),
         engine,

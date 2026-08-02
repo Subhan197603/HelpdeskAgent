@@ -1,7 +1,7 @@
 """Typed settings for the non-owner background worker runtime."""
 
 import socket
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,6 +29,20 @@ class WorkerSettings(BaseSettings):
     worker_due_scan_seconds: float = Field(default=15.0, ge=1, le=300)
     worker_batch_size: int = Field(default=50, ge=1, le=500)
     worker_max_attempts: int = Field(default=5, ge=1, le=20)
+    object_storage_endpoint: str = "http://localhost:9000"
+    object_storage_bucket: str = "helpdesk"
+    object_storage_region: str = "us-east-1"
+    object_storage_use_ssl: bool = False
+    object_storage_access_key: SecretStr | None = None
+    object_storage_secret_key: SecretStr | None = None
+    object_storage_server_side_encryption: Literal["AES256", "aws:kms"] | None = None
+    object_storage_sse_key_id: SecretStr | None = None
+    knowledge_document_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
+    acquisition_fetch_timeout_seconds: float = Field(default=30, ge=1, le=120)
+    clamav_host: str = "localhost"
+    clamav_port: int = Field(default=3310, ge=1, le=65535)
+    clamav_timeout_seconds: float = Field(default=15, gt=0, le=120)
+    oracle_document_acquisition_enabled: bool = False
     smtp_host: str = Field(default="localhost", min_length=1, max_length=253)
     smtp_port: int = Field(default=1025, ge=1, le=65535)
     smtp_from: str = Field(default="helpdesk@example.invalid", min_length=3, max_length=320)
@@ -55,4 +69,27 @@ class WorkerSettings(BaseSettings):
             raise ValueError("SMTP_HOST must be explicitly provisioned for production")
         if not self.smtp_starttls:
             raise ValueError("SMTP_STARTTLS must be true in production")
+        storage_credentials = (
+            self.object_storage_access_key.get_secret_value().lower()
+            if self.object_storage_access_key
+            else ""
+        )
+        storage_secret = (
+            self.object_storage_secret_key.get_secret_value().lower()
+            if self.object_storage_secret_key
+            else ""
+        )
+        if storage_credentials in {"", "minio", "change-me"} or storage_secret in {
+            "",
+            "minio",
+            "change-me",
+        }:
+            raise ValueError("Object storage credentials must be configured in production")
+        if self.object_storage_server_side_encryption is None:
+            raise ValueError("Object storage encryption must be configured in production")
+        if (
+            self.object_storage_server_side_encryption == "aws:kms"
+            and self.object_storage_sse_key_id is None
+        ):
+            raise ValueError("OBJECT_STORAGE_SSE_KEY_ID is required for aws:kms")
         return self
