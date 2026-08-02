@@ -339,7 +339,10 @@ def test_known_user_loads_database_roles_groups_and_business_unit(
     assert payload["user_id"] == "22000000-0000-0000-0000-000000000004"
     assert payload["tenant_id"] == "20000000-0000-0000-0000-000000000001"
     assert payload["role_codes"] == ["AGENT"]
-    assert payload["support_group_ids"] == ["23000000-0000-0000-0000-000000000001"]
+    assert payload["support_group_ids"] == [
+        "23000000-0000-0000-0000-000000000001",
+        "23000000-0000-0000-0000-000000000002",
+    ]
     assert payload["business_unit_id"] == "21000000-0000-0000-0000-000000000001"
 
 
@@ -358,7 +361,10 @@ def test_oidc_identity_uses_database_authority_and_synchronizes_only_profile_fie
     assert payload["authentication_mode"] == "oidc"
     assert payload["provider_code"] == "TEST_OIDC"
     assert payload["role_codes"] == ["AGENT"]
-    assert payload["support_group_ids"] == ["23000000-0000-0000-0000-000000000001"]
+    assert payload["support_group_ids"] == [
+        "23000000-0000-0000-0000-000000000001",
+        "23000000-0000-0000-0000-000000000002",
+    ]
     persisted = _psql(
         "identity_auth",
         "-Atqc",
@@ -612,7 +618,7 @@ async def test_transaction_context_and_optional_rls_fail_closed_for_non_owner() 
         async with sessions() as session, session.begin():
             await apply_transaction_context(session, dev_context, rls_enabled=True)
             visible = await session.scalar(text("SELECT count(*) FROM identity.app_user"))
-            assert visible == 9
+            assert visible == 10
             assert await session.scalar(text("SELECT current_setting('app.user_id')")) == str(
                 dev_context.user_id
             )
@@ -650,7 +656,7 @@ async def test_transaction_context_and_optional_rls_fail_closed_for_non_owner() 
         dev_result, other_result = await asyncio.gather(
             concurrent_visibility(dev_context), concurrent_visibility(other_context)
         )
-        assert dev_result == (str(dev_context.tenant_id), str(dev_context.user_id), 9)
+        assert dev_result == (str(dev_context.tenant_id), str(dev_context.user_id), 10)
         assert other_result == (str(other_context.tenant_id), str(other_context.user_id), 0)
     finally:
         await engine.dispose()
@@ -659,7 +665,7 @@ async def test_transaction_context_and_optional_rls_fail_closed_for_non_owner() 
     try:
         async with owner.connect() as connection:
             owner_visible = await connection.scalar(text("SELECT count(*) FROM identity.app_user"))
-        assert owner_visible == 9
+        assert owner_visible == 10
     finally:
         await owner.dispose()
 

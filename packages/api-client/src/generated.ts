@@ -38,6 +38,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/assignment": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Assign Ticket */
+    post: operations["assign_ticket_api_v1_agent_tickets__ticket_key__assignment_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/tickets/{ticket_key}/route": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Route Ticket */
+    post: operations["route_ticket_api_v1_agent_tickets__ticket_key__route_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/tickets/{ticket_key}/transitions": {
     parameters: {
       query?: never;
@@ -368,6 +402,26 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AssignmentResponse */
+    AssignmentResponse: {
+      /** Assignee User Id */
+      assignee_user_id: string | null;
+      /** Assignment Group Code */
+      assignment_group_code: string;
+      /**
+       * Fallback
+       * @default false
+       */
+      fallback: boolean;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Routing Rule Version Id */
+      routing_rule_version_id?: string | null;
+      ticket: components["schemas"]["TicketResponse"];
+    };
     /** AvailableTransition */
     AvailableTransition: {
       /** Code */
@@ -717,6 +771,20 @@ export interface components {
       status: "authorized";
     };
     JsonValue: unknown;
+    /** ManualAssignmentCommand */
+    ManualAssignmentCommand: {
+      /** Assignee User Id */
+      assignee_user_id?: string | null;
+      /**
+       * Assignment Group Id
+       * Format: uuid
+       */
+      assignment_group_id: string;
+      /** Reason */
+      reason: string;
+      /** Row Version */
+      row_version: number;
+    };
     /** NormalizedField */
     NormalizedField: {
       /** Data Type */
@@ -889,6 +957,11 @@ export interface components {
       /** Version Number */
       version_number: number;
       work_type: components["schemas"]["WorkTypeResponse"];
+    };
+    /** RouteCommand */
+    RouteCommand: {
+      /** Row Version */
+      row_version: number;
     };
     /** ServiceNodeListResponse */
     ServiceNodeListResponse: {
@@ -1163,6 +1236,154 @@ export interface operations {
         };
       };
       /** @description Structured validation failure */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  assign_ticket_api_v1_agent_tickets__ticket_key__assignment_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+        "If-Match"?: string | null;
+      };
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualAssignmentCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssignmentResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Routing or concurrency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Assignment validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  route_ticket_api_v1_agent_tickets__ticket_key__route_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+        "If-Match"?: string | null;
+      };
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RouteCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AssignmentResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Routing or concurrency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Assignment validation failed */
       422: {
         headers: {
           [name: string]: unknown;

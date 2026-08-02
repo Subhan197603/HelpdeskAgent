@@ -3,14 +3,15 @@
 BEGIN;
 
 INSERT INTO config.service_project(
-    project_id, tenant_id, project_key, project_name, description, default_timezone
+    project_id, tenant_id, project_key, project_name, description, default_timezone,
+    default_group_id
 ) VALUES
-('30000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','IT','Corporate IT Helpdesk','General corporate technology support.','Europe/London'),
-('30000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','ERP','Oracle Fusion ERP Support','Oracle Fusion ERP functional and technical support.','Europe/London'),
-('30000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','HCM','Oracle Fusion HCM Support','Oracle Fusion HCM support.','Europe/London'),
-('30000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','SCM','Oracle Fusion SCM Support','Oracle Fusion SCM support.','Europe/London'),
-('30000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','BI','Analytics and Reporting Support','OTBI, BI Publisher, OAC, and FDI support.','Europe/London'),
-('30000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','SEC','Identity and Security','Identity, authentication, and access support.','Europe/London')
+('30000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','IT','Corporate IT Helpdesk','General corporate technology support.','Europe/London','23000000-0000-0000-0000-000000000001'),
+('30000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','ERP','Oracle Fusion ERP Support','Oracle Fusion ERP functional and technical support.','Europe/London','23000000-0000-0000-0000-000000000001'),
+('30000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','HCM','Oracle Fusion HCM Support','Oracle Fusion HCM support.','Europe/London','23000000-0000-0000-0000-000000000001'),
+('30000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','SCM','Oracle Fusion SCM Support','Oracle Fusion SCM support.','Europe/London','23000000-0000-0000-0000-000000000001'),
+('30000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','BI','Analytics and Reporting Support','OTBI, BI Publisher, OAC, and FDI support.','Europe/London','23000000-0000-0000-0000-000000000001'),
+('30000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','SEC','Identity and Security','Identity, authentication, and access support.','Europe/London','23000000-0000-0000-0000-000000000001')
 ON CONFLICT (project_id) DO NOTHING;
 
 INSERT INTO config.service_node(
@@ -21,6 +22,7 @@ INSERT INTO config.service_node(
 ('31000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001',NULL,'ORACLE_FUSION','Oracle Fusion Cloud Applications','SERVICE_FAMILY',20,'HIGH','INTERNAL'),
 ('31000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','31000000-0000-0000-0000-000000000002','ERP','Enterprise Resource Planning','APPLICATION',10,'HIGH','INTERNAL'),
 ('31000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','31000000-0000-0000-0000-000000000002','HCM','Human Capital Management','APPLICATION',20,'HIGH','CONFIDENTIAL'),
+('31000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','31000000-0000-0000-0000-000000000003','ACCOUNTS_PAYABLE','Accounts Payable','MODULE',10,'HIGH','INTERNAL'),
 ('31000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001',NULL,'INACTIVE_NODE','Inactive service','SERVICE',1,NULL,'INTERNAL')
 ON CONFLICT (service_node_id) DO NOTHING;
 
@@ -84,6 +86,30 @@ SET version_status = 'PUBLISHED',
     published_by = '22000000-0000-0000-0000-000000000001'
 WHERE workflow_version_id = '32100000-0000-0000-0000-000000000001'
   AND version_status = 'DRAFT';
+
+INSERT INTO config.routing_rule(
+    routing_rule_id, tenant_id, project_id, rule_name, rule_priority,
+    condition_json, assignment_group_id, assignment_method
+) VALUES
+('36000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','Accounts Payable module',10,'{"all":[{"field":"module_code","operator":"equals","value":"ACCOUNTS_PAYABLE"}]}','23000000-0000-0000-0000-000000000002','ROUND_ROBIN'),
+('36000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','ERP default route',9999,'{}','23000000-0000-0000-0000-000000000001','GROUP_ONLY')
+ON CONFLICT (routing_rule_id) DO NOTHING;
+
+INSERT INTO config.routing_rule_version(
+    routing_rule_version_id,routing_rule_id,version_number,version_status,
+    rule_priority,condition_json,assignment_group_id,assignment_method,
+    effective_from,created_by,approved_by,approved_at,change_reason
+) VALUES
+('36100000-0000-0000-0000-000000000001','36000000-0000-0000-0000-000000000001',1,'DRAFT',10,'{"all":[{"field":"module_code","operator":"equals","value":"ACCOUNTS_PAYABLE"}]}','23000000-0000-0000-0000-000000000002','ROUND_ROBIN','2025-01-01T00:00:00Z','22000000-0000-0000-0000-000000000001','22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z','Initial AP route'),
+('36100000-0000-0000-0000-000000000002','36000000-0000-0000-0000-000000000002',1,'DRAFT',9999,'{}','23000000-0000-0000-0000-000000000001','GROUP_ONLY','2025-01-01T00:00:00Z','22000000-0000-0000-0000-000000000001','22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z','Explicit ERP fallback')
+ON CONFLICT (routing_rule_version_id) DO NOTHING;
+
+UPDATE config.routing_rule_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE routing_rule_version_id IN (
+    '36100000-0000-0000-0000-000000000001',
+    '36100000-0000-0000-0000-000000000002'
+) AND version_status='DRAFT';
 
 INSERT INTO config.request_type(
     request_type_id, tenant_id, project_id, work_type_id, workflow_id,

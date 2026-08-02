@@ -19,6 +19,7 @@ from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.main import create_app
+from apps.api.app.routing.schemas import AssignmentResponse, RouteCommand
 from apps.api.app.tickets.repository import TicketRepository
 from apps.api.app.workflows.schemas import TransitionCommand, TransitionResponse
 
@@ -199,9 +200,9 @@ def _body() -> dict[str, object]:
     }
 
 
-def _draft(client: TestClient) -> dict[str, object]:
+def _draft(client: TestClient, body: dict[str, object] | None = None) -> dict[str, object]:
     headers = {"X-Developer-User": "DEV/customer"}
-    created = client.post("/api/v1/ticket-drafts", headers=headers, json=_body())
+    created = client.post("/api/v1/ticket-drafts", headers=headers, json=body or _body())
     assert created.status_code == 201
     value = created.json()
     validated = client.post(
@@ -852,3 +853,237 @@ def test_transition_required_fields_and_concurrent_conflict(client: TestClient) 
     )
     assert resolved.status_code == 200
     assert resolved.json()["ticket"]["status"] == "RESOLVED"
+
+
+@pytest.mark.integration
+def test_ap_issue_routes_by_published_version_and_manual_assignment_is_audited(
+    client: TestClient,
+) -> None:
+    body = _body()
+    body["service_node_id"] = "31000000-0000-0000-0000-000000000005"
+    draft = _draft(client, body)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"routing-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert submitted.status_code == 201
+    ticket = submitted.json()
+    path = f"/api/v1/agent/tickets/{ticket['key']}/route"
+    assert (
+        client.post(
+            path,
+            headers={
+                "X-Developer-User": "DEV/customer",
+                "Idempotency-Key": f"route-denied-{uuid4()}",
+            },
+            json={"row_version": ticket["row_version"]},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            path,
+            headers={
+                "X-Developer-User": "DEV/agent",
+                "Idempotency-Key": f"route-agent-denied-{uuid4()}",
+            },
+            json={"row_version": ticket["row_version"]},
+        ).status_code
+        == 403
+    )
+
+    route_key = f"route-ap-{uuid4()}"
+    headers = {
+        "X-Developer-User": "DEV/support-manager",
+        "Idempotency-Key": route_key,
+    }
+    routed = client.post(path, headers=headers, json={"row_version": ticket["row_version"]})
+    assert routed.status_code == 200
+    decision = routed.json()
+    assert decision["assignment_group_code"] == "FUSION_AP"
+    assert decision["assignee_user_id"] == "22000000-0000-0000-0000-000000000004"
+    assert decision["routing_rule_version_id"] == "36100000-0000-0000-0000-000000000001"
+    assert decision["fallback"] is False
+    replay = client.post(path, headers=headers, json={"row_version": ticket["row_version"]})
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["replayed"] is True
+    reused = client.post(
+        path,
+        headers=headers,
+        json={"row_version": decision["ticket"]["row_version"]},
+    )
+    assert reused.status_code == 409
+
+    assignment_path = f"/api/v1/agent/tickets/{ticket['key']}/assignment"
+    assert (
+        client.post(
+            assignment_path,
+            headers={
+                "X-Developer-User": "DEV/agent",
+                "Idempotency-Key": f"manual-denied-{uuid4()}",
+            },
+            json={
+                "assignment_group_id": "23000000-0000-0000-0000-000000000001",
+                "row_version": decision["ticket"]["row_version"],
+                "reason": "Escalation requested",
+            },
+        ).status_code
+        == 403
+    )
+    manual_key = f"manual-assignment-{uuid4()}"
+    manual_headers = {
+        "X-Developer-User": "DEV/support-manager",
+        "Idempotency-Key": manual_key,
+    }
+    manual_command = {
+        "assignment_group_id": "23000000-0000-0000-0000-000000000001",
+        "assignee_user_id": "22000000-0000-0000-0000-000000000003",
+        "row_version": decision["ticket"]["row_version"],
+        "reason": "Manager triage escalation",
+    }
+    manual = client.post(assignment_path, headers=manual_headers, json=manual_command)
+    assert manual.status_code == 200
+    assert manual.json()["assignment_group_code"] == "DEV_SERVICE_DESK"
+    assert manual.json()["routing_rule_version_id"] is None
+    assert (
+        client.post(assignment_path, headers=manual_headers, json=manual_command).headers[
+            "Idempotent-Replayed"
+        ]
+        == "true"
+    )
+
+    ticket_id = ticket["id"]
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.assignment_history "
+            f"WHERE ticket_id='{ticket_id}' "
+            "AND routing_rule_id='36000000-0000-0000-0000-000000000001' "
+            "AND routing_rule_version_id='36100000-0000-0000-0000-000000000001'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.assignment_history "
+            f"WHERE ticket_id='{ticket_id}' AND assignment_reason LIKE 'MANUAL:%' "
+            "AND routing_rule_id IS NULL AND routing_rule_version_id IS NULL"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.ticket_event "
+            f"WHERE ticket_id='{ticket_id}' AND event_type IN ('TICKET_ROUTED','TICKET_REASSIGNED')"
+        )
+        == "2"
+    )
+
+    second_draft = _draft(client, body)
+    second_submitted = client.post(
+        f"/api/v1/ticket-drafts/{second_draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"routing-round-robin-submit-{uuid4()}",
+        },
+        json={"row_version": second_draft["row_version"]},
+    ).json()
+    second_route = client.post(
+        f"/api/v1/agent/tickets/{second_submitted['key']}/route",
+        headers={
+            "X-Developer-User": "DEV/support-manager",
+            "Idempotency-Key": f"routing-round-robin-{uuid4()}",
+        },
+        json={"row_version": second_submitted["row_version"]},
+    )
+    assert second_route.status_code == 200
+    assert second_route.json()["assignee_user_id"] == "22000000-0000-0000-0000-000000000012"
+    assert (
+        _psql(
+            "SELECT (event_data_json->'routing_trace'->>'routing_source'="
+            "'CONFIGURATION_ONLY' AND "
+            "event_data_json->'routing_trace'->'inputs'->>'module_code'="
+            "'ACCOUNTS_PAYABLE' AND "
+            "jsonb_array_length(event_data_json->'routing_trace'->'evaluated_rules')=1 "
+            "AND length(event_data_json->'routing_trace'->>'input_hash')=64)::int "
+            f"FROM itsm.ticket_event WHERE ticket_id='{ticket_id}' "
+            "AND event_type='TICKET_ROUTED'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM integration.outbox_event "
+            f"WHERE aggregate_id='{ticket_id}' AND event_type='TICKET_ASSIGNED'"
+        )
+        == "2"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM audit.audit_event "
+            f"WHERE resource_id='{ticket_id}' "
+            "AND action_code IN ('TICKET_ROUTED','TICKET_REASSIGNED')"
+        )
+        == "2"
+    )
+
+
+@pytest.mark.integration
+def test_explicit_default_route_and_concurrent_assignment_conflict(client: TestClient) -> None:
+    draft = _draft(client)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"routing-fallback-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    ticket = submitted.json()
+
+    async def race() -> list[AssignmentResponse | BaseException]:
+        app = create_app(_settings(), resource_factory=_resources)
+        contexts = [
+            RequestContext(
+                tenant_id=UUID("20000000-0000-0000-0000-000000000001"),
+                user_id=UUID("22000000-0000-0000-0000-000000000003"),
+                external_subject="support-manager",
+                roles=frozenset({"SUPPORT_MANAGER"}),
+                support_group_ids=frozenset(
+                    {
+                        UUID("23000000-0000-0000-0000-000000000001"),
+                        UUID("23000000-0000-0000-0000-000000000002"),
+                    }
+                ),
+                business_unit_id=None,
+                correlation_id=str(uuid4()),
+                request_id=str(uuid4()),
+            )
+            for _ in range(2)
+        ]
+        command = RouteCommand(row_version=ticket["row_version"])
+        responses = await asyncio.gather(
+            *(
+                app.state.routing_service.route(
+                    context, ticket["key"], command, f"routing-race-{uuid4()}"
+                )
+                for context in contexts
+            ),
+            return_exceptions=True,
+        )
+        await app.state.resources.close()
+        return list(responses)
+
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        responses = runner.run(race())
+    assert sum(isinstance(response, AssignmentResponse) for response in responses) == 1
+    assert sum(isinstance(response, ConcurrencyError) for response in responses) == 1, responses
+    winner = next(response for response in responses if isinstance(response, AssignmentResponse))
+    assert winner.assignment_group_code == "DEV_SERVICE_DESK"
+    assert winner.assignee_user_id is None
+    assert winner.fallback is True
+    assert winner.routing_rule_version_id == "36100000-0000-0000-0000-000000000002"

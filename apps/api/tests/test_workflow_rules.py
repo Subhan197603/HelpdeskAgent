@@ -2,7 +2,7 @@
 
 import pytest
 
-from apps.api.app.workflows.rules import InvalidRule, evaluate
+from apps.api.app.core.rules import InvalidRule, evaluate
 
 
 def test_empty_nested_and_comparison_rules_are_deterministic() -> None:

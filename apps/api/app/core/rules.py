@@ -1,4 +1,4 @@
-"""Restricted, deterministic JSON workflow rule evaluator."""
+"""Restricted, deterministic JSON rule evaluator shared by configuration engines."""
 
 from collections.abc import Mapping
 from typing import Any, cast
@@ -45,7 +45,7 @@ def evaluate(rule: Any, values: Mapping[str, Any]) -> bool:
     if not isinstance(field, str) or operator not in _OPERATORS:
         raise InvalidRule("Rule field or operator is unsupported.")
     if field not in values:
-        raise InvalidRule("Rule field is not available to workflow execution.")
+        raise InvalidRule("Rule field is not available to deterministic evaluation.")
     actual, expected = values.get(field), rule.get("value")
     if operator == "is_null":
         return actual is None

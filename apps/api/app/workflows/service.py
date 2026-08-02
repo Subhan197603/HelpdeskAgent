@@ -17,13 +17,13 @@ from apps.api.app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from apps.api.app.core.rules import InvalidRule, evaluate
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService, Permission
 from apps.api.app.tickets.repository import TicketRepository
 from apps.api.app.tickets.service import IdempotencyConflict, TicketService
 from apps.api.app.workflows.models import WorkflowTicket, WorkflowTransition
 from apps.api.app.workflows.repository import WorkflowRepository
-from apps.api.app.workflows.rules import InvalidRule, evaluate
 from apps.api.app.workflows.schemas import (
     AvailableTransition,
     AvailableTransitionList,

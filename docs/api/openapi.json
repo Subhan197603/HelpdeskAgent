@@ -1,6 +1,52 @@
 {
   "components": {
     "schemas": {
+      "AssignmentResponse": {
+        "properties": {
+          "assignee_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee User Id"
+          },
+          "assignment_group_code": {
+            "title": "Assignment Group Code",
+            "type": "string"
+          },
+          "fallback": {
+            "default": false,
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "routing_rule_version_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Routing Rule Version Id"
+          },
+          "ticket": {
+            "$ref": "#/components/schemas/TicketResponse"
+          }
+        },
+        "required": ["ticket", "assignment_group_code", "assignee_user_id"],
+        "title": "AssignmentResponse",
+        "type": "object"
+      },
       "AvailableTransition": {
         "properties": {
           "code": {
@@ -1032,6 +1078,42 @@
         "type": "object"
       },
       "JsonValue": {},
+      "ManualAssignmentCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee User Id"
+          },
+          "assignment_group_id": {
+            "format": "uuid",
+            "title": "Assignment Group Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 64,
+            "minLength": 3,
+            "title": "Reason",
+            "type": "string"
+          },
+          "row_version": {
+            "minimum": 1.0,
+            "title": "Row Version",
+            "type": "integer"
+          }
+        },
+        "required": ["assignment_group_id", "reason", "row_version"],
+        "title": "ManualAssignmentCommand",
+        "type": "object"
+      },
       "NormalizedField": {
         "properties": {
           "data_type": {
@@ -1477,6 +1559,19 @@
           "effective_to"
         ],
         "title": "RequestTypeResponse",
+        "type": "object"
+      },
+      "RouteCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "row_version": {
+            "minimum": 1.0,
+            "title": "Row Version",
+            "type": "integer"
+          }
+        },
+        "required": ["row_version"],
+        "title": "RouteCommand",
         "type": "object"
       },
       "ServiceNodeListResponse": {
@@ -2056,6 +2151,252 @@
         ],
         "summary": "Analyst Ticket",
         "tags": ["tickets"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/assignment": {
+      "post": {
+        "operationId": "assign_ticket_api_v1_agent_tickets__ticket_key__assignment_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualAssignmentCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Routing or concurrency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Assignment validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Assign Ticket",
+        "tags": ["routing"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/route": {
+      "post": {
+        "operationId": "route_ticket_api_v1_agent_tickets__ticket_key__route_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RouteCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Routing or concurrency conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Assignment validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Route Ticket",
+        "tags": ["routing"]
       }
     },
     "/api/v1/agent/tickets/{ticket_key}/transitions": {
@@ -3908,6 +4249,10 @@
     {
       "description": "Deterministic ticket transitions.",
       "name": "workflows"
+    },
+    {
+      "description": "Deterministic routing and assignment.",
+      "name": "routing"
     }
   ]
 }

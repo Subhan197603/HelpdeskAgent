@@ -85,5 +85,5 @@ Run it with `pnpm test:e2e`. Global teardown removes only the named test project
 volume. Playwright browser binaries must already be present (`pnpm exec playwright install
 chromium`).
 
-Analyst routing and assignment changes, workflow transitions, internal comments, attachments,
-SLA behavior, notifications, administration, and AI remain intentionally deferred.
+Queue UI, internal comments, attachments, SLA behavior, notifications, administration, and AI
+remain intentionally deferred.
