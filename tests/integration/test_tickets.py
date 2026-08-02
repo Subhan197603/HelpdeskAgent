@@ -7,17 +7,20 @@ import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 from typing import cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from apps.api.app.core.context import RequestContext
+from apps.api.app.core.exceptions import ConcurrencyError
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.main import create_app
 from apps.api.app.tickets.repository import TicketRepository
+from apps.api.app.workflows.schemas import TransitionCommand, TransitionResponse
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-ticket-test"
@@ -676,3 +679,176 @@ def test_analyst_reads_unassigned_ticket_and_public_comment_is_idempotent(
         )
         == "1"
     )
+
+
+@pytest.mark.integration
+def test_workflow_transition_is_authorized_validated_idempotent_and_audited(
+    client: TestClient,
+) -> None:
+    draft = _draft(client)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"workflow-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert submitted.status_code == 201
+    ticket, ticket_id = submitted.json(), submitted.json()["id"]
+    path = f"/api/v1/agent/tickets/{ticket['key']}/transitions"
+    assert client.get(path, headers={"X-Developer-User": "DEV/customer"}).status_code == 403
+    agent = {"X-Developer-User": "DEV/agent"}
+    available = client.get(path, headers=agent)
+    assert available.status_code == 200
+    assert available.json()["current_status"] == "NEW"
+    assert [item["code"] for item in available.json()["transitions"]] == ["START_PROGRESS"]
+
+    invalid = client.post(
+        path,
+        headers={**agent, "Idempotency-Key": f"invalid-transition-{uuid4()}"},
+        json={"transition_code": "RESOLVE", "row_version": ticket["row_version"]},
+    )
+    assert invalid.status_code == 409
+    stale = client.post(
+        path,
+        headers={**agent, "Idempotency-Key": f"stale-transition-{uuid4()}"},
+        json={"transition_code": "START_PROGRESS", "row_version": 999999},
+    )
+    assert stale.status_code == 409
+
+    key = f"transition-{uuid4()}"
+    command = {
+        "transition_code": "START_PROGRESS",
+        "row_version": ticket["row_version"],
+        "comment": "Investigation has started.",
+    }
+    transitioned = client.post(path, headers={**agent, "Idempotency-Key": key}, json=command)
+    assert transitioned.status_code == 200
+    result = transitioned.json()
+    assert result["ticket"]["status"] == "IN_PROGRESS"
+    assert result["ticket"]["row_version"] == ticket["row_version"] + 1
+    assert result["ticket"]["public_comments"][0]["body"] == "Investigation has started."
+    replay = client.post(path, headers={**agent, "Idempotency-Key": key}, json=command)
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["replayed"] is True
+    conflict = client.post(
+        path,
+        headers={**agent, "Idempotency-Key": key},
+        json={**command, "comment": "Different request"},
+    )
+    assert conflict.status_code == 409
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.ticket_event event JOIN itsm.ticket ticket "
+            "ON ticket.ticket_id=event.ticket_id "
+            f"WHERE event.ticket_id='{ticket_id}' "
+            "AND event.event_type='WORKFLOW_TRANSITION_EXECUTED' "
+            "AND event.event_data_json->>'workflow_version_id'="
+            "ticket.workflow_version_id::text"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.ticket_event "
+            f"WHERE ticket_id='{ticket_id}' AND event_type='STATUS_CHANGED'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM integration.outbox_event "
+            f"WHERE aggregate_id='{ticket_id}' AND event_type='TICKET_WORKFLOW_TRANSITIONED'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM audit.audit_event "
+            f"WHERE resource_id='{ticket_id}' AND action_code='TICKET_WORKFLOW_TRANSITIONED'"
+        )
+        == "1"
+    )
+
+
+@pytest.mark.integration
+def test_transition_required_fields_and_concurrent_conflict(client: TestClient) -> None:
+    draft = _draft(client)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"workflow-concurrency-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    ticket = submitted.json()
+    path = f"/api/v1/agent/tickets/{ticket['key']}/transitions"
+
+    async def race() -> list[TransitionResponse | BaseException]:
+        app = create_app(_settings(), resource_factory=_resources)
+        contexts = [
+            RequestContext(
+                tenant_id=UUID("20000000-0000-0000-0000-000000000001"),
+                user_id=UUID("22000000-0000-0000-0000-000000000004"),
+                external_subject="agent",
+                roles=frozenset({"AGENT"}),
+                support_group_ids=frozenset(),
+                business_unit_id=None,
+                correlation_id=str(uuid4()),
+                request_id=str(uuid4()),
+            )
+            for _ in range(2)
+        ]
+        command = TransitionCommand(
+            transition_code="START_PROGRESS", row_version=ticket["row_version"]
+        )
+        responses = await asyncio.gather(
+            *(
+                app.state.workflow_service.execute(
+                    context, ticket["key"], command, f"transition-race-{uuid4()}"
+                )
+                for context in contexts
+            ),
+            return_exceptions=True,
+        )
+        await app.state.resources.close()
+        return list(responses)
+
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        responses = runner.run(race())
+    assert sum(isinstance(response, TransitionResponse) for response in responses) == 1
+    assert sum(isinstance(response, ConcurrencyError) for response in responses) == 1, responses
+    current = next(
+        response.ticket.model_dump(mode="json")
+        for response in responses
+        if isinstance(response, TransitionResponse)
+    )
+    missing = client.post(
+        path,
+        headers={
+            "X-Developer-User": "DEV/agent",
+            "Idempotency-Key": f"resolve-missing-{uuid4()}",
+        },
+        json={"transition_code": "RESOLVE", "row_version": current["row_version"]},
+    )
+    assert missing.status_code == 422
+    resolved = client.post(
+        path,
+        headers={
+            "X-Developer-User": "DEV/agent",
+            "Idempotency-Key": f"resolve-valid-{uuid4()}",
+        },
+        json={
+            "transition_code": "RESOLVE",
+            "row_version": current["row_version"],
+            "field_updates": {
+                "resolution_code": "FIXED",
+                "resolution_summary": "Configuration corrected.",
+            },
+        },
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["ticket"]["status"] == "RESOLVED"

@@ -26,6 +26,7 @@ from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
 from apps.api.app.infrastructure.redis_health import RedisHealthProbe
 from apps.api.app.tickets.service import TicketMetrics, TicketService
+from apps.api.app.workflows.service import WorkflowService
 
 ResourceFactory = Callable[[Settings], ApplicationResources]
 
@@ -75,6 +76,7 @@ def create_app(
                 "description": "Published service catalogue and request forms.",
             },
             {"name": "tickets", "description": "Ticket drafts and confirmed submissions."},
+            {"name": "workflows", "description": "Deterministic ticket transitions."},
         ],
     )
     app.state.settings = settings
@@ -113,6 +115,9 @@ def create_app(
     )
     app.state.ticket_service = TicketService(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_metrics
+    )
+    app.state.workflow_service = WorkflowService(
+        unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
     )
     install_exception_handlers(app)
     app.include_router(api_router)

@@ -10,3 +10,4 @@ Architecture, API, operational, security, and decision records are maintained al
 - [Service catalogue and dynamic request forms](operations/service-catalogue.md)
 - [Ticket draft and submission](operations/ticket-submission.md)
 - [Minimal employee and analyst portal](operations/minimal-portal.md)
+- [Deterministic workflow transitions](operations/workflow-transitions.md)

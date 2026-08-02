@@ -28,6 +28,7 @@ class Permission(StrEnum):
     TICKET_ANALYST_READ = "TICKET_ANALYST_READ"
     TICKET_COMMENT_PUBLIC = "TICKET_COMMENT_PUBLIC"
     TICKET_UPDATE_GROUP = "TICKET_UPDATE_GROUP"
+    TICKET_TRANSITION = "TICKET_TRANSITION"
     KNOWLEDGE_READ_EMPLOYEE = "KNOWLEDGE_READ_EMPLOYEE"
     KNOWLEDGE_READ_ANALYST = "KNOWLEDGE_READ_ANALYST"
     AI_EMPLOYEE_USE = "AI_EMPLOYEE_USE"
@@ -87,6 +88,7 @@ ROLE_PERMISSIONS["PLATFORM_ADMIN"] = CATALOGUE_READ_PERMISSIONS | frozenset(
         Permission.TICKET_READ_ALL,
         Permission.TICKET_ANALYST_READ,
         Permission.TICKET_COMMENT_PUBLIC,
+        Permission.TICKET_TRANSITION,
         Permission.TICKET_REQUEST_FOR_OTHER,
     }
 )
@@ -95,6 +97,7 @@ ROLE_PERMISSIONS["PROJECT_ADMIN"] |= frozenset(
         Permission.TICKET_READ_ALL,
         Permission.TICKET_ANALYST_READ,
         Permission.TICKET_COMMENT_PUBLIC,
+        Permission.TICKET_TRANSITION,
     }
 )
 for analyst_role in ("AGENT", "SUPPORT_MANAGER"):
@@ -103,6 +106,7 @@ for analyst_role in ("AGENT", "SUPPORT_MANAGER"):
             Permission.TICKET_READ_GROUP,
             Permission.TICKET_ANALYST_READ,
             Permission.TICKET_COMMENT_PUBLIC,
+            Permission.TICKET_TRANSITION,
         }
     )
 ROLE_PERMISSIONS["CUSTOMER"] |= frozenset({Permission.TICKET_COMMENT_PUBLIC})

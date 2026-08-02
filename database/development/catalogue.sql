@@ -34,7 +34,7 @@ INSERT INTO config.workflow(
     '32000000-0000-0000-0000-000000000001',
     '20000000-0000-0000-0000-000000000001',
     'CATALOGUE_TEST_WORKFLOW', 'Catalogue fixture workflow',
-    'Prerequisite configuration only; workflow execution is out of scope.'
+    'Deterministic incident workflow used by development and integration tests.'
 ) ON CONFLICT (workflow_id) DO NOTHING;
 
 INSERT INTO config.workflow_version(
@@ -42,9 +42,8 @@ INSERT INTO config.workflow_version(
     effective_from, published_at, published_by
 ) VALUES (
     '32100000-0000-0000-0000-000000000001',
-    '32000000-0000-0000-0000-000000000001', 1, 'PUBLISHED',
-    '2025-01-01T00:00:00Z', '2025-01-01T00:00:00Z',
-    '22000000-0000-0000-0000-000000000001'
+    '32000000-0000-0000-0000-000000000001', 1, 'DRAFT',
+    '2025-01-01T00:00:00Z', NULL, NULL
 ) ON CONFLICT (workflow_version_id) DO NOTHING;
 
 INSERT INTO config.workflow_status(
@@ -55,6 +54,36 @@ INSERT INTO config.workflow_status(
     '32100000-0000-0000-0000-000000000001',
     'NEW', 'New', 'TO_DO', true, 'Submitted', 10
 ) ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO config.workflow_status(
+    status_id, workflow_version_id, status_code, status_name,
+    status_category, terminal_flag, customer_visible_name, display_order
+) VALUES
+('32200000-0000-0000-0000-000000000002','32100000-0000-0000-0000-000000000001','IN_PROGRESS','In progress','IN_PROGRESS',false,'In progress',20),
+('32200000-0000-0000-0000-000000000003','32100000-0000-0000-0000-000000000001','WAITING_FOR_CUSTOMER','Waiting for customer','WAITING',false,'Waiting for you',30),
+('32200000-0000-0000-0000-000000000004','32100000-0000-0000-0000-000000000001','RESOLVED','Resolved','DONE',false,'Resolved',40),
+('32200000-0000-0000-0000-000000000005','32100000-0000-0000-0000-000000000001','CLOSED','Closed','DONE',true,'Closed',50)
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO config.workflow_transition(
+    transition_id, workflow_version_id, transition_code, transition_name,
+    from_status_id, to_status_id, condition_json, validator_json, action_json,
+    display_order
+) VALUES
+('32300000-0000-0000-0000-000000000001','32100000-0000-0000-0000-000000000001','START_PROGRESS','Start progress','32200000-0000-0000-0000-000000000001','32200000-0000-0000-0000-000000000002','[]','[]','[{"type":"SET_TIMESTAMP","field":"first_response_at"}]',10),
+('32300000-0000-0000-0000-000000000002','32100000-0000-0000-0000-000000000001','WAIT_FOR_CUSTOMER','Wait for customer','32200000-0000-0000-0000-000000000002','32200000-0000-0000-0000-000000000003','{"all":[{"field":"summary","operator":"is_not_null"}]}','[]','[]',20),
+('32300000-0000-0000-0000-000000000003','32100000-0000-0000-0000-000000000001','RESUME_PROGRESS','Resume progress','32200000-0000-0000-0000-000000000003','32200000-0000-0000-0000-000000000002','[]','[]','[]',30),
+('32300000-0000-0000-0000-000000000004','32100000-0000-0000-0000-000000000001','RESOLVE','Resolve','32200000-0000-0000-0000-000000000002','32200000-0000-0000-0000-000000000004','[]','[{"type":"required_field","field":"resolution_code"}]','[{"type":"SET_TIMESTAMP","field":"resolved_at"}]',40),
+('32300000-0000-0000-0000-000000000005','32100000-0000-0000-0000-000000000001','REOPEN','Reopen','32200000-0000-0000-0000-000000000004','32200000-0000-0000-0000-000000000002','[]','[]','[{"type":"CLEAR_FIELD","field":"resolved_at"},{"type":"CLEAR_FIELD","field":"resolution_code"},{"type":"CLEAR_FIELD","field":"resolution_summary"}]',50),
+('32300000-0000-0000-0000-000000000006','32100000-0000-0000-0000-000000000001','CLOSE','Close','32200000-0000-0000-0000-000000000004','32200000-0000-0000-0000-000000000005','[]','[]','[{"type":"SET_TIMESTAMP","field":"closed_at"}]',60)
+ON CONFLICT (transition_id) DO NOTHING;
+
+UPDATE config.workflow_version
+SET version_status = 'PUBLISHED',
+    published_at = '2025-01-01T00:00:00Z',
+    published_by = '22000000-0000-0000-0000-000000000001'
+WHERE workflow_version_id = '32100000-0000-0000-0000-000000000001'
+  AND version_status = 'DRAFT';
 
 INSERT INTO config.request_type(
     request_type_id, tenant_id, project_id, work_type_id, workflow_id,

@@ -38,6 +38,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/transitions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Available Transitions */
+    get: operations["available_transitions_api_v1_agent_tickets__ticket_key__transitions_get"];
+    put?: never;
+    /** Execute Transition */
+    post: operations["execute_transition_api_v1_agent_tickets__ticket_key__transitions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/catalog/projects": {
     parameters: {
       query?: never;
@@ -350,6 +368,28 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AvailableTransition */
+    AvailableTransition: {
+      /** Code */
+      code: string;
+      /** Name */
+      name: string;
+      /** To Status */
+      to_status: string;
+      /** To Status Name */
+      to_status_name: string;
+    };
+    /** AvailableTransitionList */
+    AvailableTransitionList: {
+      /** Current Status */
+      current_status: string;
+      /** Row Version */
+      row_version: number;
+      /** Ticket Key */
+      ticket_key: string;
+      /** Transitions */
+      transitions: components["schemas"]["AvailableTransition"][];
+    };
     /** ConditionPredicate */
     ConditionPredicate: {
       /** Field */
@@ -958,6 +998,30 @@ export interface components {
       /** Work Type */
       work_type: string;
     };
+    /** TransitionCommand */
+    TransitionCommand: {
+      /** Comment */
+      comment?: string | null;
+      /** Field Updates */
+      field_updates?: {
+        [key: string]: unknown;
+      };
+      /** Row Version */
+      row_version: number;
+      /** Transition Code */
+      transition_code: string;
+    };
+    /** TransitionResponse */
+    TransitionResponse: {
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      ticket: components["schemas"]["TicketResponse"];
+      /** Transition Code */
+      transition_code: string;
+    };
     /** WorkTypeResponse */
     WorkTypeResponse: {
       /** Code */
@@ -1099,6 +1163,147 @@ export interface operations {
         };
       };
       /** @description Structured validation failure */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  available_transitions_api_v1_agent_tickets__ticket_key__transitions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvailableTransitionList"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Invalid or concurrent transition */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Transition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  execute_transition_api_v1_agent_tickets__ticket_key__transitions_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+        "If-Match"?: string | null;
+      };
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TransitionCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TransitionResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Invalid or concurrent transition */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Transition validation failed */
       422: {
         headers: {
           [name: string]: unknown;

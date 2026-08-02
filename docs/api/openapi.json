@@ -1,6 +1,60 @@
 {
   "components": {
     "schemas": {
+      "AvailableTransition": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          },
+          "to_status_name": {
+            "title": "To Status Name",
+            "type": "string"
+          }
+        },
+        "required": ["code", "name", "to_status", "to_status_name"],
+        "title": "AvailableTransition",
+        "type": "object"
+      },
+      "AvailableTransitionList": {
+        "properties": {
+          "current_status": {
+            "title": "Current Status",
+            "type": "string"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          },
+          "transitions": {
+            "items": {
+              "$ref": "#/components/schemas/AvailableTransition"
+            },
+            "title": "Transitions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ticket_key",
+          "row_version",
+          "current_status",
+          "transitions"
+        ],
+        "title": "AvailableTransitionList",
+        "type": "object"
+      },
       "ConditionPredicate": {
         "additionalProperties": false,
         "properties": {
@@ -1726,6 +1780,63 @@
         "title": "TicketResponse",
         "type": "object"
       },
+      "TransitionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "field_updates": {
+            "additionalProperties": true,
+            "maxProperties": 20,
+            "title": "Field Updates",
+            "type": "object"
+          },
+          "row_version": {
+            "minimum": 1.0,
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "transition_code": {
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Transition Code",
+            "type": "string"
+          }
+        },
+        "required": ["transition_code", "row_version"],
+        "title": "TransitionCommand",
+        "type": "object"
+      },
+      "TransitionResponse": {
+        "properties": {
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "ticket": {
+            "$ref": "#/components/schemas/TicketResponse"
+          },
+          "transition_code": {
+            "title": "Transition Code",
+            "type": "string"
+          }
+        },
+        "required": ["ticket", "transition_code"],
+        "title": "TransitionResponse",
+        "type": "object"
+      },
       "WorkTypeResponse": {
         "properties": {
           "code": {
@@ -1945,6 +2056,212 @@
         ],
         "summary": "Analyst Ticket",
         "tags": ["tickets"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/transitions": {
+      "get": {
+        "operationId": "available_transitions_api_v1_agent_tickets__ticket_key__transitions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailableTransitionList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Invalid or concurrent transition"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Transition validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Available Transitions",
+        "tags": ["workflows"]
+      },
+      "post": {
+        "operationId": "execute_transition_api_v1_agent_tickets__ticket_key__transitions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Invalid or concurrent transition"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Transition validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Execute Transition",
+        "tags": ["workflows"]
       }
     },
     "/api/v1/catalog/projects": {
@@ -3587,6 +3904,10 @@
     {
       "description": "Ticket drafts and confirmed submissions.",
       "name": "tickets"
+    },
+    {
+      "description": "Deterministic ticket transitions.",
+      "name": "workflows"
     }
   ]
 }
