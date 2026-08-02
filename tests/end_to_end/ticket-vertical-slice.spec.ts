@@ -5,9 +5,7 @@ test("employee submits an Oracle Fusion issue and exchanges a public comment", a
 }) => {
   await page.goto("/login");
   await page.getByRole("button", { name: "Continue as employee" }).click();
-  await page
-    .getByRole("link", { name: "Browse the service catalogue" })
-    .click();
+  await page.getByRole("link", { name: "Browse services" }).first().click();
 
   await page
     .getByRole("tab", { name: /ERP.*Oracle Fusion ERP Support/ })
@@ -32,17 +30,17 @@ test("employee submits an Oracle Fusion issue and exchanges a public comment", a
   await expect(
     page.getByRole("heading", { name: "Oracle Fusion invoice error" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Comment visibility")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Continue as analyst" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Ticket queues" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "My queues" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Unassigned.*ERP/ }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /ERP-1/ })).toBeVisible();
   await page.getByRole("link", { name: /ERP-1/ }).click();
+  await expect(page.getByLabel("Comment visibility")).toBeVisible();
   await page
     .getByLabel("Add an update")
     .fill("We are investigating the invoice validation service.");
@@ -53,7 +51,10 @@ test("employee submits an Oracle Fusion issue and exchanges a public comment", a
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Continue as employee" }).click();
-  await page.getByRole("link", { name: "My requests", exact: true }).click();
+  await page
+    .getByRole("link", { name: "My tickets", exact: true })
+    .first()
+    .click();
   await page.getByRole("link", { name: /ERP-1/ }).click();
   await expect(
     page.getByText("We are investigating the invoice validation service."),

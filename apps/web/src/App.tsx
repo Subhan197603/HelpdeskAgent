@@ -16,7 +16,23 @@ import {
   useParams,
 } from "react-router-dom";
 
-import { ErrorSummary, StatusPanel } from "./components/StatusPanel";
+import { AppShell, RequirePermission } from "./components/AppShell";
+import { AttachmentUploader } from "./components/AttachmentUploader";
+import { PriorityBadge, StatusBadge } from "./components/Badges";
+import { PageHeader, Panel, SectionHeader } from "./components/Layout";
+import {
+  EmptyState,
+  ErrorSummary,
+  LoadingSkeleton,
+  StatusPanel,
+} from "./components/States";
+import {
+  QueueRow,
+  TicketHeader,
+  TicketListItem,
+  TicketMetadata,
+  TicketSidePanel,
+} from "./components/Tickets";
 import { apiClient, newIdempotencyKey, unwrap } from "./lib/api";
 import { type Persona, useSession } from "./lib/session";
 
@@ -28,51 +44,6 @@ type FieldValue = string | string[] | boolean;
 function RequireSession({ children }: { children: ReactNode }) {
   const { session } = useSession();
   return session ? children : <Navigate to="/login" replace />;
-}
-
-function Shell({ children }: { children: ReactNode }) {
-  const { session, signOut } = useSession();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
-  return (
-    <div className="app-shell">
-      <header className="topbar">
-        <Link
-          className="brand"
-          to={session?.persona === "analyst" ? "/agent/tickets" : "/portal"}
-        >
-          <span aria-hidden="true" className="brand-mark">
-            F
-          </span>
-          <span>Fusion Helpdesk</span>
-        </Link>
-        {session && (
-          <nav aria-label="Primary navigation">
-            {session.persona === "employee" ? (
-              <>
-                <Link to="/portal/catalog">Catalogue</Link>
-                <Link to="/portal/requests">My requests</Link>
-              </>
-            ) : (
-              <Link to="/agent/tickets">Analyst queues</Link>
-            )}
-            <button
-              className="button-link"
-              onClick={() => {
-                queryClient.clear();
-                signOut();
-                navigate("/login");
-              }}
-              type="button"
-            >
-              Sign out
-            </button>
-          </nav>
-        )}
-      </header>
-      <main id="main-content">{children}</main>
-    </div>
-  );
 }
 
 export function LoginPage() {
@@ -130,21 +101,94 @@ export function LoginPage() {
 }
 
 function PortalHome() {
+  const client = useIdentityClient();
+  const tickets = useQuery({
+    queryKey: ["portal-recent-tickets"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/my/tickets")),
+  });
+  const projects = useQuery({
+    queryKey: ["portal-service-projects"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/catalog/projects")),
+  });
   return (
-    <div className="page hero-page">
-      <p className="eyebrow">Employee portal</p>
-      <h1>Get the right help, without the runaround.</h1>
-      <p className="lede">
-        Choose a configured service request and track every public update.
-      </p>
-      <div className="hero-actions">
-        <Link className="button primary" to="/portal/catalog">
-          Browse the service catalogue
-        </Link>
-        <Link className="button secondary" to="/portal/requests">
-          View my requests
-        </Link>
-      </div>
+    <div className="page portal-dashboard">
+      <section className="portal-hero" aria-labelledby="portal-title">
+        <p className="eyebrow">Employee portal</p>
+        <h1 id="portal-title">How can we help you?</h1>
+        <p>Find the right service or track an existing support request.</p>
+        <label className="portal-search">
+          <span className="sr-only">Search help services</span>
+          <input
+            disabled
+            placeholder="Search for services or support…"
+            title="Search will be enabled in a future milestone"
+          />
+        </label>
+        <div className="hero-actions">
+          <Link className="button primary" to="/portal/catalog">
+            Browse services
+          </Link>
+          <Link
+            className="button secondary button--inverse"
+            to="/portal/requests"
+          >
+            My tickets
+          </Link>
+        </div>
+      </section>
+      <section aria-labelledby="popular-services">
+        <SectionHeader
+          action={<Link to="/portal/catalog">View all services →</Link>}
+          title="Popular services"
+        />
+        {projects.isPending && (
+          <LoadingSkeleton label="Loading popular services" />
+        )}
+        {projects.error && <ErrorSummary error={projects.error} />}
+        <div className="service-card-grid">
+          {projects.data?.items.slice(0, 3).map((project) => (
+            <Link
+              className="service-card"
+              key={project.id}
+              to="/portal/catalog"
+            >
+              <span aria-hidden="true">{project.code.slice(0, 1)}</span>
+              <div>
+                <h3>{project.name}</h3>
+                <p>
+                  {project.description ?? "Browse available support requests."}
+                </p>
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+      <Panel className="recent-tickets">
+        <SectionHeader
+          action={<Link to="/portal/requests">View all tickets →</Link>}
+          title="Recent tickets"
+        />
+        {tickets.isPending && (
+          <LoadingSkeleton label="Loading recent tickets" />
+        )}
+        {tickets.error && <ErrorSummary error={tickets.error} />}
+        {tickets.data?.items.length === 0 && (
+          <EmptyState
+            description="Create a request from the service catalogue when you need help."
+            title="No tickets yet"
+          />
+        )}
+        {tickets.data?.items.slice(0, 5).map((ticket) => (
+          <TicketListItem
+            href={`/portal/requests/${ticket.key}`}
+            key={ticket.id}
+            priority={ticket.priority}
+            status={ticket.status_name}
+            summary={ticket.summary}
+            ticketKey={ticket.key}
+          />
+        ))}
+      </Panel>
     </div>
   );
 }
@@ -444,7 +488,7 @@ function RequestFormPage() {
     if (form.data) createDraft.mutate(form.data);
   };
   return (
-    <div className="page narrow-page">
+    <div className="page narrow-page request-form-page">
       <Link className="back-link" to="/portal/catalog">
         ← Back to catalogue
       </Link>
@@ -688,38 +732,41 @@ function TicketListPage({ analyst = false }: { analyst?: boolean }) {
   });
   return (
     <div className="page">
-      <p className="eyebrow">
-        {analyst ? "Analyst workspace" : "Employee portal"}
-      </p>
-      <h1>{analyst ? "Tickets needing attention" : "My requests"}</h1>
+      <PageHeader
+        description={
+          analyst
+            ? "Review tickets visible to your support groups."
+            : "Track requests and public support updates."
+        }
+        eyebrow={analyst ? "Analyst workspace" : "Employee portal"}
+        title={analyst ? "Tickets needing attention" : "My tickets"}
+      />
       {tickets.isPending && <StatusPanel>Loading tickets…</StatusPanel>}
       {tickets.error && <ErrorSummary error={tickets.error} />}
       {tickets.data?.items.length === 0 && (
-        <StatusPanel>
-          {analyst
-            ? "No accessible tickets are waiting."
-            : "You have no requests yet."}
-        </StatusPanel>
+        <EmptyState
+          description={
+            analyst
+              ? "No accessible tickets are waiting."
+              : "You have no requests yet."
+          }
+        />
       )}
       <div className="ticket-list">
         {tickets.data?.items.map((ticket) => (
-          <Link
-            className="ticket-row"
-            key={ticket.id}
-            to={
+          <TicketListItem
+            href={
               analyst
                 ? `/agent/tickets/${ticket.key}`
                 : `/portal/requests/${ticket.key}`
             }
-          >
-            <span className="ticket-key">{ticket.key}</span>
-            <span>
-              <strong>{ticket.summary}</strong>
-              <small>{ticket.request_type_name}</small>
-            </span>
-            <span className="pill">{ticket.status_name}</span>
-            <span className="priority">{ticket.priority}</span>
-          </Link>
+            key={ticket.id}
+            metadata={ticket.request_type_name}
+            priority={ticket.priority}
+            status={ticket.status_name}
+            summary={ticket.summary}
+            ticketKey={ticket.key}
+          />
         ))}
       </div>
     </div>
@@ -760,8 +807,11 @@ function AgentQueuePage() {
   const selected = queues.data?.items.find((queue) => queue.id === queueId);
   return (
     <div className="page analyst-queues">
-      <p className="eyebrow">Analyst workspace</p>
-      <h1>Ticket queues</h1>
+      <PageHeader
+        description="Prioritized work available to your support groups."
+        eyebrow="Analyst workspace"
+        title="My queues"
+      />
       {queues.isPending && <StatusPanel>Loading queues…</StatusPanel>}
       {queues.error && <ErrorSummary error={queues.error} />}
       {queues.data?.items.length === 0 && (
@@ -822,22 +872,15 @@ function AgentQueuePage() {
             )}
             <div className="ticket-list">
               {tickets.data?.items.map((ticket) => (
-                <Link
-                  className="ticket-row"
+                <QueueRow
+                  href={`/agent/tickets/${ticket.key}`}
                   key={ticket.id}
-                  to={`/agent/tickets/${ticket.key}`}
-                >
-                  <span className="ticket-key">{ticket.key}</span>
-                  <span>
-                    <strong>{ticket.summary}</strong>
-                    <small>
-                      {ticket.assignment_group_name ?? "Unassigned"}
-                      {ticket.assignee_name ? ` · ${ticket.assignee_name}` : ""}
-                    </small>
-                  </span>
-                  <span className="pill">{ticket.status_name}</span>
-                  <span className="priority">{ticket.priority}</span>
-                </Link>
+                  priority={ticket.priority}
+                  status={ticket.status_name}
+                  summary={ticket.summary}
+                  ticketKey={ticket.key}
+                  metadata={`${ticket.assignment_group_name ?? "Unassigned"}${ticket.assignee_name ? ` · ${ticket.assignee_name}` : ""}`}
+                />
               ))}
             </div>
             {tickets.data?.next_cursor && (
@@ -920,7 +963,7 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
     },
   });
   return (
-    <div className="page narrow-page">
+    <div className="page ticket-page">
       {ticket.isPending && <StatusPanel>Loading ticket…</StatusPanel>}
       {ticket.error && <ErrorSummary error={ticket.error} />}
       {addComment.error && <ErrorSummary error={addComment.error} />}
@@ -932,114 +975,129 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
           >
             ← Back to tickets
           </Link>
-          <div className="ticket-heading">
-            <div>
-              <p className="eyebrow">{ticket.data.key}</p>
-              <h1>{ticket.data.summary}</h1>
-            </div>
-            <span className="pill">{ticket.data.status_name}</span>
-          </div>
-          <dl className="details">
-            <div>
-              <dt>Request type</dt>
-              <dd>{ticket.data.request_type_name}</dd>
-            </div>
-            <div>
-              <dt>Priority</dt>
-              <dd>{ticket.data.priority}</dd>
-            </div>
-            <div>
-              <dt>Reporter</dt>
-              <dd>{ticket.data.reporter_name}</dd>
-            </div>
-            <div>
-              <dt>Created</dt>
-              <dd>{new Date(ticket.data.created_at).toLocaleString()}</dd>
-            </div>
-          </dl>
-          <section aria-labelledby="activity-heading" className="activity">
-            <h2 id="activity-heading">
-              {analyst ? "Activity timeline" : "Public activity"}
-            </h2>
-            {timeline.isPending && <StatusPanel>Loading activity…</StatusPanel>}
-            {timeline.error && <ErrorSummary error={timeline.error} />}
-            {timeline.data?.items.length === 0 ? (
-              <StatusPanel>No activity yet.</StatusPanel>
-            ) : (
-              <ol>
-                {timeline.data?.items.map((item) => (
-                  <li key={item.id}>
-                    <div>
-                      <strong>{item.actor_name ?? item.type}</strong>
-                      {analyst && (
-                        <span
-                          className={`visibility ${item.classification.toLowerCase()}`}
-                        >
-                          {item.classification}
-                        </span>
-                      )}
-                      <time dateTime={item.created_at}>
-                        {new Date(item.created_at).toLocaleString()}
-                      </time>
-                    </div>
-                    <p>{item.body ?? item.type.replaceAll("_", " ")}</p>
-                  </li>
-                ))}
-              </ol>
-            )}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                addComment.mutate();
-              }}
-            >
-              <div className="form-field">
-                <label htmlFor="public-comment">
-                  {analyst ? "Add an update" : "Add a public comment"}
-                </label>
-                <p id="comment-help">
-                  {visibility === "PUBLIC"
-                    ? "This comment is visible to the employee and support analysts."
-                    : "This internal note is visible only to authorized analysts."}
-                </p>
-                {analyst && (
-                  <select
-                    aria-label="Comment visibility"
-                    onChange={(event) => {
-                      setVisibility(
-                        event.target.value as "PUBLIC" | "INTERNAL",
-                      );
-                    }}
-                    value={visibility}
-                  >
-                    <option value="PUBLIC">Public comment</option>
-                    <option value="INTERNAL">Internal note</option>
-                  </select>
+          <TicketHeader
+            priority={ticket.data.priority}
+            status={ticket.data.status_name}
+            summary={ticket.data.summary}
+            ticketKey={ticket.data.key}
+          />
+          <div className="ticket-workspace">
+            <div className="ticket-workspace__main">
+              <section aria-labelledby="activity-heading" className="activity">
+                <h2 id="activity-heading">
+                  {analyst ? "Activity timeline" : "Public activity"}
+                </h2>
+                {timeline.isPending && (
+                  <StatusPanel>Loading activity…</StatusPanel>
                 )}
-                <textarea
-                  aria-describedby="comment-help"
-                  id="public-comment"
-                  value={comment}
-                  onChange={(event) => {
-                    setComment(event.target.value);
+                {timeline.error && <ErrorSummary error={timeline.error} />}
+                {timeline.data?.items.length === 0 ? (
+                  <StatusPanel>No activity yet.</StatusPanel>
+                ) : (
+                  <ol>
+                    {timeline.data?.items.map((item) => (
+                      <li key={item.id}>
+                        <div>
+                          <strong>{item.actor_name ?? item.type}</strong>
+                          {analyst && (
+                            <span
+                              className={`visibility ${item.classification.toLowerCase()}`}
+                            >
+                              {item.classification}
+                            </span>
+                          )}
+                          <time dateTime={item.created_at}>
+                            {new Date(item.created_at).toLocaleString()}
+                          </time>
+                        </div>
+                        <p>{item.body ?? item.type.replaceAll("_", " ")}</p>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    addComment.mutate();
                   }}
-                  required
-                  rows={4}
-                />
-              </div>
-              <button
-                className="button primary"
-                disabled={addComment.isPending}
-                type="submit"
-              >
-                {addComment.isPending
-                  ? "Posting…"
-                  : visibility === "INTERNAL"
-                    ? "Post internal note"
-                    : "Post public comment"}
-              </button>
-            </form>
-          </section>
+                >
+                  <div className="form-field">
+                    <label htmlFor="public-comment">
+                      {analyst ? "Add an update" : "Add a public comment"}
+                    </label>
+                    <p id="comment-help">
+                      {visibility === "PUBLIC"
+                        ? "This comment is visible to the employee and support analysts."
+                        : "This internal note is visible only to authorized analysts."}
+                    </p>
+                    {analyst && (
+                      <select
+                        aria-label="Comment visibility"
+                        onChange={(event) => {
+                          setVisibility(
+                            event.target.value as "PUBLIC" | "INTERNAL",
+                          );
+                        }}
+                        value={visibility}
+                      >
+                        <option value="PUBLIC">Public comment</option>
+                        <option value="INTERNAL">Internal note</option>
+                      </select>
+                    )}
+                    <textarea
+                      aria-describedby="comment-help"
+                      id="public-comment"
+                      value={comment}
+                      onChange={(event) => {
+                        setComment(event.target.value);
+                      }}
+                      required
+                      rows={4}
+                    />
+                  </div>
+                  <button
+                    className="button primary"
+                    disabled={addComment.isPending}
+                    type="submit"
+                  >
+                    {addComment.isPending
+                      ? "Posting…"
+                      : visibility === "INTERNAL"
+                        ? "Post internal note"
+                        : "Post public comment"}
+                  </button>
+                </form>
+              </section>
+              <AttachmentUploader
+                analyst={analyst}
+                client={client}
+                ticketKey={ticketKey}
+              />
+            </div>
+            <TicketSidePanel>
+              <TicketMetadata
+                items={[
+                  {
+                    label: "Status",
+                    value: <StatusBadge status={ticket.data.status_name} />,
+                  },
+                  {
+                    label: "Priority",
+                    value: <PriorityBadge priority={ticket.data.priority} />,
+                  },
+                  {
+                    label: "Request type",
+                    value: ticket.data.request_type_name,
+                  },
+                  { label: "Reporter", value: ticket.data.reporter_name },
+                  {
+                    label: "Created",
+                    value: new Date(ticket.data.created_at).toLocaleString(),
+                  },
+                ]}
+              />
+            </TicketSidePanel>
+          </div>
         </>
       )}
     </div>
@@ -1048,7 +1106,7 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
 
 export function App() {
   return (
-    <Shell>
+    <AppShell>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/" element={<Navigate to="/portal" replace />} />
@@ -1056,7 +1114,9 @@ export function App() {
           path="/portal"
           element={
             <RequireSession>
-              <PortalHome />
+              <RequirePermission permission="TICKET_READ_OWN">
+                <PortalHome />
+              </RequirePermission>
             </RequireSession>
           }
         />
@@ -1064,7 +1124,9 @@ export function App() {
           path="/portal/catalog"
           element={
             <RequireSession>
-              <CataloguePage />
+              <RequirePermission permission="CATALOG_PROJECT_LIST">
+                <CataloguePage />
+              </RequirePermission>
             </RequireSession>
           }
         />
@@ -1072,7 +1134,9 @@ export function App() {
           path="/portal/catalog/:requestTypeId"
           element={
             <RequireSession>
-              <RequestFormPage />
+              <RequirePermission permission="TICKET_DRAFT_CREATE">
+                <RequestFormPage />
+              </RequirePermission>
             </RequireSession>
           }
         />
@@ -1104,7 +1168,9 @@ export function App() {
           path="/agent/tickets"
           element={
             <RequireSession>
-              <AgentQueuePage />
+              <RequirePermission permission="TICKET_ANALYST_READ">
+                <AgentQueuePage />
+              </RequirePermission>
             </RequireSession>
           }
         />
@@ -1112,12 +1178,14 @@ export function App() {
           path="/agent/tickets/:ticketKey"
           element={
             <RequireSession>
-              <TicketDetailPage analyst />
+              <RequirePermission permission="TICKET_ANALYST_READ">
+                <TicketDetailPage analyst />
+              </RequirePermission>
             </RequireSession>
           }
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </Shell>
+    </AppShell>
   );
 }

@@ -339,6 +339,7 @@ def test_known_user_loads_database_roles_groups_and_business_unit(
     assert payload["user_id"] == "22000000-0000-0000-0000-000000000004"
     assert payload["tenant_id"] == "20000000-0000-0000-0000-000000000001"
     assert payload["role_codes"] == ["AGENT"]
+    assert "TICKET_ANALYST_READ" in payload["permission_codes"]
     assert payload["support_group_ids"] == [
         "23000000-0000-0000-0000-000000000001",
         "23000000-0000-0000-0000-000000000002",

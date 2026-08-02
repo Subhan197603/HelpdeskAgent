@@ -651,6 +651,8 @@ export interface components {
       business_unit_name: string | null;
       /** Display Name */
       display_name: string;
+      /** Permission Codes */
+      permission_codes: string[];
       /** Provider Code */
       provider_code?: string | null;
       /** Role Codes */

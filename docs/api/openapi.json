@@ -331,6 +331,13 @@
             "title": "Display Name",
             "type": "string"
           },
+          "permission_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permission Codes",
+            "type": "array"
+          },
           "provider_code": {
             "anyOf": [
               {
@@ -375,6 +382,7 @@
           "business_unit_id",
           "business_unit_name",
           "role_codes",
+          "permission_codes",
           "support_group_ids",
           "authentication_mode"
         ],

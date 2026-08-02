@@ -217,6 +217,8 @@ def test_me_returns_only_authenticated_profile_fields() -> None:
         response = client.get("/api/v1/me", headers={"X-Developer-User": "DEV/customer"})
     assert response.status_code == 200
     assert response.json()["role_codes"] == ["CUSTOMER"]
+    assert "TICKET_READ_OWN" in response.json()["permission_codes"]
+    assert "TICKET_ANALYST_READ" not in response.json()["permission_codes"]
     assert response.json()["display_name"] == "Development Customer"
     assert response.json()["authentication_mode"] == "developer_header"
     assert "email" not in response.text

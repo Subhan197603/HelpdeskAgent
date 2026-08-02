@@ -20,9 +20,23 @@ export default defineConfig({
   },
   projects: [
     {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      name: "functional-chromium",
+      testMatch: /ticket-vertical-slice\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { height: 800, width: 1280 },
+      },
     },
+    ...[
+      { height: 1024, name: "visual-1440", width: 1440 },
+      { height: 800, name: "visual-1280", width: 1280 },
+      { height: 1024, name: "visual-768", width: 768 },
+      { height: 844, name: "visual-390", width: 390 },
+    ].map(({ height, name, width }) => ({
+      name,
+      testMatch: /visual-foundation\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { height, width } },
+    })),
   ],
   webServer: [
     {

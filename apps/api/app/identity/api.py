@@ -11,7 +11,7 @@ from apps.api.app.dependencies.request_context import (
     get_authenticated_identity,
     require_permission,
 )
-from apps.api.app.identity.authorization import Permission
+from apps.api.app.identity.authorization import AuthorizationService, Permission
 from apps.api.app.identity.models import AuthenticatedIdentity
 from apps.api.app.identity.oidc import AuthenticationMetrics
 from apps.api.app.identity.schemas import CurrentIdentityResponse, IdentityDiagnosticResponse
@@ -40,6 +40,9 @@ async def current_identity(
         business_unit_id=context.business_unit_id,
         business_unit_name=identity.business_unit_name,
         role_codes=sorted(context.roles),
+        permission_codes=sorted(
+            permission.value for permission in AuthorizationService().permissions_for(context)
+        ),
         support_group_ids=sorted(context.support_group_ids, key=str),
         authentication_mode=identity.authentication_mode,
         provider_code=identity.provider_code,

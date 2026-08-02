@@ -6,7 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { DynamicField, LoginPage } from "./App";
-import { ErrorSummary } from "./components/StatusPanel";
+import { ErrorSummary } from "./components/States";
 import { ApiProblem } from "./lib/api";
 import { SessionProvider } from "./lib/session";
 

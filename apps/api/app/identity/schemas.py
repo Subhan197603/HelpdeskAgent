@@ -13,6 +13,7 @@ class CurrentIdentityResponse(BaseModel):
     business_unit_id: UUID | None
     business_unit_name: str | None
     role_codes: list[str]
+    permission_codes: list[str]
     support_group_ids: list[UUID]
     authentication_mode: Literal["developer_header", "oidc"]
     provider_code: str | None = None

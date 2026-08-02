@@ -83,8 +83,7 @@ Starting values inferred from the approved concept:
   --sidebar-collapsed-width: 72px;
   --topbar-height: 64px;
   --page-padding: 24px;
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 5%),
-    0 4px 14px rgb(15 23 42 / 4%);
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 14px rgb(15 23 42 / 4%);
 }
 ```
 
