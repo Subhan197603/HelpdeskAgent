@@ -547,6 +547,11 @@ class TicketService:
                 body,
                 context.correlation_id,
                 context.request_id,
+                sla_event_type=(
+                    "AGENT_PUBLIC_RESPONSE_ADDED"
+                    if self._authorization.is_allowed(context, Permission.TICKET_ANALYST_READ)
+                    else "CUSTOMER_COMMENT_ADDED"
+                ),
             )
             await repo.complete_idempotency(
                 idem.idempotency_record_id,

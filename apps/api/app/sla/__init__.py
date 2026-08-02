@@ -1,1 +1,1 @@
-"""Service-level agreement module."""
+"""Business-calendar and service-level agreement engine."""

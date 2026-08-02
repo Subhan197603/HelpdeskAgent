@@ -150,6 +150,7 @@ class WorkflowService:
                     normalized_comment,
                     context.correlation_id,
                     context.request_id,
+                    sla_event_type="AGENT_PUBLIC_RESPONSE_ADDED",
                 )
             new_version = await repo.apply_transition(ticket, transition, user_id, updates)
             if new_version is None:

@@ -119,8 +119,7 @@ api:
 	API_HOST=$(API_HOST) API_PORT=$(API_PORT) uv run python -m apps.api.app.server
 
 worker:
-	@echo "$@ runtime will be implemented in its foundation task."
-	@exit 1
+	uv run python -m apps.worker.worker.main
 
 web:
 	pnpm --filter @fusion-helpdesk/web dev

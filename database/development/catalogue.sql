@@ -249,4 +249,116 @@ WHERE queue_definition_version_id BETWEEN
     '37100000-0000-0000-0000-000000000004'
   AND version_status='DRAFT';
 
+-- Development-only immutable business calendar and initial SLA goals. These
+-- are deliberately absent from the production baseline installer.
+INSERT INTO config.business_calendar(
+    calendar_id,tenant_id,calendar_code,calendar_name,timezone_name
+) VALUES (
+    '38000000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000001',
+    'UK_BUSINESS_HOURS','UK Business Hours','Europe/London'
+) ON CONFLICT (calendar_id) DO NOTHING;
+
+INSERT INTO config.business_calendar_version(
+    business_calendar_version_id,calendar_id,version_number,version_status,
+    timezone_name,twenty_four_seven_flag,schedule_json,effective_from,
+    created_by,approved_by,approved_at,change_reason
+) VALUES (
+    '38100000-0000-0000-0000-000000000001',
+    '38000000-0000-0000-0000-000000000001',1,'DRAFT','Europe/London',false,
+    '{"working_days":[1,2,3,4,5]}','2025-01-01T00:00:00Z',
+    '22000000-0000-0000-0000-000000000001',
+    '22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z',
+    'Initial development business calendar'
+) ON CONFLICT (business_calendar_version_id) DO NOTHING;
+
+INSERT INTO config.calendar_working_period(
+    business_calendar_version_id,iso_day_of_week,start_local_time,end_local_time
+)
+SELECT '38100000-0000-0000-0000-000000000001',day_number,'09:00','17:00'
+FROM generate_series(1,5) AS day_number
+ON CONFLICT (
+    business_calendar_version_id,iso_day_of_week,start_local_time,end_local_time
+) DO NOTHING;
+
+INSERT INTO config.calendar_exception(
+    business_calendar_version_id,exception_date,exception_type,description
+) VALUES (
+    '38100000-0000-0000-0000-000000000001','2026-12-25','CLOSED','Christmas Day'
+) ON CONFLICT (business_calendar_version_id,exception_date) DO NOTHING;
+
+INSERT INTO config.sla_definition(
+    sla_definition_id,tenant_id,project_id,sla_code,sla_name,metric_code,
+    start_condition_json,pause_condition_json,stop_condition_json
+) VALUES
+('38200000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','FIRST_RESPONSE','Time to first response','TIME_TO_FIRST_RESPONSE','{"event":"TICKET_CREATED"}','[]','{"field":"first_response_at","operator":"is_not_null"}'),
+('38200000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','RESOLUTION','Time to resolution','TIME_TO_RESOLUTION','{"event":"TICKET_CREATED"}','[{"status_code":"WAITING_FOR_CUSTOMER"}]','{"status_category":"DONE"}')
+ON CONFLICT (sla_definition_id) DO NOTHING;
+
+INSERT INTO config.sla_definition_version(
+    sla_definition_version_id,sla_definition_id,version_number,version_status,
+    metric_code,start_condition_json,pause_condition_json,stop_condition_json,
+    effective_from,created_by,approved_by,approved_at,change_reason
+) VALUES
+('38300000-0000-0000-0000-000000000001','38200000-0000-0000-0000-000000000001',1,'DRAFT','TIME_TO_FIRST_RESPONSE','{"event":"TICKET_CREATED"}','[]','{"field":"first_response_at","operator":"is_not_null"}','2025-01-01T00:00:00Z','22000000-0000-0000-0000-000000000001','22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z','Initial first-response SLA'),
+('38300000-0000-0000-0000-000000000002','38200000-0000-0000-0000-000000000002',1,'DRAFT','TIME_TO_RESOLUTION','{"event":"TICKET_CREATED"}','[{"status_code":"WAITING_FOR_CUSTOMER"}]','{"status_category":"DONE"}','2025-01-01T00:00:00Z','22000000-0000-0000-0000-000000000001','22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z','Initial resolution SLA')
+ON CONFLICT (sla_definition_version_id) DO NOTHING;
+
+INSERT INTO config.sla_goal(
+    sla_goal_id,sla_definition_id,goal_name,match_condition_json,target_minutes,
+    warning_minutes,calendar_id,priority_order
+) VALUES
+('38400000-0000-0000-0000-000000000001','38200000-0000-0000-0000-000000000001','P1 first response','{"priority_code":"P1"}',15,5,'38000000-0000-0000-0000-000000000001',10),
+('38400000-0000-0000-0000-000000000002','38200000-0000-0000-0000-000000000001','Default first response','{}',240,60,'38000000-0000-0000-0000-000000000001',999),
+('38400000-0000-0000-0000-000000000003','38200000-0000-0000-0000-000000000002','P1 resolution','{"priority_code":"P1"}',240,60,'38000000-0000-0000-0000-000000000001',10),
+('38400000-0000-0000-0000-000000000004','38200000-0000-0000-0000-000000000002','Default resolution','{}',2400,480,'38000000-0000-0000-0000-000000000001',999)
+ON CONFLICT (sla_goal_id) DO NOTHING;
+
+INSERT INTO config.sla_goal_version(
+    sla_goal_version_id,sla_goal_id,sla_definition_version_id,
+    business_calendar_version_id,version_number,version_status,
+    match_condition_json,target_minutes,warning_minutes,priority_order,
+    effective_from,created_by,approved_by,approved_at,change_reason
+)
+SELECT
+    ('38500000-0000-0000-0000-' || right(goal.sla_goal_id::text,12))::uuid,
+    goal.sla_goal_id,
+    CASE goal.sla_definition_id
+      WHEN '38200000-0000-0000-0000-000000000001'
+        THEN '38300000-0000-0000-0000-000000000001'::uuid
+      ELSE '38300000-0000-0000-0000-000000000002'::uuid
+    END,
+    '38100000-0000-0000-0000-000000000001',1,'DRAFT',
+    goal.match_condition_json,goal.target_minutes,goal.warning_minutes,
+    goal.priority_order,'2025-01-01T00:00:00Z',
+    '22000000-0000-0000-0000-000000000001',
+    '22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z',
+    'Initial development SLA goal'
+FROM config.sla_goal AS goal
+WHERE goal.sla_goal_id BETWEEN
+    '38400000-0000-0000-0000-000000000001' AND
+    '38400000-0000-0000-0000-000000000004'
+ON CONFLICT (sla_goal_version_id) DO NOTHING;
+
+UPDATE config.business_calendar_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE business_calendar_version_id='38100000-0000-0000-0000-000000000001'
+  AND version_status='DRAFT';
+
+UPDATE config.sla_definition_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE sla_definition_version_id BETWEEN
+    '38300000-0000-0000-0000-000000000001' AND
+    '38300000-0000-0000-0000-000000000002'
+  AND version_status='DRAFT';
+
+UPDATE config.sla_goal_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE sla_goal_version_id IN (
+    '38500000-0000-0000-0000-000000000001',
+    '38500000-0000-0000-0000-000000000002',
+    '38500000-0000-0000-0000-000000000003',
+    '38500000-0000-0000-0000-000000000004'
+) AND version_status='DRAFT';
+
 COMMIT;

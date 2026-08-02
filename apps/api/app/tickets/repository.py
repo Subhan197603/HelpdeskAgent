@@ -529,7 +529,14 @@ class TicketRepository:
         body: str,
         correlation_id: str,
         request_id: str,
+        *,
+        sla_event_type: str,
     ) -> UUID:
+        if sla_event_type not in {
+            "AGENT_PUBLIC_RESPONSE_ADDED",
+            "CUSTOMER_COMMENT_ADDED",
+        }:
+            raise ValueError("Unsupported SLA comment event type")
         row = (
             await self._session.execute(
                 text("""
@@ -577,6 +584,28 @@ class TicketRepository:
                 "comment_id": row.comment_id,
                 "correlation_id": correlation_id,
                 "request_id": request_id,
+            },
+        )
+        await self._session.execute(
+            text("""
+                INSERT INTO integration.outbox_event(
+                  tenant_id,aggregate_type,aggregate_id,event_type,payload_json,
+                  deduplication_key)
+                VALUES (:tenant_id,'TICKET',CAST(:ticket_id AS varchar),
+                  CAST(:event_type AS varchar),
+                  jsonb_build_object(
+                    'ticket_id',CAST(:ticket_id AS varchar),
+                    'comment_id',CAST(:comment_id AS varchar),
+                    'visibility','PUBLIC'),
+                  'comment:' || CAST(:comment_id AS varchar) || ':' ||
+                    CAST(:event_type AS varchar))
+                ON CONFLICT DO NOTHING
+            """),
+            {
+                "tenant_id": tenant_id,
+                "ticket_id": ticket_id,
+                "comment_id": row.comment_id,
+                "event_type": sla_event_type,
             },
         )
         return cast("UUID", row.comment_id)

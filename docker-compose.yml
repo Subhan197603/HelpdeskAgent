@@ -179,10 +179,14 @@ services:
     logging: *default-logging
 
   worker:
-    image: python:3.12-slim
+    build:
+      context: .
+      dockerfile: infrastructure/docker/worker.Dockerfile
+    image: fusion-ai-helpdesk-worker:local
     profiles: ["application"]
-    command: ["python", "-c", "import time; time.sleep(2147483647)"]
     env_file: .env
+    environment:
+      WORKER_DATABASE_URL: ${WORKER_DATABASE_URL:-postgresql+psycopg://helpdesk_worker_login:helpdesk@postgres:5432/helpdesk}
     depends_on:
       postgres:
         condition: service_healthy
@@ -192,6 +196,12 @@ services:
         condition: service_healthy
       clamav:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "apps.worker.worker.health"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 10s
     init: true
     read_only: true
     tmpfs:
