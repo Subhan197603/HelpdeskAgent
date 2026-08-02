@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from apps.api.app.approvals.repository import ApprovalRepository
+from apps.api.app.approvals.service import ApprovalEngine
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import (
     AuthorizationError,
@@ -66,6 +68,8 @@ class WorkflowService:
             values = _values(ticket, {})
             available: list[AvailableTransition] = []
             for transition in transitions:
+                if _is_approval_continuation(transition.actions):
+                    continue
                 try:
                     allowed = evaluate(transition.condition, values)
                 except InvalidRule:
@@ -141,6 +145,10 @@ class WorkflowService:
                 raise InvalidTransitionError(
                     "The transition is not allowed from the ticket's current status."
                 )
+            if _is_approval_continuation(transition.actions):
+                raise InvalidTransitionError(
+                    "The transition can only be executed by a completed approval."
+                )
             updates = await self._validated_updates(repo, ticket, transition, command.field_updates)
             if normalized_comment:
                 await TicketRepository(uow.session).add_public_comment(
@@ -163,6 +171,16 @@ class WorkflowService:
                 context.correlation_id,
                 context.request_id,
             )
+            approval_engine = ApprovalEngine(ApprovalRepository(uow.session))
+            for approval_code in _approval_requests(transition.actions):
+                await approval_engine.request(
+                    tenant_id,
+                    ticket.ticket_id,
+                    approval_code,
+                    user_id,
+                    context.correlation_id,
+                    context.request_id,
+                )
             await repo.complete_idempotency(
                 idem.idempotency_record_id,
                 ticket.ticket_id,
@@ -263,6 +281,20 @@ class WorkflowService:
                 updates[field] = None
             elif action_type == "SET_FIELD" and field in _EDITABLE_FIELDS and "value" in action:
                 updates[field] = action["value"]
+            elif (
+                (
+                    action_type == "CREATE_APPROVAL"
+                    and set(action)
+                    == {
+                        "type",
+                        "approval_code",
+                    }
+                    and isinstance(action["approval_code"], str)
+                )
+                or action_type == "APPROVAL_CONTINUATION"
+                and set(action) == {"type"}
+            ):
+                continue
             else:
                 raise InvalidRule("Action type or field is unsupported.")
 
@@ -303,3 +335,22 @@ def _values(ticket: WorkflowTicket, updates: dict[str, Any]) -> dict[str, Any]:
     values = asdict(ticket)
     values.update(updates)
     return values
+
+
+def _approval_requests(actions: Any) -> list[str]:
+    if not isinstance(actions, list):
+        return []
+    return [
+        action["approval_code"]
+        for action in actions
+        if isinstance(action, dict)
+        and action.get("type", "").upper() == "CREATE_APPROVAL"
+        and isinstance(action.get("approval_code"), str)
+    ]
+
+
+def _is_approval_continuation(actions: Any) -> bool:
+    return isinstance(actions, list) and any(
+        isinstance(action, dict) and action.get("type", "").upper() == "APPROVAL_CONTINUATION"
+        for action in actions
+    )

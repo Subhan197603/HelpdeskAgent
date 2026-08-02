@@ -10,6 +10,8 @@ class WorkflowTicket:
     ticket_id: UUID
     tenant_id: UUID
     ticket_key: str
+    project_id: UUID
+    work_type_code: str
     workflow_version_id: UUID
     workflow_version_status: str
     status_id: UUID

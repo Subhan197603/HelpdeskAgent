@@ -34,6 +34,11 @@ INSERT INTO identity.app_user (
 ('22000000-0000-0000-0000-000000000012','20000000-0000-0000-0000-000000000001','agent-two','agent-two@example.invalid','Development Agent Two','21000000-0000-0000-0000-000000000001',true)
 ON CONFLICT (user_id) DO NOTHING;
 
+UPDATE identity.app_user
+SET manager_user_id = '22000000-0000-0000-0000-000000000006'
+WHERE user_id = '22000000-0000-0000-0000-000000000005'
+  AND manager_user_id IS DISTINCT FROM '22000000-0000-0000-0000-000000000006';
+
 INSERT INTO identity.user_role (
     tenant_id, user_id, role_code, valid_from
 ) VALUES

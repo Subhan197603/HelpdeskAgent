@@ -158,6 +158,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/approvals/{approval_id}/decisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Decide Approval */
+    post: operations["decide_approval_api_v1_approvals__approval_id__decisions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/attachments/{attachment_id}/download": {
     parameters: {
       query?: never;
@@ -337,6 +354,23 @@ export interface paths {
     };
     /** Current Identity */
     get: operations["current_identity_api_v1_me_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/my/approvals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** My Approvals */
+    get: operations["my_approvals_api_v1_my_approvals_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -574,6 +608,71 @@ export interface components {
        * @enum {string}
        */
       visibility: "PUBLIC" | "INTERNAL";
+    };
+    /** ApprovalDecisionCommand */
+    ApprovalDecisionCommand: {
+      /** Comment */
+      comment?: string | null;
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "APPROVE" | "REJECT";
+      /** Expected Version */
+      expected_version: number;
+    };
+    /** ApprovalDecisionResponse */
+    ApprovalDecisionResponse: {
+      approval: components["schemas"]["ApprovalItem"];
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+    };
+    /** ApprovalItem */
+    ApprovalItem: {
+      /** Approval Code */
+      approval_code: string;
+      /**
+       * Approval Id
+       * Format: uuid
+       */
+      approval_id: string;
+      /** Approval Mode */
+      approval_mode: string;
+      /** Approval Name */
+      approval_name: string;
+      /** Completed At */
+      completed_at: string | null;
+      /** Decided At */
+      decided_at: string | null;
+      /** Decision */
+      decision: string | null;
+      /** Decision Comment */
+      decision_comment: string | null;
+      /** Expires At */
+      expires_at: string | null;
+      /**
+       * Requested At
+       * Format: date-time
+       */
+      requested_at: string;
+      /** Row Version */
+      row_version: number;
+      /** Sequence Number */
+      sequence_number: number;
+      /** Status */
+      status: string;
+      /** Ticket Key */
+      ticket_key: string;
+      /** Ticket Summary */
+      ticket_summary: string;
+    };
+    /** ApprovalList */
+    ApprovalList: {
+      /** Items */
+      items: components["schemas"]["ApprovalItem"][];
     };
     /** AssignmentResponse */
     AssignmentResponse: {
@@ -2183,6 +2282,80 @@ export interface operations {
       };
     };
   };
+  decide_approval_api_v1_approvals__approval_id__decisions_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+        "If-Match"?: string | null;
+      };
+      path: {
+        approval_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApprovalDecisionCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApprovalDecisionResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Approval not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Approval conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Decision validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   authorize_download_api_v1_attachments__attachment_id__download_post: {
     parameters: {
       query?: never;
@@ -2821,6 +2994,71 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CurrentIdentityResponse"];
+        };
+      };
+    };
+  };
+  my_approvals_api_v1_my_approvals_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApprovalList"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Approval not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Approval conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Decision validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
         };
       };
     };

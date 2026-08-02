@@ -64,7 +64,9 @@ INSERT INTO config.workflow_status(
 ('32200000-0000-0000-0000-000000000002','32100000-0000-0000-0000-000000000001','IN_PROGRESS','In progress','IN_PROGRESS',false,'In progress',20),
 ('32200000-0000-0000-0000-000000000003','32100000-0000-0000-0000-000000000001','WAITING_FOR_CUSTOMER','Waiting for customer','WAITING',false,'Waiting for you',30),
 ('32200000-0000-0000-0000-000000000004','32100000-0000-0000-0000-000000000001','RESOLVED','Resolved','DONE',false,'Resolved',40),
-('32200000-0000-0000-0000-000000000005','32100000-0000-0000-0000-000000000001','CLOSED','Closed','DONE',true,'Closed',50)
+('32200000-0000-0000-0000-000000000005','32100000-0000-0000-0000-000000000001','CLOSED','Closed','DONE',true,'Closed',50),
+('32200000-0000-0000-0000-000000000006','32100000-0000-0000-0000-000000000001','AWAITING_APPROVAL','Awaiting approval','WAITING',false,'Awaiting approval',60),
+('32200000-0000-0000-0000-000000000007','32100000-0000-0000-0000-000000000001','REJECTED','Rejected','DONE',true,'Rejected',70)
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO config.workflow_transition(
@@ -77,8 +79,46 @@ INSERT INTO config.workflow_transition(
 ('32300000-0000-0000-0000-000000000003','32100000-0000-0000-0000-000000000001','RESUME_PROGRESS','Resume progress','32200000-0000-0000-0000-000000000003','32200000-0000-0000-0000-000000000002','[]','[]','[]',30),
 ('32300000-0000-0000-0000-000000000004','32100000-0000-0000-0000-000000000001','RESOLVE','Resolve','32200000-0000-0000-0000-000000000002','32200000-0000-0000-0000-000000000004','[]','[{"type":"required_field","field":"resolution_code"}]','[{"type":"SET_TIMESTAMP","field":"resolved_at"}]',40),
 ('32300000-0000-0000-0000-000000000005','32100000-0000-0000-0000-000000000001','REOPEN','Reopen','32200000-0000-0000-0000-000000000004','32200000-0000-0000-0000-000000000002','[]','[]','[{"type":"CLEAR_FIELD","field":"resolved_at"},{"type":"CLEAR_FIELD","field":"resolution_code"},{"type":"CLEAR_FIELD","field":"resolution_summary"}]',50),
-('32300000-0000-0000-0000-000000000006','32100000-0000-0000-0000-000000000001','CLOSE','Close','32200000-0000-0000-0000-000000000004','32200000-0000-0000-0000-000000000005','[]','[]','[{"type":"SET_TIMESTAMP","field":"closed_at"}]',60)
+('32300000-0000-0000-0000-000000000006','32100000-0000-0000-0000-000000000001','CLOSE','Close','32200000-0000-0000-0000-000000000004','32200000-0000-0000-0000-000000000005','[]','[]','[{"type":"SET_TIMESTAMP","field":"closed_at"}]',60),
+('32300000-0000-0000-0000-000000000007','32100000-0000-0000-0000-000000000001','REQUEST_APPROVAL','Request approval','32200000-0000-0000-0000-000000000001','32200000-0000-0000-0000-000000000006','{"field":"work_type_code","operator":"equals","value":"ACCESS_REQUEST"}','[]','[{"type":"CREATE_APPROVAL","approval_code":"ACCESS_MANAGER"}]',70),
+('32300000-0000-0000-0000-000000000008','32100000-0000-0000-0000-000000000001','APPROVE_ACCESS','Approval accepted','32200000-0000-0000-0000-000000000006','32200000-0000-0000-0000-000000000002','[]','[]','[{"type":"APPROVAL_CONTINUATION"}]',80),
+('32300000-0000-0000-0000-000000000009','32100000-0000-0000-0000-000000000001','REJECT_ACCESS','Approval rejected','32200000-0000-0000-0000-000000000006','32200000-0000-0000-0000-000000000007','[]','[]','[{"type":"APPROVAL_CONTINUATION"}]',90)
 ON CONFLICT (transition_id) DO NOTHING;
+
+INSERT INTO config.approval_definition(
+    approval_definition_id,tenant_id,project_id,approval_code,approval_name,
+    approval_mode,approver_rule_json,on_approved_transition_id,
+    on_rejected_transition_id
+) VALUES (
+    '38600000-0000-0000-0000-000000000001',
+    '20000000-0000-0000-0000-000000000001',
+    '30000000-0000-0000-0000-000000000006',
+    'ACCESS_MANAGER','Manager approval for access','MANAGER_APPROVAL',
+    '{"subject":"REQUESTED_FOR_OR_REPORTER","rejection_comment_required":true}',
+    '32300000-0000-0000-0000-000000000008',
+    '32300000-0000-0000-0000-000000000009'
+) ON CONFLICT (approval_definition_id) DO NOTHING;
+
+INSERT INTO config.approval_definition_version(
+    approval_definition_version_id,approval_definition_id,version_number,
+    version_status,approval_mode,approver_rule_json,on_approved_transition_id,
+    on_rejected_transition_id,effective_from,created_by,approved_by,approved_at,
+    change_reason,allow_requester_self_approval,expires_after_minutes
+) VALUES (
+    '38700000-0000-0000-0000-000000000001',
+    '38600000-0000-0000-0000-000000000001',1,'DRAFT','MANAGER_APPROVAL',
+    '{"subject":"REQUESTED_FOR_OR_REPORTER","rejection_comment_required":true}',
+    '32300000-0000-0000-0000-000000000008',
+    '32300000-0000-0000-0000-000000000009','2025-01-01T00:00:00Z',
+    '22000000-0000-0000-0000-000000000001',
+    '22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z',
+    'Initial manager approval for access',false,10080
+) ON CONFLICT (approval_definition_version_id) DO NOTHING;
+
+UPDATE config.approval_definition_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE approval_definition_version_id='38700000-0000-0000-0000-000000000001'
+  AND version_status='DRAFT';
 
 UPDATE config.workflow_version
 SET version_status = 'PUBLISHED',

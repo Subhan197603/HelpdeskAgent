@@ -15,6 +15,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from apps.api.app.approvals.repository import ApprovalRepository
+from apps.api.app.approvals.service import ApprovalEngine
 from apps.api.app.attachments.clamav import ScannerError, ScanResult
 from apps.api.app.attachments.service import AttachmentService
 from apps.api.app.core.context import RequestContext
@@ -218,6 +220,48 @@ def _draft(client: TestClient, body: dict[str, object] | None = None) -> dict[st
     )
     assert validated.status_code == 200
     return cast("dict[str, object]", validated.json()["draft"])
+
+
+def _access_ticket(client: TestClient, prefix: str) -> dict[str, object]:
+    draft = _draft(
+        client,
+        {
+            "request_type_id": "33000000-0000-0000-0000-000000000002",
+            "summary": "Request Fusion access",
+            "description": "Access is needed for the approved finance responsibilities.",
+            "impact": "LIMITED",
+            "urgency": "NORMAL",
+            "custom_fields": [],
+        },
+    )
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"{prefix}-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert submitted.status_code == 201
+    return cast("dict[str, object]", submitted.json())
+
+
+def _request_access_approval(
+    client: TestClient, prefix: str
+) -> tuple[dict[str, object], dict[str, object]]:
+    ticket = _access_ticket(client, prefix)
+    requested = client.post(
+        f"/api/v1/agent/tickets/{ticket['key']}/transitions",
+        headers={
+            "X-Developer-User": "DEV/agent",
+            "Idempotency-Key": f"{prefix}-request-{uuid4()}",
+        },
+        json={"transition_code": "REQUEST_APPROVAL", "row_version": ticket["row_version"]},
+    )
+    assert requested.status_code == 200
+    listing = client.get("/api/v1/my/approvals", headers={"X-Developer-User": "DEV/approver"})
+    approval = next(item for item in listing.json()["items"] if item["ticket_key"] == ticket["key"])
+    return ticket, cast("dict[str, object]", approval)
 
 
 @pytest.mark.integration
@@ -777,6 +821,231 @@ def test_workflow_transition_is_authorized_validated_idempotent_and_audited(
             f"WHERE resource_id='{ticket_id}' AND action_code='TICKET_WORKFLOW_TRANSITIONED'"
         )
         == "1"
+    )
+
+
+@pytest.mark.integration
+def test_manager_approval_is_versioned_authorized_idempotent_and_advances_workflow(
+    client: TestClient,
+) -> None:
+    access_body: dict[str, object] = {
+        "request_type_id": "33000000-0000-0000-0000-000000000002",
+        "summary": "Request Fusion access",
+        "description": "Access is needed for the approved finance responsibilities.",
+        "impact": "LIMITED",
+        "urgency": "NORMAL",
+        "custom_fields": [],
+    }
+    draft = _draft(client, access_body)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"approval-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert submitted.status_code == 201
+    ticket = submitted.json()
+    transition_path = f"/api/v1/agent/tickets/{ticket['key']}/transitions"
+    agent = {"X-Developer-User": "DEV/agent"}
+    available = client.get(transition_path, headers=agent)
+    assert available.status_code == 200
+    assert {item["code"] for item in available.json()["transitions"]} == {
+        "START_PROGRESS",
+        "REQUEST_APPROVAL",
+    }
+    requested = client.post(
+        transition_path,
+        headers={**agent, "Idempotency-Key": f"approval-request-{uuid4()}"},
+        json={"transition_code": "REQUEST_APPROVAL", "row_version": ticket["row_version"]},
+    )
+    assert requested.status_code == 200
+    assert requested.json()["ticket"]["status"] == "AWAITING_APPROVAL"
+    after_request = client.get(transition_path, headers=agent)
+    assert after_request.status_code == 200
+    assert after_request.json()["transitions"] == []
+    direct_continuation = client.post(
+        transition_path,
+        headers={**agent, "Idempotency-Key": f"direct-approval-{uuid4()}"},
+        json={
+            "transition_code": "APPROVE_ACCESS",
+            "row_version": requested.json()["ticket"]["row_version"],
+        },
+    )
+    assert direct_continuation.status_code == 409
+
+    assert (
+        client.get("/api/v1/my/approvals", headers={"X-Developer-User": "DEV/customer"}).status_code
+        == 403
+    )
+    approver = {"X-Developer-User": "DEV/approver"}
+    listing = client.get("/api/v1/my/approvals", headers=approver)
+    assert listing.status_code == 200
+    approval = next(item for item in listing.json()["items"] if item["ticket_key"] == ticket["key"])
+    assert approval["status"] == "PENDING"
+    assert approval["approval_mode"] == "MANAGER_APPROVAL"
+    assert (
+        _psql(
+            "SELECT approval_definition_version_id FROM itsm.ticket_approval "
+            f"WHERE ticket_approval_id='{approval['approval_id']}'"
+        )
+        == "38700000-0000-0000-0000-000000000001"
+    )
+    decision_path = f"/api/v1/approvals/{approval['approval_id']}/decisions"
+    missing_comment = client.post(
+        decision_path,
+        headers={**approver, "Idempotency-Key": f"reject-no-comment-{uuid4()}"},
+        json={"decision": "REJECT", "expected_version": approval["row_version"]},
+    )
+    assert missing_comment.status_code == 422
+    stale = client.post(
+        decision_path,
+        headers={**approver, "Idempotency-Key": f"approval-stale-{uuid4()}"},
+        json={"decision": "APPROVE", "expected_version": 999},
+    )
+    assert stale.status_code == 409
+    key = f"approval-decision-{uuid4()}"
+    command = {
+        "decision": "APPROVE",
+        "comment": "Access request is justified.",
+        "expected_version": approval["row_version"],
+    }
+    decided = client.post(
+        decision_path,
+        headers={**approver, "Idempotency-Key": key},
+        json=command,
+    )
+    assert decided.status_code == 200
+    assert decided.json()["approval"]["status"] == "APPROVED"
+    replay = client.post(
+        decision_path,
+        headers={**approver, "Idempotency-Key": key},
+        json=command,
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["replayed"] is True
+    duplicate = client.post(
+        decision_path,
+        headers={**approver, "Idempotency-Key": f"approval-duplicate-{uuid4()}"},
+        json={**command, "expected_version": decided.json()["approval"]["row_version"]},
+    )
+    assert duplicate.status_code == 409
+    customer_ticket = client.get(
+        f"/api/v1/tickets/{ticket['key']}",
+        headers={"X-Developer-User": "DEV/customer"},
+    )
+    assert customer_ticket.status_code == 200
+    assert customer_ticket.json()["status"] == "IN_PROGRESS"
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.ticket_approval_decision "
+            f"WHERE ticket_approval_id='{approval['approval_id']}'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM integration.outbox_event "
+            f"WHERE aggregate_id='{approval['approval_id']}' "
+            "AND event_type IN ('APPROVAL_REQUESTED','APPROVAL_DECIDED')"
+        )
+        == "2"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM audit.audit_event "
+            f"WHERE resource_id='{approval['approval_id']}' "
+            "AND action_code IN ('APPROVAL_REQUESTED','APPROVAL_DECIDED')"
+        )
+        == "2"
+    )
+
+
+@pytest.mark.integration
+def test_approval_rejection_expiry_and_cancellation_are_persisted(client: TestClient) -> None:
+    approver = {"X-Developer-User": "DEV/approver"}
+
+    rejected_ticket, rejected = _request_access_approval(client, "approval-reject")
+    rejected_response = client.post(
+        f"/api/v1/approvals/{rejected['approval_id']}/decisions",
+        headers={**approver, "Idempotency-Key": f"approval-reject-{uuid4()}"},
+        json={
+            "decision": "REJECT",
+            "comment": "The requested responsibility is not authorized.",
+            "expected_version": rejected["row_version"],
+        },
+    )
+    assert rejected_response.status_code == 200
+    assert rejected_response.json()["approval"]["status"] == "REJECTED"
+    rejected_view = client.get(
+        f"/api/v1/tickets/{rejected_ticket['key']}",
+        headers={"X-Developer-User": "DEV/customer"},
+    )
+    assert rejected_view.json()["status"] == "REJECTED"
+
+    _, expired = _request_access_approval(client, "approval-expire")
+    _psql(
+        "UPDATE itsm.ticket_approval SET requested_at=now()-interval '2 minutes', "
+        "expires_at=now()-interval '1 minute' "
+        f"WHERE ticket_approval_id='{expired['approval_id']}'"
+    )
+    expired_response = client.post(
+        f"/api/v1/approvals/{expired['approval_id']}/decisions",
+        headers={**approver, "Idempotency-Key": f"approval-expired-{uuid4()}"},
+        json={"decision": "APPROVE", "expected_version": expired["row_version"]},
+    )
+    assert expired_response.status_code == 409
+    assert (
+        _psql(
+            "SELECT approval_status FROM itsm.ticket_approval "
+            f"WHERE ticket_approval_id='{expired['approval_id']}'"
+        )
+        == "EXPIRED"
+    )
+
+    cancelled_ticket, cancelled = _request_access_approval(client, "approval-cancel")
+
+    async def cancel() -> int:
+        settings = _settings()
+        database = Database(settings)
+        tenant_id = UUID("20000000-0000-0000-0000-000000000001")
+        actor_user_id = UUID("22000000-0000-0000-0000-000000000004")
+        context = RequestContext(
+            tenant_id,
+            actor_user_id,
+            "agent",
+            frozenset({"AGENT"}),
+            frozenset(),
+            UUID("21000000-0000-0000-0000-000000000001"),
+            str(uuid4()),
+            str(uuid4()),
+        )
+        try:
+            async with SqlAlchemyUnitOfWork(
+                database.session_factory, context, rls_enabled=False
+            ) as uow:
+                count = await ApprovalEngine(ApprovalRepository(uow.session)).cancel_for_ticket(
+                    tenant_id,
+                    UUID(cast("str", cancelled_ticket["id"])),
+                    actor_user_id,
+                    context.correlation_id,
+                    context.request_id,
+                )
+                await uow.commit()
+                return count
+        finally:
+            await database.close()
+
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        assert runner.run(cancel()) == 1
+    assert (
+        _psql(
+            "SELECT approval_status FROM itsm.ticket_approval "
+            f"WHERE ticket_approval_id='{cancelled['approval_id']}'"
+        )
+        == "CANCELLED"
     )
 
 

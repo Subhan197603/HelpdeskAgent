@@ -29,6 +29,7 @@ class WorkflowRepository:
                 text(
                     """
                     SELECT ticket.ticket_id,ticket.tenant_id,ticket.ticket_key,
+                      ticket.project_id,work_type.work_type_code,
                       ticket.workflow_version_id,version.version_status,ticket.status_id,
                       status.status_code,ticket.row_version,ticket.summary,ticket.description,
                       ticket.resolution_code,ticket.resolution_summary,
@@ -38,6 +39,7 @@ class WorkflowRepository:
                     JOIN config.workflow_version AS version
                       ON version.workflow_version_id=ticket.workflow_version_id
                     JOIN config.workflow_status AS status ON status.status_id=ticket.status_id
+                    JOIN config.work_type AS work_type ON work_type.work_type_id=ticket.work_type_id
                     WHERE ticket.tenant_id=:tenant_id AND ticket.ticket_key=:ticket_key
                       AND (:include_all OR ticket.assignment_group_id IS NULL
                         OR ticket.assignment_group_id=ANY(CAST(:support_group_ids AS uuid[])))

@@ -97,6 +97,19 @@ def _app_url(database: str) -> str:
     return f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{POSTGRES_PORT}/{database}"
 
 
+@pytest.mark.integration
+def test_approval_child_tables_follow_optional_tenant_rls() -> None:
+    result = _psql(
+        "identity_rls",
+        "-Atqc",
+        "SELECT count(*) FROM pg_class AS class "
+        "JOIN pg_namespace AS namespace ON namespace.oid=class.relnamespace "
+        "WHERE namespace.nspname='itsm' AND class.relrowsecurity "
+        "AND class.relname IN ('ticket_approver','ticket_approval_decision')",
+    )
+    assert result == "2"
+
+
 def _migrate(database: str) -> None:
     environment = os.environ.copy()
     environment.update(

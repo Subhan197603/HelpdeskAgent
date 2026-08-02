@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.app.api.router import api_router
+from apps.api.app.approvals.service import ApprovalService
 from apps.api.app.attachments.clamav import ClamAVScanner
 from apps.api.app.attachments.service import AttachmentService
 from apps.api.app.attachments.storage import S3ObjectStorage
@@ -85,6 +86,7 @@ def create_app(
             {"name": "routing", "description": "Deterministic routing and assignment."},
             {"name": "queues", "description": "Analyst queues and immutable activity."},
             {"name": "attachments", "description": "Quarantined and protected ticket files."},
+            {"name": "approvals", "description": "Assigned approval decisions."},
         ],
     )
     app.state.settings = settings
@@ -126,6 +128,9 @@ def create_app(
     )
     app.state.workflow_service = WorkflowService(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
+    )
+    app.state.approval_service = ApprovalService(
+        unit_of_work_factory, app.state.authorization_service
     )
     app.state.routing_service = RoutingService(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
