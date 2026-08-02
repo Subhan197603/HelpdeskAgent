@@ -38,6 +38,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/documents/{document_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Document */
+    get: operations["get_document_api_v1_admin_knowledge_documents__document_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/documents/{document_id}/approval-decisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Document */
+    post: operations["approve_document_api_v1_admin_knowledge_documents__document_id__approval_decisions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/documents/{document_id}/publication": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Publish Document */
+    post: operations["publish_document_api_v1_admin_knowledge_documents__document_id__publication_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/documents/{document_id}/retirement": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retire Document */
+    post: operations["retire_document_api_v1_admin_knowledge_documents__document_id__retirement_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/manifest/import": {
     parameters: {
       query?: never;
@@ -1095,6 +1163,104 @@ export interface components {
        */
       status: "healthy" | "unhealthy" | "disabled";
     };
+    /** DocumentAdminResponse */
+    DocumentAdminResponse: {
+      /** Active */
+      active: boolean;
+      /** Approval Status */
+      approval_status: string;
+      /** Approved At */
+      approved_at: string | null;
+      /** Approved By */
+      approved_by: string | null;
+      /** Audience Code */
+      audience_code: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Document Type */
+      document_type: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Row Version */
+      row_version: number;
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope: "TENANT" | "GLOBAL";
+      /** Security Classification */
+      security_classification: string;
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Versions */
+      versions: components["schemas"]["DocumentVersionResponse"][];
+    };
+    /** DocumentApprovalCommand */
+    DocumentApprovalCommand: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "APPROVED" | "REJECTED";
+      /** Expected Version */
+      expected_version: number;
+      /** Reason */
+      reason: string;
+    };
+    /** DocumentVersionResponse */
+    DocumentVersionResponse: {
+      /**
+       * Acquired At
+       * Format: date-time
+       */
+      acquired_at: string;
+      /** Content Type */
+      content_type: string;
+      /** Current */
+      current: boolean;
+      /** Extraction Status */
+      extraction_status: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Processing Versions */
+      processing_versions: components["schemas"]["ProcessingVersionResponse"][];
+      /** Published At */
+      published_at: string | null;
+      /** Published Processing Version Id */
+      published_processing_version_id: string | null;
+      /** Retired At */
+      retired_at: string | null;
+      /** Sha256 Checksum */
+      sha256_checksum: string;
+      /** Validation Status */
+      validation_status: string;
+      /** Version Number */
+      version_number: number;
+    };
     /** DownloadResponse */
     DownloadResponse: {
       /**
@@ -1750,6 +1916,52 @@ export interface components {
       /** Type */
       type: string;
     };
+    /** ProcessingVersionResponse */
+    ProcessingVersionResponse: {
+      /** Chunk Count */
+      chunk_count: number | null;
+      /** Chunker */
+      chunker: string;
+      /** Chunker Version */
+      chunker_version: string;
+      /** Chunking Configuration Hash */
+      chunking_configuration_hash: string;
+      /** Completed At */
+      completed_at: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Document Version Id
+       * Format: uuid
+       */
+      document_version_id: string;
+      /** Embedded Chunk Count */
+      embedded_chunk_count: number | null;
+      /** Embedding Model Code */
+      embedding_model_code: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Parser */
+      parser: string;
+      /** Parser Version */
+      parser_version: string;
+      /** Processing Number */
+      processing_number: number;
+      /** Status */
+      status: string;
+      /** Validation */
+      validation: {
+        [key: string]: unknown;
+      };
+      /** Validation Status */
+      validation_status: string;
+    };
     /** ProjectListResponse */
     ProjectListResponse: {
       /** Items */
@@ -1798,6 +2010,18 @@ export interface components {
        * Format: uuid
        */
       id: string;
+    };
+    /** PublishDocumentCommand */
+    PublishDocumentCommand: {
+      /** Expected Document Version */
+      expected_document_version: number;
+      /**
+       * Processing Version Id
+       * Format: uuid
+       */
+      processing_version_id: string;
+      /** Reason */
+      reason: string;
     };
     /** QueueListResponse */
     QueueListResponse: {
@@ -1976,6 +2200,13 @@ export interface components {
       /** Version Number */
       version_number: number;
       work_type: components["schemas"]["WorkTypeResponse"];
+    };
+    /** RetireDocumentCommand */
+    RetireDocumentCommand: {
+      /** Expected Version */
+      expected_version: number;
+      /** Reason */
+      reason: string;
     };
     /** RouteCommand */
     RouteCommand: {
@@ -2702,6 +2933,292 @@ export interface operations {
       };
       /** @description Object storage unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  get_document_api_v1_admin_knowledge_documents__document_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        document_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentAdminResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge document not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication lifecycle conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  approve_document_api_v1_admin_knowledge_documents__document_id__approval_decisions_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        document_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DocumentApprovalCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentAdminResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge document not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication lifecycle conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  publish_document_api_v1_admin_knowledge_documents__document_id__publication_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        document_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PublishDocumentCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentAdminResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge document not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication lifecycle conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  retire_document_api_v1_admin_knowledge_documents__document_id__retirement_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        document_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetireDocumentCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentAdminResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge document not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication lifecycle conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication validation failed */
+      422: {
         headers: {
           [name: string]: unknown;
         };

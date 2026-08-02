@@ -6,7 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/workspace/.venv/bin:${PATH}"
 
-RUN addgroup -S app && adduser -S -G app -h /nonexistent app
+RUN apk add --no-cache libstdc++ \
+    && addgroup -S app \
+    && adduser -S -G app -h /nonexistent app
 WORKDIR /workspace
 
 COPY --from=uv /uv /uvx /bin/
@@ -17,6 +19,7 @@ COPY --chown=app:app apps/__init__.py ./apps/__init__.py
 COPY --chown=app:app apps/api/__init__.py ./apps/api/__init__.py
 COPY --chown=app:app apps/api/app ./apps/api/app
 COPY --chown=app:app apps/worker ./apps/worker
+COPY --chown=app:app ingestion ./ingestion
 
 USER app
 

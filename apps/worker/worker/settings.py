@@ -43,6 +43,17 @@ class WorkerSettings(BaseSettings):
     clamav_port: int = Field(default=3310, ge=1, le=65535)
     clamav_timeout_seconds: float = Field(default=15, gt=0, le=120)
     oracle_document_acquisition_enabled: bool = False
+    embedding_provider_mode: Literal["deterministic", "http"] = "deterministic"
+    embedding_endpoint: str | None = None
+    embedding_api_key: SecretStr | None = None
+    embedding_model_code: str = "DEFAULT_1536"
+    embedding_dimension: int = Field(default=1536, ge=1, le=4096)
+    embedding_batch_size: int = Field(default=32, ge=1, le=100)
+    embedding_timeout_seconds: float = Field(default=30, ge=1, le=120)
+    knowledge_chunk_target_tokens: int = Field(default=600, ge=50, le=2000)
+    knowledge_chunk_maximum_tokens: int = Field(default=800, ge=50, le=2000)
+    knowledge_chunk_minimum_tokens: int = Field(default=300, ge=50, le=2000)
+    knowledge_chunk_overlap_tokens: int = Field(default=40, ge=0, le=200)
     smtp_host: str = Field(default="localhost", min_length=1, max_length=253)
     smtp_port: int = Field(default=1025, ge=1, le=65535)
     smtp_from: str = Field(default="helpdesk@example.invalid", min_length=3, max_length=320)
@@ -92,4 +103,10 @@ class WorkerSettings(BaseSettings):
             and self.object_storage_sse_key_id is None
         ):
             raise ValueError("OBJECT_STORAGE_SSE_KEY_ID is required for aws:kms")
+        if self.embedding_provider_mode != "http":
+            raise ValueError("Production requires an approved HTTP embedding provider")
+        if not self.embedding_endpoint or not self.embedding_endpoint.startswith("https://"):
+            raise ValueError("EMBEDDING_ENDPOINT must use HTTPS in production")
+        if self.embedding_api_key is None:
+            raise ValueError("EMBEDDING_API_KEY is required in production")
         return self

@@ -24,7 +24,14 @@ from apps.worker.worker.acquisition_worker import (
     FetchedDocument,
     RetryableAcquisitionError,
 )
+from apps.worker.worker.knowledge_processing_worker import KnowledgeProcessingWorker
 from apps.worker.worker.settings import WorkerSettings
+from ingestion.chunkers import ChunkingConfig, SemanticChunker
+from ingestion.embeddings import (
+    DeterministicEmbeddingProvider,
+    EmbeddingError,
+    EmbeddingProvider,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-acquisition-test"
@@ -101,6 +108,23 @@ class SequenceFetcher:
         if self.fail_once and self.calls == 1:
             raise RetryableAcquisitionError("REMOTE_FETCH_UNAVAILABLE")
         return FetchedDocument(self.content, "application/pdf")
+
+
+class FailOnceEmbeddingProvider:
+    model_code = "DEFAULT_1536"
+    dimension = 1536
+
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+        self._failed = False
+        self._delegate = DeterministicEmbeddingProvider(self.model_code, self.dimension)
+
+    async def embed_batch(self, inputs: list[str]) -> list[list[float]]:
+        self.calls.append(len(inputs))
+        if not self._failed:
+            self._failed = True
+            raise EmbeddingError("TRANSIENT_TEST_FAILURE")
+        return await self._delegate.embed_batch(inputs)
 
 
 def _environment() -> dict[str, str]:
@@ -356,6 +380,68 @@ async def _process(
         await engine.dispose()
 
 
+async def _process_knowledge(storage: MemoryStorage, chunker: SemanticChunker | None = None) -> int:
+    settings = WorkerSettings.model_validate(
+        {
+            "app_env": "integration",
+            "worker_database_url": (
+                f"postgresql+psycopg://helpdesk_worker_login:helpdesk@127.0.0.1:{PORT}/{DATABASE}"
+            ),
+            "worker_id": f"processing-{uuid4()}",
+            "embedding_provider_mode": "deterministic",
+        }
+    )
+    engine = create_async_engine(settings.worker_database_url.get_secret_value())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    worker = KnowledgeProcessingWorker(sessions, settings, storage, chunker=chunker)
+    processed = 0
+    try:
+        while await worker.process_one():
+            processed += 1
+        return processed
+    finally:
+        await engine.dispose()
+
+
+async def _process_knowledge_once(
+    storage: MemoryStorage,
+    embeddings: EmbeddingProvider,
+    chunker: SemanticChunker,
+    *,
+    concurrent: bool = False,
+) -> tuple[bool, bool | None]:
+    settings = WorkerSettings.model_validate(
+        {
+            "app_env": "integration",
+            "worker_database_url": (
+                f"postgresql+psycopg://helpdesk_worker_login:helpdesk@127.0.0.1:{PORT}/{DATABASE}"
+            ),
+            "worker_id": f"processing-{uuid4()}",
+            "embedding_provider_mode": "deterministic",
+            "embedding_batch_size": 1,
+        }
+    )
+    engine = create_async_engine(settings.worker_database_url.get_secret_value())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    first = KnowledgeProcessingWorker(
+        sessions, settings, storage, embeddings=embeddings, chunker=chunker
+    )
+    try:
+        if not concurrent:
+            return await first.process_one(), None
+        second = KnowledgeProcessingWorker(
+            sessions,
+            settings.model_copy(update={"worker_id": f"processing-{uuid4()}"}),
+            storage,
+            embeddings=embeddings,
+            chunker=chunker,
+        )
+        one, two = await asyncio.gather(first.process_one(), second.process_one())
+        return one, two
+    finally:
+        await engine.dispose()
+
+
 @pytest.mark.integration
 def test_permission_gate_retry_concurrency_acquisition_and_duplicate_skip(
     application: tuple[TestClient, FastAPI, MemoryStorage],
@@ -531,5 +617,286 @@ def test_checksum_and_malware_failures_are_final_and_leave_no_document_version(
             "JOIN kb.document document USING (document_id) "
             f"WHERE document.source_id='{source['id']}'"
         )
+        == "0"
+    )
+
+
+@pytest.mark.integration
+def test_versioned_processing_publication_reprocessing_and_retirement(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, storage = application
+    source = _create_approved_source(client, "PUBLISH_POLICY", "MANUAL_UPLOAD")
+    content = (
+        b"# Access policy\n\nEmployees must use approved access.\n\n"
+        b"## Procedure\n\n1. Request access.\n2. Obtain approval.\n3. Verify access.\n"
+    )
+    checksum = hashlib.sha256(content).hexdigest()
+    authorized = client.post(
+        "/api/v1/admin/knowledge/manual-uploads",
+        headers=_headers("knowledge-author", "publish-policy-upload"),
+        json={
+            "source_id": source["id"],
+            "manifest_key": "publish-policy-1",
+            "document_title": "Access policy",
+            "document_type": "POLICY",
+            "audience_code": "EMPLOYEE",
+            "target_collection": "policies",
+            "filename": "access-policy.md",
+            "content_type": "text/markdown",
+            "file_size_bytes": len(content),
+            "sha256_checksum": checksum,
+            "copyright_notice": "Copyright Example Corporation",
+        },
+    )
+    assert authorized.status_code == 201, authorized.text
+    upload = authorized.json()
+    storage.objects[upload["quarantine_object_key"]] = (content, "text/markdown")
+    assert (
+        client.post(
+            f"/api/v1/admin/knowledge/manual-uploads/{upload['item_id']}/complete",
+            headers=_headers("knowledge-author", "publish-policy-complete"),
+        ).status_code
+        == 200
+    )
+    acquired, _ = asyncio.run(
+        _process(storage, SequenceFetcher(b"unused")), loop_factory=asyncio.SelectorEventLoop
+    )
+    assert acquired is True
+    assert asyncio.run(_process_knowledge(storage), loop_factory=asyncio.SelectorEventLoop) >= 1
+    document_id = _value(
+        "SELECT document_id FROM kb.document WHERE external_document_key='publish-policy-1'"
+    )
+    document = client.get(
+        f"/api/v1/admin/knowledge/documents/{document_id}",
+        headers=_headers("knowledge-author"),
+    )
+    assert document.status_code == 200, document.text
+    body = document.json()
+    processing = body["versions"][0]["processing_versions"][0]
+    assert processing["status"] == "COMPLETED"
+    assert processing["validation_status"] == "WARNING"
+    assert processing["chunk_count"] == processing["embedded_chunk_count"]
+    assert processing["chunk_count"] > 0
+    assert (
+        client.get(
+            f"/api/v1/admin/knowledge/documents/{document_id}",
+            headers=_headers("customer"),
+        ).status_code
+        == 403
+    )
+    premature = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/publication",
+        headers=_headers("platform-admin", "premature-publication"),
+        json={
+            "processing_version_id": processing["id"],
+            "expected_document_version": body["row_version"],
+            "reason": "Attempt before document approval",
+        },
+    )
+    assert premature.status_code == 409
+    assert (
+        _value(f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'")
+        == "0"
+    )
+
+    approved = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/approval-decisions",
+        headers=_headers("platform-admin", "approve-publish-policy"),
+        json={
+            "decision": "APPROVED",
+            "expected_version": body["row_version"],
+            "reason": "Human knowledge review completed",
+        },
+    )
+    assert approved.status_code == 200, approved.text
+    approved_body = approved.json()
+    published = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/publication",
+        headers=_headers("platform-admin", "publish-policy-version-1"),
+        json={
+            "processing_version_id": processing["id"],
+            "expected_document_version": approved_body["row_version"],
+            "reason": "Validated company policy publication",
+        },
+    )
+    assert published.status_code == 200, published.text
+    published_body = published.json()
+    assert published_body["versions"][0]["current"] is True
+    first_visible = _value(
+        f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'"
+    )
+    assert int(first_visible) == processing["chunk_count"]
+
+    _psql(
+        "UPDATE kb.ingestion_run_item SET pipeline_stage='PROCESSING',item_status='ACQUIRED',"
+        "final_failure=false,processing_next_attempt_at=now() "
+        f"WHERE document_id='{document_id}'"
+    )
+    changed_chunker = SemanticChunker(ChunkingConfig(100, 160, 50, 10))
+    flaky_embeddings = FailOnceEmbeddingProvider()
+    concurrent = asyncio.run(
+        _process_knowledge_once(storage, flaky_embeddings, changed_chunker, concurrent=True),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert concurrent in {(True, False), (False, True)}
+    assert (
+        _value(f"SELECT item_status FROM kb.ingestion_run_item WHERE document_id='{document_id}'")
+        == "FAILED"
+    )
+    _psql(
+        "UPDATE kb.ingestion_run_item SET processing_next_attempt_at=now() "
+        f"WHERE document_id='{document_id}'"
+    )
+    retried = asyncio.run(
+        _process_knowledge_once(storage, flaky_embeddings, changed_chunker),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert retried == (True, None)
+    assert len(flaky_embeddings.calls) >= 2
+    assert all(batch_size == 1 for batch_size in flaky_embeddings.calls)
+    refreshed = client.get(
+        f"/api/v1/admin/knowledge/documents/{document_id}",
+        headers=_headers("knowledge-author"),
+    ).json()
+    processing_versions = refreshed["versions"][0]["processing_versions"]
+    assert len(processing_versions) == 2
+    assert len({item["chunking_configuration_hash"] for item in processing_versions}) == 2
+    assert (
+        _value(f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'")
+        == first_visible
+    )
+
+    republished = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/publication",
+        headers=_headers("platform-admin", "publish-policy-version-2"),
+        json={
+            "processing_version_id": processing_versions[0]["id"],
+            "expected_document_version": refreshed["row_version"],
+            "reason": "Publish reviewed chunking revision",
+        },
+    )
+    assert republished.status_code == 200, republished.text
+    republished_body = republished.json()
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.document_publication_event "
+            f"WHERE document_id='{document_id}' AND action_code='PUBLISHED'"
+        )
+        == "2"
+    )
+    evidence = _value(
+        "SELECT evidence_json->>'embedding_model_code' "
+        "FROM kb.document_publication_event "
+        f"WHERE document_id='{document_id}' ORDER BY occurred_at DESC LIMIT 1"
+    )
+    assert evidence == "DEFAULT_1536"
+
+    retired = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/retirement",
+        headers=_headers("platform-admin", "retire-publish-policy"),
+        json={
+            "expected_version": republished_body["row_version"],
+            "reason": "Policy superseded by governance decision",
+        },
+    )
+    assert retired.status_code == 200, retired.text
+    assert retired.json()["approval_status"] == "RETIRED"
+    assert (
+        _value(f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'")
+        == "0"
+    )
+    immutable = _psql(
+        "UPDATE kb.document_publication_event SET action_code='RETIRED' "
+        f"WHERE document_id='{document_id}'",
+        check=False,
+    )
+    assert immutable.returncode != 0
+
+
+@pytest.mark.integration
+def test_failed_parsing_cannot_be_published(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, storage = application
+    source = _create_approved_source(client, "FAILED_PARSE", "MANUAL_UPLOAD")
+    content = b"%PDF-1.7\nthis is not a valid PDF document"
+    checksum = hashlib.sha256(content).hexdigest()
+    authorized = client.post(
+        "/api/v1/admin/knowledge/manual-uploads",
+        headers=_headers("knowledge-author", "failed-parse-upload"),
+        json={
+            "source_id": source["id"],
+            "manifest_key": "failed-parse-1",
+            "document_title": "Invalid text document",
+            "document_type": "PROCEDURE",
+            "audience_code": "EMPLOYEE",
+            "target_collection": "procedures",
+            "filename": "invalid.pdf",
+            "content_type": "application/pdf",
+            "file_size_bytes": len(content),
+            "sha256_checksum": checksum,
+            "copyright_notice": "Copyright Example Corporation",
+        },
+    )
+    assert authorized.status_code == 201, authorized.text
+    upload = authorized.json()
+    storage.objects[upload["quarantine_object_key"]] = (content, "application/pdf")
+    completed = client.post(
+        f"/api/v1/admin/knowledge/manual-uploads/{upload['item_id']}/complete",
+        headers=_headers("knowledge-author", "failed-parse-complete"),
+    )
+    assert completed.status_code == 200, completed.text
+    assert asyncio.run(
+        _process(storage, SequenceFetcher(b"unused")),
+        loop_factory=asyncio.SelectorEventLoop,
+    )[0]
+    assert (
+        _value(
+            "SELECT item_status || ':' || pipeline_stage FROM kb.ingestion_run_item "
+            "WHERE manifest_entry_id=(SELECT manifest_entry_id FROM kb.ingestion_manifest_entry "
+            "WHERE manifest_key='failed-parse-1')"
+        )
+        == "ACQUIRED:PROCESSING"
+    )
+    assert asyncio.run(_process_knowledge(storage), loop_factory=asyncio.SelectorEventLoop) == 1
+
+    document_id = _value(
+        "SELECT document_id FROM kb.document WHERE external_document_key='failed-parse-1'"
+    )
+    document = client.get(
+        f"/api/v1/admin/knowledge/documents/{document_id}",
+        headers=_headers("knowledge-author"),
+    )
+    assert document.status_code == 200, document.text
+    body = document.json()
+    version = body["versions"][0]
+    processing = version["processing_versions"][0]
+    assert version["extraction_status"] == "FAILED"
+    assert processing["status"] == "FAILED"
+    assert processing["validation_status"] == "FAILED"
+
+    approved = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/approval-decisions",
+        headers=_headers("platform-admin", "approve-failed-parse"),
+        json={
+            "decision": "APPROVED",
+            "expected_version": body["row_version"],
+            "reason": "Exercise the publication safety gate",
+        },
+    )
+    assert approved.status_code == 200, approved.text
+    publication = client.post(
+        f"/api/v1/admin/knowledge/documents/{document_id}/publication",
+        headers=_headers("platform-admin", "publish-failed-parse"),
+        json={
+            "processing_version_id": processing["id"],
+            "expected_document_version": approved.json()["row_version"],
+            "reason": "This must be rejected",
+        },
+    )
+    assert publication.status_code == 409, publication.text
+    assert (
+        _value(f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'")
         == "0"
     )

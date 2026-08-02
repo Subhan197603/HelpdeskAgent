@@ -613,12 +613,19 @@ async def _finish_item(
 ) -> None:
     await session.execute(
         text("""
-            UPDATE kb.ingestion_run_item SET item_status=:status,document_id=:document_id,
+            UPDATE kb.ingestion_run_item SET item_status=CAST(:status AS varchar),
+              document_id=:document_id,
               document_version_id=:version_id,completed_at=now(),downloaded_uri=:original_key,
               observed_sha256=:checksum,detected_content_type=:detected_type,
               file_size_bytes=:file_size,malware_scan_status='CLEAN',malware_scanned_at=now(),
               scanner_engine=:scanner_engine,scanner_version=:scanner_version,threat_name=NULL,
               error_code=:error_code,error_message=NULL,final_failure=false,
+              pipeline_stage=CASE WHEN CAST(:status AS varchar)='ACQUIRED' THEN 'PROCESSING'
+                WHEN CAST(:status AS varchar)='SKIPPED_UNCHANGED' THEN 'COMPLETE'
+                ELSE pipeline_stage END,
+              processing_next_attempt_at=CASE
+                WHEN CAST(:status AS varchar)='ACQUIRED' THEN now()
+                ELSE processing_next_attempt_at END,
               locked_at=NULL,locked_by=NULL,row_version=row_version+1
             WHERE ingestion_run_item_id=:item_id AND tenant_id=:tenant_id
               AND item_status='ACQUIRING'
