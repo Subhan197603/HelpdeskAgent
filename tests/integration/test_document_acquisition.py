@@ -7,7 +7,7 @@ import subprocess
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi import FastAPI
@@ -15,10 +15,15 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.api.app.attachments.clamav import MalwareScanner, ScanResult
+from apps.api.app.core.context import RequestContext
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
+from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
+from apps.api.app.identity.authorization import AuthorizationService
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.main import create_app
+from apps.api.app.retrieval.models import RetrievalCandidates, RetrievalFilters, RetrievalRequest
+from apps.api.app.retrieval.service import RetrievalService
 from apps.worker.worker.acquisition_worker import (
     AcquisitionWorker,
     FetchedDocument,
@@ -438,6 +443,27 @@ async def _process_knowledge_once(
         )
         one, two = await asyncio.gather(first.process_one(), second.process_one())
         return one, two
+    finally:
+        await engine.dispose()
+
+
+async def _retrieve(context: RequestContext, request: RetrievalRequest) -> RetrievalCandidates:
+    settings = Settings.model_validate(
+        {
+            "app_env": "integration",
+            "database_url": (f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"),
+            "rls_enabled": True,
+        }
+    )
+    engine = create_async_engine(settings.database_url.get_secret_value())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    service = RetrievalService(
+        lambda identity: SqlAlchemyUnitOfWork(sessions, identity, rls_enabled=True),
+        AuthorizationService(),
+        settings,
+    )
+    try:
+        return await service.search(context, request)
     finally:
         await engine.dispose()
 
@@ -899,4 +925,362 @@ def test_failed_parsing_cannot_be_published(
     assert (
         _value(f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'")
         == "0"
+    )
+
+
+def _seed_retrieval_corpus() -> tuple[str, dict[str, str]]:
+    vector = "[1," + ",".join("0" for _ in range(1535)) + "]"
+    ids = {
+        "apps": "34000000-0000-0000-0000-000000000001",
+        "fdi": "34000000-0000-0000-0000-000000000002",
+        "analyst": "34000000-0000-0000-0000-000000000003",
+        "denied": "34000000-0000-0000-0000-000000000004",
+        "other_tenant": "34000000-0000-0000-0000-000000000005",
+    }
+    _psql(
+        "INSERT INTO kb.release(release_family,release_code,release_name) VALUES "
+        "('FUSION_APPLICATIONS','26C','Fusion 26C'),"
+        "('FUSION_DATA_INTELLIGENCE','26.R2','FDI 26.R2') "
+        "ON CONFLICT (release_family,release_code) DO NOTHING"
+    )
+    apps_release = _value(
+        "SELECT release_id FROM kb.release "
+        "WHERE release_family='FUSION_APPLICATIONS' AND release_code='26C'"
+    )
+    fdi_release = _value(
+        "SELECT release_id FROM kb.release "
+        "WHERE release_family='FUSION_DATA_INTELLIGENCE' AND release_code='26.R2'"
+    )
+    _psql(
+        f"""
+        INSERT INTO kb.product_node(product_node_id,tenant_id,parent_product_node_id,
+          product_code,product_name,product_level,release_family)
+        VALUES
+          ('33000000-0000-0000-0000-000000000001','{TENANT_ID}',NULL,
+            'FINANCIALS','Financials','PRODUCT','FUSION_APPLICATIONS'),
+          ('33000000-0000-0000-0000-000000000002','{TENANT_ID}',
+            '33000000-0000-0000-0000-000000000001','ACCOUNTS_PAYABLE',
+            'Accounts Payable','MODULE','FUSION_APPLICATIONS'),
+          ('33000000-0000-0000-0000-000000000003','{TENANT_ID}',NULL,
+            'FDI','Fusion Data Intelligence','PRODUCT','FUSION_DATA_INTELLIGENCE'),
+          ('33000000-0000-0000-0000-000000000004','{TENANT_ID}',
+            '33000000-0000-0000-0000-000000000003','FDI_FINANCIALS',
+            'FDI Financials','MODULE','FUSION_DATA_INTELLIGENCE');
+        INSERT INTO kb.source(source_id,tenant_id,source_code,source_name,source_type,
+          acquisition_method,canonical_location,active_flag,approval_status,owner_user_id,
+          approved_by,approved_at)
+        VALUES
+          ('31000000-0000-0000-0000-000000000001','{TENANT_ID}','RETRIEVAL_COMPANY',
+            'Company policy source','COMPANY_POLICY','MANUAL_UPLOAD',
+            'https://knowledge.example.invalid/company',true,'APPROVED','{AUTHOR_ID}',
+            '22000000-0000-0000-0000-000000000001',now()),
+          ('31000000-0000-0000-0000-000000000002','{TENANT_ID}','RETRIEVAL_ORACLE',
+            'Oracle documentation source','ORACLE_PUBLIC_DOCUMENTATION','MANUAL_UPLOAD',
+            'https://docs.example.invalid/oracle',true,'APPROVED','{AUTHOR_ID}',
+            '22000000-0000-0000-0000-000000000001',now()),
+          ('31000000-0000-0000-0000-000000000003','{TENANT_ID}','RETRIEVAL_ANALYST',
+            'Analyst source','INTERNAL_KNOWLEDGE','MANUAL_UPLOAD',
+            'https://knowledge.example.invalid/analyst',true,'APPROVED','{AUTHOR_ID}',
+            '22000000-0000-0000-0000-000000000001',now()),
+          ('31000000-0000-0000-0000-000000000004','{TENANT_ID}','RETRIEVAL_DENIED',
+            'Restricted role source','INTERNAL_KNOWLEDGE','MANUAL_UPLOAD',
+            'https://knowledge.example.invalid/restricted',true,'APPROVED','{AUTHOR_ID}',
+            '22000000-0000-0000-0000-000000000001',now());
+        INSERT INTO kb.document(document_id,tenant_id,source_id,product_node_id,release_id,
+          external_document_key,document_title,document_type,audience_code,language_code,
+          security_classification,approval_status,active_flag)
+        VALUES
+          ('{ids["apps"]}','{TENANT_ID}','31000000-0000-0000-0000-000000000001',
+            '33000000-0000-0000-0000-000000000002',
+            '{apps_release}','retrieval-apps-26c',
+            'Resolve Invoice Validation Holds','POLICY','EMPLOYEE','en','INTERNAL','APPROVED',true),
+          ('{ids["fdi"]}','{TENANT_ID}','31000000-0000-0000-0000-000000000002',
+            '33000000-0000-0000-0000-000000000004',
+            '{fdi_release}','retrieval-fdi-26r2','FDI Invoice Validation Analytics',
+            'USER_GUIDE','EMPLOYEE','en','PUBLIC','APPROVED',true),
+          ('{ids["analyst"]}','{TENANT_ID}','31000000-0000-0000-0000-000000000003',
+            '33000000-0000-0000-0000-000000000002',
+            '{apps_release}','retrieval-analyst',
+            'Analyst Invoice Diagnostic','RUNBOOK','ANALYST','en','CONFIDENTIAL','APPROVED',true),
+          ('{ids["denied"]}','{TENANT_ID}','31000000-0000-0000-0000-000000000004',
+            '33000000-0000-0000-0000-000000000002',
+            '{apps_release}','retrieval-denied',
+            'Privileged Invoice Secret','RUNBOOK','EMPLOYEE','en','INTERNAL','APPROVED',true);
+        INSERT INTO kb.document_permission(
+          document_id,principal_type,principal_code,permission_code)
+        VALUES
+          ('{ids["analyst"]}','ALL_ANALYSTS','ANALYST','READ'),
+          ('{ids["denied"]}','ROLE','KNOWLEDGE_APPROVER','READ'),
+          ('{ids["denied"]}','SUPPORT_GROUP','FUSION_AP','READ'),
+          ('{ids["denied"]}','BUSINESS_UNIT','DEV_BU','READ');
+        INSERT INTO kb.document_version(document_version_id,document_id,version_number,
+          original_file_uri,content_type,sha256_checksum,acquired_at,extraction_status,
+          validation_status,current_version_flag)
+        SELECT ('35000000-0000-0000-0000-00000000000' || item.number)::uuid,
+          item.document_id,1,'test://retrieval/' || item.number,'text/plain',
+          repeat(item.number::text,64),now(),'COMPLETED','PASSED',false
+        FROM (VALUES
+          (1,'{ids["apps"]}'::uuid),(2,'{ids["fdi"]}'::uuid),
+          (3,'{ids["analyst"]}'::uuid),(4,'{ids["denied"]}'::uuid)
+        ) item(number,document_id);
+        INSERT INTO kb.document_processing_version(processing_version_id,tenant_id,document_id,
+          document_version_id,processing_number,parser_name,parser_version,chunker_name,
+          chunker_version,chunking_configuration_json,chunking_configuration_hash,
+          embedding_model_code,processing_status,chunk_count,embedded_chunk_count,
+          validation_status,completed_at)
+        SELECT ('36000000-0000-0000-0000-00000000000' || item.number)::uuid,'{TENANT_ID}',
+          item.document_id,('35000000-0000-0000-0000-00000000000' || item.number)::uuid,
+          1,'integration','1','semantic-structure','1','{{}}'::jsonb,
+          repeat(item.number::text,64),'DEFAULT_1536','COMPLETED',1,1,'PASSED',now()
+        FROM (VALUES
+          (1,'{ids["apps"]}'::uuid),(2,'{ids["fdi"]}'::uuid),
+          (3,'{ids["analyst"]}'::uuid),(4,'{ids["denied"]}'::uuid)
+        ) item(number,document_id);
+        INSERT INTO kb.document_chunk(chunk_id,document_version_id,chunk_sequence,heading_path,
+          content_text,token_count,content_hash,processing_version_id,tenant_id,document_id,
+          source_id,audience_code,security_classification,embedding_input_hash)
+        VALUES
+          ('37000000-0000-0000-0000-000000000001','35000000-0000-0000-0000-000000000001',
+            1,'Payables > Holds',
+            'Invoice validation holds procedure for Fusion Applications 26C.',10,
+            repeat('1',64),'36000000-0000-0000-0000-000000000001','{TENANT_ID}',
+            '{ids["apps"]}','31000000-0000-0000-0000-000000000001','EMPLOYEE','INTERNAL',repeat('1',64)),
+          ('37000000-0000-0000-0000-000000000002','35000000-0000-0000-0000-000000000002',
+            1,'FDI > Analytics','Invoice validation analytics for FDI release 26.R2.',10,
+            repeat('2',64),'36000000-0000-0000-0000-000000000002','{TENANT_ID}',
+            '{ids["fdi"]}','31000000-0000-0000-0000-000000000002','EMPLOYEE','PUBLIC',repeat('2',64)),
+          ('37000000-0000-0000-0000-000000000003','35000000-0000-0000-0000-000000000003',
+            1,'Analyst > Diagnostic','Invoice validation diagnostic for analysts only.',10,
+            repeat('3',64),'36000000-0000-0000-0000-000000000003','{TENANT_ID}',
+            '{ids["analyst"]}','31000000-0000-0000-0000-000000000003','ANALYST','CONFIDENTIAL',repeat('3',64)),
+          ('37000000-0000-0000-0000-000000000004','35000000-0000-0000-0000-000000000004',
+            1,'Privileged > Secret','Privileged invoice secret for knowledge approvers.',10,
+            repeat('4',64),'36000000-0000-0000-0000-000000000004','{TENANT_ID}',
+            '{ids["denied"]}','31000000-0000-0000-0000-000000000004','EMPLOYEE','INTERNAL',repeat('4',64));
+        INSERT INTO kb.chunk_embedding_1536(chunk_id,embedding_model_code,embedding,tenant_id,
+          processing_version_id)
+        SELECT chunk_id,'DEFAULT_1536','{vector}'::vector,'{TENANT_ID}',processing_version_id
+        FROM kb.document_chunk WHERE document_id IN
+          ('{ids["apps"]}','{ids["fdi"]}','{ids["analyst"]}','{ids["denied"]}');
+        UPDATE kb.document_version version SET current_version_flag=true,published_at=now(),
+          published_processing_version_id=processing.processing_version_id
+        FROM kb.document_processing_version processing
+        WHERE processing.document_version_id=version.document_version_id
+          AND version.document_id IN
+            ('{ids["apps"]}','{ids["fdi"]}','{ids["analyst"]}','{ids["denied"]}');
+        """
+    )
+    _psql(
+        f"""
+        INSERT INTO identity.tenant(tenant_id,tenant_code,tenant_name)
+        VALUES ('20000000-0000-0000-0000-000000000002','RETRIEVAL_OTHER','Other tenant');
+        INSERT INTO identity.app_user(user_id,tenant_id,external_subject,email_address,display_name)
+        VALUES ('22000000-0000-0000-0000-000000000020',
+          '20000000-0000-0000-0000-000000000002','other-owner',
+          'other-owner@example.invalid','Other Owner');
+        INSERT INTO kb.source(source_id,tenant_id,source_code,source_name,source_type,
+          acquisition_method,canonical_location,active_flag,approval_status,owner_user_id,
+          approved_by,approved_at)
+        VALUES ('31000000-0000-0000-0000-000000000005',
+          '20000000-0000-0000-0000-000000000002','OTHER_TENANT_RETRIEVAL',
+          'Other tenant source','COMPANY_POLICY','MANUAL_UPLOAD',
+          'https://other.example.invalid/knowledge',true,'APPROVED',
+          '22000000-0000-0000-0000-000000000020',
+          '22000000-0000-0000-0000-000000000020',now());
+        INSERT INTO kb.document(document_id,tenant_id,source_id,release_id,
+          external_document_key,document_title,document_type,audience_code,language_code,
+          security_classification,approval_status,active_flag)
+        VALUES ('{ids["other_tenant"]}','20000000-0000-0000-0000-000000000002',
+          '31000000-0000-0000-0000-000000000005','{apps_release}',
+          'other-tenant-invoice','Other Tenant Invoice Secret','POLICY','EMPLOYEE','en',
+          'INTERNAL','APPROVED',true);
+        INSERT INTO kb.document_version(document_version_id,document_id,version_number,
+          original_file_uri,content_type,sha256_checksum,acquired_at,extraction_status,
+          validation_status,current_version_flag)
+        VALUES ('35000000-0000-0000-0000-000000000005','{ids["other_tenant"]}',1,
+          'test://retrieval/other','text/plain',repeat('5',64),now(),'COMPLETED','PASSED',false);
+        INSERT INTO kb.document_processing_version(processing_version_id,tenant_id,document_id,
+          document_version_id,processing_number,parser_name,parser_version,chunker_name,
+          chunker_version,chunking_configuration_json,chunking_configuration_hash,
+          embedding_model_code,processing_status,chunk_count,embedded_chunk_count,
+          validation_status,completed_at)
+        VALUES ('36000000-0000-0000-0000-000000000005',
+          '20000000-0000-0000-0000-000000000002','{ids["other_tenant"]}',
+          '35000000-0000-0000-0000-000000000005',1,'integration','1',
+          'semantic-structure','1','{{}}',repeat('5',64),'DEFAULT_1536','COMPLETED',
+          1,1,'PASSED',now());
+        INSERT INTO kb.document_chunk(chunk_id,document_version_id,chunk_sequence,heading_path,
+          content_text,token_count,content_hash,processing_version_id,tenant_id,document_id,
+          source_id,audience_code,security_classification,embedding_input_hash)
+        VALUES ('37000000-0000-0000-0000-000000000005',
+          '35000000-0000-0000-0000-000000000005',1,'Other > Invoice',
+          'Other tenant invoice validation secret.',8,repeat('5',64),
+          '36000000-0000-0000-0000-000000000005',
+          '20000000-0000-0000-0000-000000000002','{ids["other_tenant"]}',
+          '31000000-0000-0000-0000-000000000005','EMPLOYEE','INTERNAL',repeat('5',64));
+        INSERT INTO kb.chunk_embedding_1536(chunk_id,embedding_model_code,embedding,tenant_id,
+          processing_version_id)
+        VALUES ('37000000-0000-0000-0000-000000000005','DEFAULT_1536','{vector}'::vector,
+          '20000000-0000-0000-0000-000000000002',
+          '36000000-0000-0000-0000-000000000005');
+        UPDATE kb.document_version SET current_version_flag=true,published_at=now(),
+          published_processing_version_id='36000000-0000-0000-0000-000000000005'
+        WHERE document_version_id='35000000-0000-0000-0000-000000000005';
+        """
+    )
+    return vector, ids
+
+
+def _retrieval_context(
+    role: str,
+    persona: str,
+    *,
+    support_groups: frozenset[UUID] = frozenset(),
+    business_unit_id: UUID | None = None,
+) -> RequestContext:
+    return RequestContext(
+        tenant_id=UUID(TENANT_ID),
+        user_id=UUID(AUTHOR_ID),
+        external_subject=f"retrieval-{role.lower()}",
+        roles=frozenset({role}),
+        support_group_ids=support_groups,
+        business_unit_id=business_unit_id,
+        correlation_id=str(uuid4()),
+        request_id=f"retrieval-{persona.lower()}",
+    )
+
+
+@pytest.mark.integration
+def test_authorization_first_full_text_vector_filters_and_query_plans(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    del application
+    vector, ids = _seed_retrieval_corpus()
+    embedding = (1.0,) + (0.0,) * 1535
+    customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
+    unfiltered_request = RetrievalRequest(
+        "Invoice Validation", embedding, limit=20, persona="EMPLOYEE"
+    )
+    first = asyncio.run(
+        _retrieve(customer, unfiltered_request), loop_factory=asyncio.SelectorEventLoop
+    )
+    second = asyncio.run(
+        _retrieve(customer, unfiltered_request), loop_factory=asyncio.SelectorEventLoop
+    )
+    assert first == second
+    assert {item.document_id for item in first.lexical} == {
+        UUID(ids["apps"]),
+        UUID(ids["fdi"]),
+    }
+    assert {item.document_id for item in first.vector} == {
+        UUID(ids["apps"]),
+        UUID(ids["fdi"]),
+    }
+    assert all(item.rank <= 20 for item in (*first.lexical, *first.vector))
+    assert UUID(ids["analyst"]) not in {item.document_id for item in first.vector}
+    assert UUID(ids["denied"]) not in {item.document_id for item in first.vector}
+    assert UUID(ids["other_tenant"]) not in {item.document_id for item in first.vector}
+
+    apps = asyncio.run(
+        _retrieve(
+            customer,
+            RetrievalRequest(
+                "Invoice Validation Holds",
+                embedding,
+                filters=RetrievalFilters(
+                    product_codes=("FINANCIALS",),
+                    module_codes=("ACCOUNTS_PAYABLE",),
+                    release_families=("FUSION_APPLICATIONS",),
+                    release_codes=("26C",),
+                    language_codes=("en",),
+                    source_ids=(UUID("31000000-0000-0000-0000-000000000001"),),
+                ),
+                persona="EMPLOYEE",
+            ),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert {item.document_id for item in (*apps.lexical, *apps.vector)} == {UUID(ids["apps"])}
+    fdi = asyncio.run(
+        _retrieve(
+            customer,
+            RetrievalRequest(
+                "Invoice Validation",
+                embedding,
+                filters=RetrievalFilters(
+                    release_families=("FUSION_DATA_INTELLIGENCE",),
+                    release_codes=("26.R2",),
+                ),
+                persona="EMPLOYEE",
+            ),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert {item.document_id for item in (*fdi.lexical, *fdi.vector)} == {UUID(ids["fdi"])}
+
+    analyst = asyncio.run(
+        _retrieve(
+            _retrieval_context("AGENT", "ANALYST"),
+            RetrievalRequest("Invoice Diagnostic", embedding, persona="ANALYST"),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert UUID(ids["analyst"]) in {item.document_id for item in analyst.vector}
+    assert UUID(ids["denied"]) not in {item.document_id for item in analyst.vector}
+    approver = asyncio.run(
+        _retrieve(
+            _retrieval_context("KNOWLEDGE_APPROVER", "EMPLOYEE"),
+            RetrievalRequest("Privileged Invoice Secret", embedding, persona="EMPLOYEE"),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert UUID(ids["denied"]) in {item.document_id for item in approver.lexical}
+    group_member = asyncio.run(
+        _retrieve(
+            _retrieval_context(
+                "AGENT",
+                "ANALYST",
+                support_groups=frozenset({UUID("23000000-0000-0000-0000-000000000002")}),
+            ),
+            RetrievalRequest("Privileged Invoice Secret", embedding, persona="ANALYST"),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert UUID(ids["denied"]) in {item.document_id for item in group_member.lexical}
+    business_unit_member = asyncio.run(
+        _retrieve(
+            _retrieval_context(
+                "CUSTOMER",
+                "EMPLOYEE",
+                business_unit_id=UUID("21000000-0000-0000-0000-000000000001"),
+            ),
+            RetrievalRequest("Privileged Invoice Secret", embedding, persona="EMPLOYEE"),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert UUID(ids["denied"]) in {item.document_id for item in business_unit_member.lexical}
+
+    _psql(f"UPDATE kb.document SET active_flag=false WHERE document_id='{ids['apps']}'")
+    retired = asyncio.run(
+        _retrieve(customer, unfiltered_request), loop_factory=asyncio.SelectorEventLoop
+    )
+    assert UUID(ids["apps"]) not in {item.document_id for item in retired.vector}
+
+    lexical_plan = _value(
+        "SET enable_seqscan=off; EXPLAIN (COSTS OFF) SELECT chunk_id "
+        "FROM kb.document_chunk WHERE search_vector@@websearch_to_tsquery('english','invoice');"
+    )
+    assert "kb_document_chunk_fts_ix" in lexical_plan
+    vector_plan = _value(
+        "SET enable_seqscan=off; EXPLAIN (COSTS OFF) SELECT chunk_id "
+        f"FROM kb.chunk_embedding_1536 ORDER BY embedding<=>'{vector}'::vector LIMIT 2;"
+    )
+    assert "kb_chunk_embedding_1536_hnsw_ix" in vector_plan
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' AND indexname IN ("
+            "'document_permission_retrieval_ix','document_retrieval_filters_ix',"
+            "'product_node_retrieval_lineage_ix','source_retrieval_active_ix')"
+        )
+        == "4"
     )

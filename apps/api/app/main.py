@@ -34,6 +34,7 @@ from apps.api.app.knowledge.document_service import KnowledgeDocumentService
 from apps.api.app.knowledge.service import KnowledgeSourceService
 from apps.api.app.notifications.service import NotificationService
 from apps.api.app.queues.service import QueueService
+from apps.api.app.retrieval.service import RetrievalService
 from apps.api.app.routing.service import RoutingService
 from apps.api.app.tickets.service import TicketMetrics, TicketService
 from apps.api.app.workflows.service import WorkflowService
@@ -153,6 +154,9 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, settings
     )
     app.state.knowledge_document_service = KnowledgeDocumentService(
+        unit_of_work_factory, app.state.authorization_service, settings
+    )
+    app.state.retrieval_service = RetrievalService(
         unit_of_work_factory, app.state.authorization_service, settings
     )
     app.state.ingestion_service = IngestionService(

@@ -151,6 +151,21 @@ ROLE_PERMISSIONS["SUPPORT_MANAGER"] |= frozenset(
     {Permission.TICKET_ROUTE, Permission.TICKET_ASSIGN_MANUAL}
 )
 ROLE_PERMISSIONS["CUSTOMER"] |= frozenset({Permission.TICKET_COMMENT_PUBLIC})
+for employee_knowledge_role in (
+    "PLATFORM_ADMIN",
+    "PROJECT_ADMIN",
+    "SERVICE_OWNER",
+    "SUPPORT_MANAGER",
+    "AGENT",
+    "CUSTOMER",
+    "APPROVER",
+    "KNOWLEDGE_AUTHOR",
+    "KNOWLEDGE_APPROVER",
+    "AI_ADMIN",
+):
+    ROLE_PERMISSIONS[employee_knowledge_role] |= frozenset({Permission.KNOWLEDGE_READ_EMPLOYEE})
+for analyst_knowledge_role in ("PLATFORM_ADMIN", "SUPPORT_MANAGER", "AGENT"):
+    ROLE_PERMISSIONS[analyst_knowledge_role] |= frozenset({Permission.KNOWLEDGE_READ_ANALYST})
 ROLE_PERMISSIONS["APPROVER"] |= frozenset(
     {Permission.APPROVAL_READ_ASSIGNED, Permission.APPROVAL_DECIDE}
 )

@@ -110,6 +110,9 @@ class Settings(BaseSettings):
     developer_identity_header: str = "X-Developer-User"
     ai_globally_enabled: bool = False
     oracle_document_acquisition_enabled: bool = False
+    retrieval_max_results: int = Field(default=20, ge=1, le=50)
+    retrieval_statement_timeout_ms: int = Field(default=1500, ge=50, le=30000)
+    retrieval_timeout_seconds: float = Field(default=2.0, ge=0.1, le=60)
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:
