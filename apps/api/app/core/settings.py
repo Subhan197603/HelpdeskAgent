@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     )
     developer_identity_header: str = "X-Developer-User"
     ai_globally_enabled: bool = False
+    oracle_document_acquisition_enabled: bool = False
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:

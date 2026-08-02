@@ -1,6 +1,165 @@
 {
   "components": {
     "schemas": {
+      "AcquisitionAuthorizationCommand": {
+        "properties": {
+          "acquisition_method": {
+            "enum": [
+              "APPROVED_DIRECT_DOWNLOAD",
+              "API_FEED",
+              "REPOSITORY_CONNECTOR"
+            ],
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "decision": {
+            "enum": ["APPROVED", "REVOKED"],
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "permission_reference": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Permission Reference",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "decision",
+          "acquisition_method",
+          "permission_reference",
+          "expected_version"
+        ],
+        "title": "AcquisitionAuthorizationCommand",
+        "type": "object"
+      },
+      "AcquisitionAuthorizationResponse": {
+        "properties": {
+          "acquisition_method": {
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "decided_by": {
+            "format": "uuid",
+            "title": "Decided By",
+            "type": "string"
+          },
+          "decision": {
+            "enum": ["APPROVED", "REVOKED"],
+            "title": "Decision",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "permission_reference": {
+            "title": "Permission Reference",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "source": {
+            "$ref": "#/components/schemas/SourceResponse"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "id",
+          "decision",
+          "acquisition_method",
+          "permission_reference",
+          "valid_from",
+          "valid_to",
+          "decided_by",
+          "decided_at",
+          "source"
+        ],
+        "title": "AcquisitionAuthorizationResponse",
+        "type": "object"
+      },
+      "AcquisitionPermissionResponse": {
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "evaluated_at": {
+            "format": "date-time",
+            "title": "Evaluated At",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": ["source_id", "allowed", "reasons", "evaluated_at"],
+        "title": "AcquisitionPermissionResponse",
+        "type": "object"
+      },
       "ActivityItemResponse": {
         "properties": {
           "actor_name": {
@@ -2416,6 +2575,635 @@
         "title": "ServiceNodeResponse",
         "type": "object"
       },
+      "SourceApprovalCommand": {
+        "properties": {
+          "decision": {
+            "enum": ["APPROVED", "REJECTED"],
+            "title": "Decision",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          }
+        },
+        "required": ["decision", "expected_version"],
+        "title": "SourceApprovalCommand",
+        "type": "object"
+      },
+      "SourceCreate": {
+        "properties": {
+          "acquisition_method": {
+            "enum": [
+              "MANUAL_UPLOAD",
+              "APPROVED_DIRECT_DOWNLOAD",
+              "API_FEED",
+              "REPOSITORY_CONNECTOR",
+              "TICKET_PUBLICATION"
+            ],
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "audience_scope": {
+            "enum": ["EMPLOYEE", "ANALYST", "RESTRICTED", "ADMINISTRATIVE"],
+            "title": "Audience Scope",
+            "type": "string"
+          },
+          "canonical_location": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Canonical Location",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 80,
+            "minLength": 2,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "title": "Code",
+            "type": "string"
+          },
+          "language_code": {
+            "default": "en",
+            "maxLength": 20,
+            "minLength": 2,
+            "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$",
+            "title": "Language Code",
+            "type": "string"
+          },
+          "module_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Node Id"
+          },
+          "name": {
+            "maxLength": 250,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Group Id"
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner User Id"
+          },
+          "permission_reference": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission Reference"
+          },
+          "product_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Node Id"
+          },
+          "publisher_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Name"
+          },
+          "release_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Id"
+          },
+          "scope": {
+            "default": "TENANT",
+            "enum": ["TENANT", "GLOBAL"],
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "ORACLE_PUBLIC_DOCUMENTATION",
+              "COMPANY_POLICY",
+              "COMPANY_PROCEDURE",
+              "INTERNAL_KNOWLEDGE",
+              "HISTORICAL_RESOLUTION",
+              "OTHER_EXTERNAL"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "default": "ACTIVE",
+            "enum": ["ACTIVE", "DISABLED", "RETIRED"],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "source_type",
+          "canonical_location",
+          "acquisition_method",
+          "audience_scope"
+        ],
+        "title": "SourceCreate",
+        "type": "object"
+      },
+      "SourceList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SourceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items"],
+        "title": "SourceList",
+        "type": "object"
+      },
+      "SourceResponse": {
+        "properties": {
+          "acquisition_method": {
+            "enum": [
+              "MANUAL_UPLOAD",
+              "APPROVED_DIRECT_DOWNLOAD",
+              "API_FEED",
+              "REPOSITORY_CONNECTOR",
+              "TICKET_PUBLICATION"
+            ],
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "approval_status": {
+            "enum": ["DRAFT", "UNDER_REVIEW", "APPROVED", "REJECTED"],
+            "title": "Approval Status",
+            "type": "string"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "audience_scope": {
+            "enum": ["EMPLOYEE", "ANALYST", "RESTRICTED", "ADMINISTRATIVE"],
+            "title": "Audience Scope",
+            "type": "string"
+          },
+          "automated_access_allowed": {
+            "title": "Automated Access Allowed",
+            "type": "boolean"
+          },
+          "canonical_location": {
+            "title": "Canonical Location",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "language_code": {
+            "title": "Language Code",
+            "type": "string"
+          },
+          "module_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Code"
+          },
+          "module_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Node Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Group Id"
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner User Id"
+          },
+          "permission_reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission Reference"
+          },
+          "product_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Code"
+          },
+          "product_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Node Id"
+          },
+          "publisher_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Name"
+          },
+          "release_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Code"
+          },
+          "release_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Family"
+          },
+          "release_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Id"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "scope": {
+            "enum": ["TENANT", "GLOBAL"],
+            "title": "Scope",
+            "type": "string"
+          },
+          "source_type": {
+            "enum": [
+              "ORACLE_PUBLIC_DOCUMENTATION",
+              "COMPANY_POLICY",
+              "COMPANY_PROCEDURE",
+              "INTERNAL_KNOWLEDGE",
+              "HISTORICAL_RESOLUTION",
+              "OTHER_EXTERNAL"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "enum": ["ACTIVE", "DISABLED", "RETIRED"],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "code",
+          "name",
+          "source_type",
+          "publisher_name",
+          "canonical_location",
+          "acquisition_method",
+          "automated_access_allowed",
+          "permission_reference",
+          "audience_scope",
+          "status",
+          "approval_status",
+          "owner_user_id",
+          "owner_group_id",
+          "product_node_id",
+          "product_code",
+          "module_node_id",
+          "module_code",
+          "release_id",
+          "release_family",
+          "release_code",
+          "language_code",
+          "approved_by",
+          "approved_at",
+          "row_version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "SourceResponse",
+        "type": "object"
+      },
+      "SourceUpdate": {
+        "properties": {
+          "acquisition_method": {
+            "enum": [
+              "MANUAL_UPLOAD",
+              "APPROVED_DIRECT_DOWNLOAD",
+              "API_FEED",
+              "REPOSITORY_CONNECTOR",
+              "TICKET_PUBLICATION"
+            ],
+            "title": "Acquisition Method",
+            "type": "string"
+          },
+          "audience_scope": {
+            "enum": ["EMPLOYEE", "ANALYST", "RESTRICTED", "ADMINISTRATIVE"],
+            "title": "Audience Scope",
+            "type": "string"
+          },
+          "canonical_location": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Canonical Location",
+            "type": "string"
+          },
+          "code": {
+            "maxLength": 80,
+            "minLength": 2,
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "title": "Code",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "language_code": {
+            "default": "en",
+            "maxLength": 20,
+            "minLength": 2,
+            "pattern": "^[a-z]{2,3}(-[A-Z]{2})?$",
+            "title": "Language Code",
+            "type": "string"
+          },
+          "module_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Node Id"
+          },
+          "name": {
+            "maxLength": 250,
+            "minLength": 2,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Group Id"
+          },
+          "owner_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner User Id"
+          },
+          "permission_reference": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission Reference"
+          },
+          "product_node_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Node Id"
+          },
+          "publisher_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publisher Name"
+          },
+          "release_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Id"
+          },
+          "source_type": {
+            "enum": [
+              "ORACLE_PUBLIC_DOCUMENTATION",
+              "COMPANY_POLICY",
+              "COMPANY_PROCEDURE",
+              "INTERNAL_KNOWLEDGE",
+              "HISTORICAL_RESOLUTION",
+              "OTHER_EXTERNAL"
+            ],
+            "title": "Source Type",
+            "type": "string"
+          },
+          "status": {
+            "default": "ACTIVE",
+            "enum": ["ACTIVE", "DISABLED", "RETIRED"],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "source_type",
+          "canonical_location",
+          "acquisition_method",
+          "audience_scope",
+          "expected_version"
+        ],
+        "title": "SourceUpdate",
+        "type": "object"
+      },
       "TicketPage": {
         "properties": {
           "items": {
@@ -2834,6 +3622,764 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/knowledge/sources": {
+      "get": {
+        "operationId": "list_sources_api_v1_admin_knowledge_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "source_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ORACLE_PUBLIC_DOCUMENTATION",
+                    "COMPANY_POLICY",
+                    "COMPANY_PROCEDURE",
+                    "INTERNAL_KNOWLEDGE",
+                    "HISTORICAL_RESOLUTION",
+                    "OTHER_EXTERNAL"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audience",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "EMPLOYEE",
+                    "ANALYST",
+                    "RESTRICTED",
+                    "ADMINISTRATIVE"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Audience"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["ACTIVE", "DISABLED", "RETIRED"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "approval_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["DRAFT", "UNDER_REVIEW", "APPROVED", "REJECTED"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Approval Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Sources",
+        "tags": ["knowledge-admin"]
+      },
+      "post": {
+        "operationId": "create_source_api_v1_admin_knowledge_sources_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Source",
+        "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/admin/knowledge/sources/{source_id}": {
+      "get": {
+        "operationId": "get_source_api_v1_admin_knowledge_sources__source_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Source",
+        "tags": ["knowledge-admin"]
+      },
+      "put": {
+        "operationId": "update_source_api_v1_admin_knowledge_sources__source_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Update Source",
+        "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/admin/knowledge/sources/{source_id}/acquisition-authorizations": {
+      "post": {
+        "operationId": "authorize_source_acquisition_api_v1_admin_knowledge_sources__source_id__acquisition_authorizations_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcquisitionAuthorizationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquisitionAuthorizationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Authorize Source Acquisition",
+        "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/admin/knowledge/sources/{source_id}/acquisition-permission": {
+      "get": {
+        "operationId": "acquisition_permission_api_v1_admin_knowledge_sources__source_id__acquisition_permission_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquisitionPermissionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Acquisition Permission",
+        "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/admin/knowledge/sources/{source_id}/approval-decisions": {
+      "post": {
+        "operationId": "decide_source_approval_api_v1_admin_knowledge_sources__source_id__approval_decisions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceApprovalCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Decide Source Approval",
+        "tags": ["knowledge-admin"]
+      }
+    },
     "/api/v1/agent/queues": {
       "get": {
         "operationId": "queues_api_v1_agent_queues_get",
@@ -6392,6 +7938,10 @@
     {
       "description": "User notification inbox.",
       "name": "notifications"
+    },
+    {
+      "description": "Governed knowledge sources.",
+      "name": "knowledge-admin"
     }
   ]
 }

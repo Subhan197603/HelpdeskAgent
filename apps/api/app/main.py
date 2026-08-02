@@ -29,6 +29,7 @@ from apps.api.app.infrastructure.clamav_health import ClamAVHealthProbe
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
 from apps.api.app.infrastructure.redis_health import RedisHealthProbe
+from apps.api.app.knowledge.service import KnowledgeSourceService
 from apps.api.app.notifications.service import NotificationService
 from apps.api.app.queues.service import QueueService
 from apps.api.app.routing.service import RoutingService
@@ -89,6 +90,7 @@ def create_app(
             {"name": "attachments", "description": "Quarantined and protected ticket files."},
             {"name": "approvals", "description": "Assigned approval decisions."},
             {"name": "notifications", "description": "User notification inbox."},
+            {"name": "knowledge-admin", "description": "Governed knowledge sources."},
         ],
     )
     app.state.settings = settings
@@ -136,6 +138,9 @@ def create_app(
     )
     app.state.notification_service = NotificationService(
         unit_of_work_factory, app.state.authorization_service
+    )
+    app.state.knowledge_source_service = KnowledgeSourceService(
+        unit_of_work_factory, app.state.authorization_service, settings
     )
     app.state.routing_service = RoutingService(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service

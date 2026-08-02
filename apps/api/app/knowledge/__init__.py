@@ -1,1 +1,1 @@
-"""Knowledge module."""
+"""Governed knowledge-source administration module."""
