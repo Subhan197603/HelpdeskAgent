@@ -158,6 +158,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/attachments/{attachment_id}/download": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Authorize Download */
+    post: operations["authorize_download_api_v1_attachments__attachment_id__download_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/attachments/{attachment_id}/finalize": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Finalize Upload */
+    post: operations["finalize_upload_api_v1_attachments__attachment_id__finalize_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/catalog/projects": {
     parameters: {
       query?: never;
@@ -415,6 +449,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/tickets/{ticket_key}/attachments/uploads": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Authorize Upload */
+    post: operations["authorize_upload_api_v1_tickets__ticket_key__attachments_uploads_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/tickets/{ticket_key}/comments": {
     parameters: {
       query?: never;
@@ -636,6 +687,21 @@ export interface components {
        */
       status: "healthy" | "unhealthy" | "disabled";
     };
+    /** DownloadResponse */
+    DownloadResponse: {
+      /**
+       * Attachment Id
+       * Format: uuid
+       */
+      attachment_id: string;
+      /** Download Url */
+      download_url: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+    };
     /** DraftCreateRequest */
     DraftCreateRequest: {
       /** Application Environment Id */
@@ -794,6 +860,43 @@ export interface components {
       minimum_length?: number | null;
       /** Pattern */
       pattern?: string | null;
+    };
+    /** FinalizeResponse */
+    FinalizeResponse: {
+      /**
+       * Attachment Id
+       * Format: uuid
+       */
+      attachment_id: string;
+      /** Content Type */
+      content_type: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** File Size Bytes */
+      file_size_bytes: number;
+      /** Filename */
+      filename: string;
+      /**
+       * Quarantine Status
+       * @enum {string}
+       */
+      quarantine_status: "RELEASED" | "REJECTED" | "QUARANTINED";
+      /**
+       * Scan Status
+       * @enum {string}
+       */
+      scan_status: "CLEAN" | "INFECTED" | "ERROR";
+      /** Scanner Engine */
+      scanner_engine: string | null;
+      /** Scanner Version */
+      scanner_version: string | null;
+      /** Sha256 Checksum */
+      sha256_checksum: string;
+      /** Ticket Key */
+      ticket_key: string;
     };
     /** FormFieldResponse */
     FormFieldResponse: {
@@ -1321,6 +1424,42 @@ export interface components {
       ticket: components["schemas"]["TicketResponse"];
       /** Transition Code */
       transition_code: string;
+    };
+    /** UploadAuthorizationResponse */
+    UploadAuthorizationResponse: {
+      /**
+       * Attachment Id
+       * Format: uuid
+       */
+      attachment_id: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /** Upload Headers */
+      upload_headers: {
+        [key: string]: string;
+      };
+      /** Upload Url */
+      upload_url: string;
+    };
+    /** UploadRequest */
+    UploadRequest: {
+      /** Content Type */
+      content_type: string;
+      /** File Size Bytes */
+      file_size_bytes: number;
+      /** Filename */
+      filename: string;
+      /** Sha256 Checksum */
+      sha256_checksum: string;
+      /**
+       * Visibility
+       * @default PUBLIC
+       * @enum {string}
+       */
+      visibility: "PUBLIC" | "INTERNAL";
     };
     /** WorkTypeResponse */
     WorkTypeResponse: {
@@ -2033,6 +2172,178 @@ export interface operations {
       };
       /** @description Transition validation failed */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  authorize_download_api_v1_attachments__attachment_id__download_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        attachment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DownloadResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported or mismatched file */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Malware detected */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Scanner or object storage unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  finalize_upload_api_v1_attachments__attachment_id__finalize_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        attachment_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FinalizeResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported or mismatched file */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Malware detected */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Scanner or object storage unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };
@@ -3072,6 +3383,95 @@ export interface operations {
       };
       /** @description Structured validation failure */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  authorize_upload_api_v1_tickets__ticket_key__attachments_uploads_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UploadRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UploadAuthorizationResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported or mismatched file */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Malware detected */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Scanner or object storage unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };

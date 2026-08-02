@@ -1,6 +1,7 @@
 """Real PostgreSQL tests for the draft-to-ticket transactional boundary."""
 
 import asyncio
+import hashlib
 import logging
 import os
 import subprocess
@@ -11,12 +12,17 @@ from uuid import UUID, uuid4
 
 import httpx
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from apps.api.app.attachments.clamav import ScannerError, ScanResult
+from apps.api.app.attachments.service import AttachmentService
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import ConcurrencyError
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
+from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
+from apps.api.app.identity.authorization import AuthorizationService
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.main import create_app
 from apps.api.app.routing.schemas import AssignmentResponse, RouteCommand
@@ -1284,4 +1290,246 @@ def test_activity_timeline_classifies_comments_without_customer_leakage(
             "'TICKET_INTERNAL_COMMENT_ADDED')"
         )
         == "2"
+    )
+
+
+class AttachmentStorageFake:
+    def __init__(self) -> None:
+        self.objects: dict[str, bytes] = {}
+        self.upload_key: str | None = None
+        self.rejected: list[str] = []
+
+    async def create_upload_url(
+        self, key: str, content_type: str, size: int, checksum: str, expires: int
+    ) -> str:
+        self.upload_key = key
+        assert key.startswith("quarantine/")
+        assert content_type and size > 0 and len(checksum) == 64 and expires > 0
+        return f"https://objects.example.invalid/upload/{key}"
+
+    async def read(self, key: str, maximum_bytes: int) -> bytes:
+        content = self.objects[key]
+        assert len(content) <= maximum_bytes
+        return content
+
+    async def promote(self, source: str, destination: str, content_type: str) -> None:
+        assert destination.startswith("protected/")
+        assert content_type
+        self.objects[destination] = self.objects.pop(source)
+
+    async def reject(self, key: str) -> None:
+        self.rejected.append(key)
+        self.objects.pop(key, None)
+
+    async def create_download_url(self, key: str, filename: str, expires: int) -> str:
+        assert key.startswith("protected/") and key in self.objects
+        assert filename and expires > 0
+        return f"https://objects.example.invalid/download/{key}"
+
+
+class AttachmentScannerFake:
+    def __init__(self, result: ScanResult | Exception) -> None:
+        self.result = result
+        self.calls = 0
+
+    async def scan(self, content: bytes) -> ScanResult:
+        self.calls += 1
+        assert content
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+def _install_attachment_service(
+    client: TestClient, storage: AttachmentStorageFake, scanner: AttachmentScannerFake
+) -> None:
+    settings = _settings().model_copy(update={"object_storage_enabled": True})
+    application = cast("FastAPI", client.app)
+    database = cast("Database", application.state.resources.database)
+
+    def factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(database.session_factory, context, rls_enabled=False)
+
+    application.state.attachment_service = AttachmentService(
+        factory, AuthorizationService(), storage, scanner, settings
+    )
+
+
+def _submitted_ticket(client: TestClient) -> dict[str, object]:
+    draft = _draft(client)
+    response = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"attachment-ticket-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert response.status_code == 201
+    return cast("dict[str, object]", response.json())
+
+
+def _authorize_attachment(
+    client: TestClient,
+    ticket_key: object,
+    content: bytes,
+    *,
+    user: str = "DEV/customer",
+    visibility: str = "PUBLIC",
+) -> dict[str, object]:
+    response = client.post(
+        f"/api/v1/tickets/{ticket_key}/attachments/uploads",
+        headers={"X-Developer-User": user},
+        json={
+            "filename": "evidence.txt",
+            "content_type": "text/plain",
+            "file_size_bytes": len(content),
+            "sha256_checksum": hashlib.sha256(content).hexdigest(),
+            "visibility": visibility,
+        },
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["upload_url"].startswith("https://objects.example.invalid/upload/")
+    assert response.json()["upload_headers"]["x-amz-acl"] == "private"
+    assert response.json()["upload_headers"]["Content-Length"] == str(len(content))
+    return cast("dict[str, object]", response.json())
+
+
+@pytest.mark.integration
+def test_clean_attachment_is_released_only_after_scan_and_authorized(client: TestClient) -> None:
+    storage = AttachmentStorageFake()
+    scanner = AttachmentScannerFake(ScanResult(True, "ClamAV", "1.4.3/12345"))
+    _install_attachment_service(client, storage, scanner)
+    ticket = _submitted_ticket(client)
+    content = b"safe customer evidence\n"
+    upload = _authorize_attachment(client, ticket["key"], content)
+    attachment_id = upload["attachment_id"]
+    customer = {"X-Developer-User": "DEV/customer"}
+
+    before = client.post(f"/api/v1/attachments/{attachment_id}/download", headers=customer)
+    assert before.status_code == 409
+    assert storage.upload_key is not None
+    storage.objects[storage.upload_key] = content
+    finalize_headers = {
+        **customer,
+        "Idempotency-Key": f"attachment-finalize-{uuid4()}",
+    }
+    finalized = client.post(
+        f"/api/v1/attachments/{attachment_id}/finalize",
+        headers=finalize_headers,
+    )
+    assert finalized.status_code == 200, finalized.text
+    assert finalized.json()["scan_status"] == "CLEAN"
+    assert finalized.json()["scanner_engine"] == "ClamAV"
+    replay = client.post(f"/api/v1/attachments/{attachment_id}/finalize", headers=finalize_headers)
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert scanner.calls == 1
+    downloaded = client.post(f"/api/v1/attachments/{attachment_id}/download", headers=customer)
+    assert downloaded.status_code == 200
+    assert "/protected/" in downloaded.json()["download_url"]
+    assert (
+        client.post(
+            f"/api/v1/attachments/{attachment_id}/download",
+            headers={"X-Developer-User": "OTHER/customer"},
+        ).status_code
+        == 404
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM audit.audit_event "
+            f"WHERE resource_id='{attachment_id}' AND action_code IN "
+            "('ATTACHMENT_UPLOAD_AUTHORIZED','ATTACHMENT_RELEASED',"
+            "'ATTACHMENT_DOWNLOAD_AUTHORIZED')"
+        )
+        == "3"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_schema='itsm' AND table_name='ticket_attachment' "
+            "AND (data_type='bytea' OR column_name IN "
+            "('access_key','secret_key','signing_secret','encryption_key'))"
+        )
+        == "0"
+    )
+
+
+@pytest.mark.integration
+def test_infected_attachment_is_rejected_and_never_downloadable(client: TestClient) -> None:
+    storage = AttachmentStorageFake()
+    scanner = AttachmentScannerFake(
+        ScanResult(False, "ClamAV", "1.4.3/12345", "Win.Test.EICAR_HDB-1")
+    )
+    _install_attachment_service(client, storage, scanner)
+    ticket = _submitted_ticket(client)
+    content = b"malware-scanner-test-surrogate\n"
+    upload = _authorize_attachment(client, ticket["key"], content)
+    attachment_id = upload["attachment_id"]
+    assert storage.upload_key is not None
+    storage.objects[storage.upload_key] = content
+    headers = {
+        "X-Developer-User": "DEV/customer",
+        "Idempotency-Key": f"infected-finalize-{uuid4()}",
+    }
+    rejected = client.post(f"/api/v1/attachments/{attachment_id}/finalize", headers=headers)
+    assert rejected.status_code == 422
+    assert storage.rejected and not storage.objects
+    assert (
+        client.post(
+            f"/api/v1/attachments/{attachment_id}/download",
+            headers={"X-Developer-User": "DEV/customer"},
+        ).status_code
+        == 409
+    )
+    assert (
+        _psql(
+            "SELECT malware_scan_status || ':' || quarantine_status || ':' || scanner_engine "
+            f"FROM itsm.ticket_attachment WHERE attachment_id='{attachment_id}'"
+        )
+        == "INFECTED:REJECTED:ClamAV"
+    )
+
+
+@pytest.mark.integration
+def test_internal_attachment_and_retry_state_fail_closed(client: TestClient) -> None:
+    storage = AttachmentStorageFake()
+    scanner = AttachmentScannerFake(ScannerError("simulated timeout"))
+    _install_attachment_service(client, storage, scanner)
+    ticket = _submitted_ticket(client)
+    content = b"internal diagnostic\n"
+    upload = _authorize_attachment(
+        client,
+        ticket["key"],
+        content,
+        user="DEV/platform-admin",
+        visibility="INTERNAL",
+    )
+    attachment_id = upload["attachment_id"]
+    assert storage.upload_key is not None
+    storage.objects[storage.upload_key] = content
+    failed = client.post(
+        f"/api/v1/attachments/{attachment_id}/finalize",
+        headers={
+            "X-Developer-User": "DEV/platform-admin",
+            "Idempotency-Key": f"retry-finalize-{uuid4()}",
+        },
+    )
+    assert failed.status_code == 503
+    assert failed.headers["Retry-After"] == "30"
+    assert failed.json()["scan_status"] == "ERROR"
+    assert (
+        client.post(
+            f"/api/v1/attachments/{attachment_id}/download",
+            headers={"X-Developer-User": "DEV/customer"},
+        ).status_code
+        == 404
+    )
+    assert (
+        _psql(
+            "SELECT (scan_attempt_count=1 AND next_scan_at>now() AND "
+            "protected_object_uri IS NULL)::int FROM itsm.ticket_attachment "
+            f"WHERE attachment_id='{attachment_id}'"
+        )
+        == "1"
     )

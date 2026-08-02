@@ -9,6 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.app.api.router import api_router
+from apps.api.app.attachments.clamav import ClamAVScanner
+from apps.api.app.attachments.service import AttachmentService
+from apps.api.app.attachments.storage import S3ObjectStorage
 from apps.api.app.catalog.service import CatalogueMetrics, CatalogueService
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.logging import configure_logging
@@ -81,6 +84,7 @@ def create_app(
             {"name": "workflows", "description": "Deterministic ticket transitions."},
             {"name": "routing", "description": "Deterministic routing and assignment."},
             {"name": "queues", "description": "Analyst queues and immutable activity."},
+            {"name": "attachments", "description": "Quarantined and protected ticket files."},
         ],
     )
     app.state.settings = settings
@@ -127,6 +131,13 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
     )
     app.state.queue_service = QueueService(unit_of_work_factory, app.state.authorization_service)
+    app.state.attachment_service = AttachmentService(
+        unit_of_work_factory,
+        app.state.authorization_service,
+        S3ObjectStorage(settings),
+        ClamAVScanner(settings),
+        settings,
+    )
     install_exception_handlers(app)
     app.include_router(api_router)
 

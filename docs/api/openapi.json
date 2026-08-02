@@ -418,6 +418,27 @@
         "title": "DependencyHealth",
         "type": "object"
       },
+      "DownloadResponse": {
+        "properties": {
+          "attachment_id": {
+            "format": "uuid",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": ["attachment_id", "download_url", "expires_at"],
+        "title": "DownloadResponse",
+        "type": "object"
+      },
       "DraftCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -951,6 +972,87 @@
           }
         },
         "title": "FieldValidationResponse",
+        "type": "object"
+      },
+      "FinalizeResponse": {
+        "properties": {
+          "attachment_id": {
+            "format": "uuid",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "file_size_bytes": {
+            "title": "File Size Bytes",
+            "type": "integer"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "quarantine_status": {
+            "enum": ["RELEASED", "REJECTED", "QUARANTINED"],
+            "title": "Quarantine Status",
+            "type": "string"
+          },
+          "scan_status": {
+            "enum": ["CLEAN", "INFECTED", "ERROR"],
+            "title": "Scan Status",
+            "type": "string"
+          },
+          "scanner_engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanner Engine"
+          },
+          "scanner_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanner Version"
+          },
+          "sha256_checksum": {
+            "title": "Sha256 Checksum",
+            "type": "string"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "ticket_key",
+          "filename",
+          "content_type",
+          "file_size_bytes",
+          "sha256_checksum",
+          "scan_status",
+          "quarantine_status",
+          "scanner_engine",
+          "scanner_version",
+          "created_at"
+        ],
+        "title": "FinalizeResponse",
         "type": "object"
       },
       "FormFieldResponse": {
@@ -2301,6 +2403,79 @@
         "title": "TransitionResponse",
         "type": "object"
       },
+      "UploadAuthorizationResponse": {
+        "properties": {
+          "attachment_id": {
+            "format": "uuid",
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "upload_headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Upload Headers",
+            "type": "object"
+          },
+          "upload_url": {
+            "title": "Upload Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "upload_url",
+          "upload_headers",
+          "expires_at"
+        ],
+        "title": "UploadAuthorizationResponse",
+        "type": "object"
+      },
+      "UploadRequest": {
+        "properties": {
+          "content_type": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Content Type",
+            "type": "string"
+          },
+          "file_size_bytes": {
+            "minimum": 1.0,
+            "title": "File Size Bytes",
+            "type": "integer"
+          },
+          "filename": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "sha256_checksum": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256 Checksum",
+            "type": "string"
+          },
+          "visibility": {
+            "default": "PUBLIC",
+            "enum": ["PUBLIC", "INTERNAL"],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "filename",
+          "content_type",
+          "file_size_bytes",
+          "sha256_checksum"
+        ],
+        "title": "UploadRequest",
+        "type": "object"
+      },
       "WorkTypeResponse": {
         "properties": {
           "code": {
@@ -3438,6 +3613,230 @@
         ],
         "summary": "Execute Transition",
         "tags": ["workflows"]
+      }
+    },
+    "/api/v1/attachments/{attachment_id}/download": {
+      "post": {
+        "operationId": "authorize_download_api_v1_attachments__attachment_id__download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported or mismatched file"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Malware detected"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Scanner or object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Authorize Download",
+        "tags": ["attachments"]
+      }
+    },
+    "/api/v1/attachments/{attachment_id}/finalize": {
+      "post": {
+        "operationId": "finalize_upload_api_v1_attachments__attachment_id__finalize_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "attachment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Attachment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported or mismatched file"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Malware detected"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Scanner or object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Finalize Upload",
+        "tags": ["attachments"]
       }
     },
     "/api/v1/catalog/projects": {
@@ -4908,6 +5307,121 @@
         "tags": ["tickets"]
       }
     },
+    "/api/v1/tickets/{ticket_key}/attachments/uploads": {
+      "post": {
+        "operationId": "authorize_upload_api_v1_tickets__ticket_key__attachments_uploads_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadAuthorizationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported or mismatched file"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Malware detected"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Scanner or object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Authorize Upload",
+        "tags": ["attachments"]
+      }
+    },
     "/api/v1/tickets/{ticket_key}/comments": {
       "post": {
         "operationId": "add_public_comment_api_v1_tickets__ticket_key__comments_post",
@@ -5177,6 +5691,10 @@
     {
       "description": "Analyst queues and immutable activity.",
       "name": "queues"
+    },
+    {
+      "description": "Quarantined and protected ticket files.",
+      "name": "attachments"
     }
   ]
 }

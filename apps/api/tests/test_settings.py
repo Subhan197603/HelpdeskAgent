@@ -38,6 +38,7 @@ def test_production_accepts_explicit_secure_configuration() -> None:
         database_url="postgresql+psycopg://api_user:secret@db.example.test/helpdesk",
         redis_url="rediss://cache.example.test/0",
         object_storage_endpoint="https://objects.example.test",
+        object_storage_server_side_encryption="AES256",
         trusted_hosts=["api.example.test"],
         cors_allowed_origins=["https://helpdesk.example.test"],
         oidc_enabled=True,
@@ -45,6 +46,7 @@ def test_production_accepts_explicit_secure_configuration() -> None:
         oidc_issuer_url="https://identity.example.test/issuer",
         oidc_audience="helpdesk-api",
         oidc_client_id="helpdesk-web",
+        clamav_required=True,
     )
     assert settings.is_production
 

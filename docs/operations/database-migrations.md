@@ -10,9 +10,10 @@ data. Alembic owns every reviewed database change after that baseline. Never pla
 Alembic records state in `config.alembic_version`. The `config` schema must already exist, which is
 one reason the marker cannot replace physical-baseline installation. The root revision,
 `0000_physical_baseline`, has empty upgrade and downgrade functions. The current head is
-`0007_queue_performance_indexes`; identity behavior is documented in the
-[developer identity guide](developer-identity.md), while the current queue indexes are documented
-in the [analyst queue guide](analyst-queues-activity.md).
+`0008_attachment_lifecycle`; identity behavior is documented in the
+[developer identity guide](developer-identity.md), queue indexes are documented in the
+[analyst queue guide](analyst-queues-activity.md), and attachment lifecycle indexes and
+constraints are documented in the [attachment security guide](attachment-security.md).
 
 ## Adopt a new local database
 

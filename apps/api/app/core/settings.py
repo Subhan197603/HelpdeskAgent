@@ -1,7 +1,7 @@
 """Typed application configuration with production safety checks."""
 
 from enum import StrEnum
-from typing import Self
+from typing import Literal, Self
 from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
@@ -82,10 +82,18 @@ class Settings(BaseSettings):
     object_storage_use_ssl: bool = False
     object_storage_access_key: SecretStr | None = None
     object_storage_secret_key: SecretStr | None = None
+    object_storage_server_side_encryption: Literal["AES256", "aws:kms"] | None = None
+    object_storage_sse_key_id: SecretStr | None = None
+    attachment_max_bytes: int = Field(default=25 * 1024 * 1024, ge=1, le=100 * 1024 * 1024)
+    attachment_upload_url_seconds: int = Field(default=900, ge=60, le=3600)
+    attachment_download_url_seconds: int = Field(default=300, ge=30, le=900)
 
     clamav_host: str = "localhost"
     clamav_port: int = 3310
     clamav_required: bool = False
+    clamav_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    clamav_max_attempts: int = Field(default=3, ge=1, le=10)
+    clamav_retry_seconds: int = Field(default=30, ge=1, le=3600)
     log_level: str = "INFO"
     json_logs: bool = False
     otel_exporter_otlp_endpoint: str | None = None
@@ -158,6 +166,15 @@ class Settings(BaseSettings):
                 "change-me",
             }:
                 errors.append("OBJECT_STORAGE_SECRET_KEY cannot use a development placeholder")
+            if self.object_storage_server_side_encryption is None:
+                errors.append("OBJECT_STORAGE_SERVER_SIDE_ENCRYPTION is required")
+            if (
+                self.object_storage_server_side_encryption == "aws:kms"
+                and self.object_storage_sse_key_id is None
+            ):
+                errors.append("OBJECT_STORAGE_SSE_KEY_ID is required for aws:kms")
+            if not self.clamav_required:
+                errors.append("CLAMAV_REQUIRED must be true")
         if errors:
             raise ValueError("Unsafe production configuration: " + "; ".join(errors))
         return self
