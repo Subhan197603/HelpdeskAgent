@@ -1,7 +1,7 @@
 # Hybrid retrieval operations
 
-Milestone 7, Task 7.1 provides an internal authorization-first retrieval service. It does not add a
-public evidence endpoint, result fusion, reranking, or LLM integration.
+Milestone 7, Tasks 7.1 and 7.2 provide authorization-first retrieval and the authorized evidence
+endpoint. They do not add LLM prompting or agent behavior.
 
 ## Runtime limits
 
@@ -10,8 +10,23 @@ public evidence endpoint, result fusion, reranking, or LLM integration.
 `RETRIEVAL_TIMEOUT_SECONDS` is the outer application cancellation deadline. Keep the application
 deadline slightly above the database deadline so PostgreSQL normally cancels and cleans up first.
 
-The caller supplies a 1536-dimensional query embedding and its approved model code. Do not log the
-query text, embedding values, document content, or rejected candidate identifiers.
+The evidence API generates its 1536-dimensional query embedding server-side. Do not log query text,
+embedding values, document content, or rejected candidate identifiers.
+
+## Evidence endpoint
+
+`POST /api/v1/knowledge/evidence/search` accepts a bounded query, employee or analyst persona,
+metadata filters, and result limit. The response contains selected content, canonical source
+metadata, and normalized lexical/vector, fusion, exact-identifier, metadata, source-authority, and
+optional rerank components. It includes the effective configuration version ID but not raw weights.
+
+The effective `HYBRID_EVIDENCE` configuration must be active, published, and in its effective
+period. A tenant version takes precedence over the global version. Missing or malformed
+configuration fails closed. Published versions are immutable; publish a new version for tuning.
+
+Production requires `RETRIEVAL_EMBEDDING_PROVIDER=http`, an approved HTTPS endpoint, and a secret
+API key. Reranking additionally requires both the published version and deployment settings to
+enable it, with a separately approved HTTPS endpoint and key. Only authorized candidates are sent.
 
 ## Authorization and filters
 
@@ -39,3 +54,7 @@ the Task 7.1 indexes added by migration `0015_hybrid_retrieval`.
 If release results appear mixed, require both the release family and release code. `26C` belongs to
 `FUSION_APPLICATIONS`; `26.R2` belongs to `FUSION_DATA_INTELLIGENCE`. Do not infer one family from a
 similarly formatted code in another family.
+
+Fusion never expands the authorized candidate set. Do not weaken hard SQL filters to compensate
+for poor ranking. A document past `next_review_date`, retired, inactive, unpublished, or outside its
+effective period is intentionally excluded.

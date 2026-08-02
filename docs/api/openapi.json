@@ -1457,6 +1457,382 @@
         "title": "DraftVersionRequest",
         "type": "object"
       },
+      "EvidenceFilters": {
+        "properties": {
+          "language_codes": {
+            "items": {
+              "maxLength": 150,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Language Codes",
+            "type": "array"
+          },
+          "module_codes": {
+            "items": {
+              "maxLength": 150,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Module Codes",
+            "type": "array"
+          },
+          "product_codes": {
+            "items": {
+              "maxLength": 150,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Product Codes",
+            "type": "array"
+          },
+          "release_codes": {
+            "items": {
+              "maxLength": 150,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Release Codes",
+            "type": "array"
+          },
+          "release_families": {
+            "items": {
+              "maxLength": 150,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Release Families",
+            "type": "array"
+          },
+          "source_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "title": "EvidenceFilters",
+        "type": "object"
+      },
+      "EvidenceItem": {
+        "properties": {
+          "canonical_uri": {
+            "title": "Canonical Uri",
+            "type": "string"
+          },
+          "chunk_id": {
+            "format": "uuid",
+            "title": "Chunk Id",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "document_title": {
+            "title": "Document Title",
+            "type": "string"
+          },
+          "document_version_id": {
+            "format": "uuid",
+            "title": "Document Version Id",
+            "type": "string"
+          },
+          "final_score": {
+            "title": "Final Score",
+            "type": "number"
+          },
+          "heading_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Path"
+          },
+          "language_code": {
+            "title": "Language Code",
+            "type": "string"
+          },
+          "module_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Code"
+          },
+          "module_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Module Name"
+          },
+          "page_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Number"
+          },
+          "product_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Code"
+          },
+          "product_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Name"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "integer"
+          },
+          "release_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Code"
+          },
+          "release_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Family"
+          },
+          "score_components": {
+            "$ref": "#/components/schemas/EvidenceScoreComponents"
+          },
+          "section_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Anchor"
+          },
+          "section_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Title"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "title": "Source Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "rank",
+          "chunk_id",
+          "document_id",
+          "document_version_id",
+          "source_id",
+          "document_title",
+          "heading_path",
+          "section_title",
+          "section_anchor",
+          "content",
+          "language_code",
+          "release_family",
+          "release_code",
+          "product_code",
+          "product_name",
+          "module_code",
+          "module_name",
+          "source_type",
+          "canonical_uri",
+          "page_number",
+          "final_score",
+          "score_components"
+        ],
+        "title": "EvidenceItem",
+        "type": "object"
+      },
+      "EvidenceScoreComponents": {
+        "properties": {
+          "exact_identifier_boost": {
+            "title": "Exact Identifier Boost",
+            "type": "number"
+          },
+          "fusion": {
+            "title": "Fusion",
+            "type": "number"
+          },
+          "lexical": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lexical"
+          },
+          "metadata_boost": {
+            "title": "Metadata Boost",
+            "type": "number"
+          },
+          "rerank": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rerank"
+          },
+          "source_authority_boost": {
+            "title": "Source Authority Boost",
+            "type": "number"
+          },
+          "vector": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vector"
+          }
+        },
+        "required": [
+          "lexical",
+          "vector",
+          "fusion",
+          "exact_identifier_boost",
+          "metadata_boost",
+          "source_authority_boost",
+          "rerank"
+        ],
+        "title": "EvidenceScoreComponents",
+        "type": "object"
+      },
+      "EvidenceSearchRequest": {
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/EvidenceFilters"
+          },
+          "limit": {
+            "default": 8,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "persona": {
+            "default": "EMPLOYEE",
+            "enum": ["EMPLOYEE", "ANALYST"],
+            "title": "Persona",
+            "type": "string"
+          },
+          "query": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": ["query"],
+        "title": "EvidenceSearchRequest",
+        "type": "object"
+      },
+      "EvidenceSearchResponse": {
+        "properties": {
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceItem"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "normalized_query": {
+            "title": "Normalized Query",
+            "type": "string"
+          },
+          "retrieval_configuration_version_id": {
+            "format": "uuid",
+            "title": "Retrieval Configuration Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "normalized_query",
+          "retrieval_configuration_version_id",
+          "evidence"
+        ],
+        "title": "EvidenceSearchResponse",
+        "type": "object"
+      },
       "FieldOptionResponse": {
         "properties": {
           "display_order": {
@@ -8820,6 +9196,90 @@
         "tags": ["identity"]
       }
     },
+    "/api/v1/knowledge/evidence/search": {
+      "post": {
+        "operationId": "search_evidence_api_v1_knowledge_evidence_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge access denied"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval request conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval dependency unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Search Evidence",
+        "tags": ["knowledge-evidence"]
+      }
+    },
     "/api/v1/me": {
       "get": {
         "operationId": "current_identity_api_v1_me_get",
@@ -10296,6 +10756,10 @@
     {
       "description": "Human-reviewed knowledge corpus publication.",
       "name": "knowledge-publication"
+    },
+    {
+      "description": "Authorized hybrid retrieval with canonical evidence.",
+      "name": "knowledge-evidence"
     }
   ]
 }

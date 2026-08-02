@@ -155,6 +155,9 @@ def production_oidc_settings(*, diagnostics: bool) -> Settings:
         oidc_audience="helpdesk-api",
         oidc_client_id="helpdesk-web",
         oidc_diagnostics_enabled=diagnostics,
+        retrieval_embedding_provider="http",
+        retrieval_embedding_endpoint="https://ai.example.test/embeddings",
+        retrieval_embedding_api_key="retrieval-secret",
     )
 
 

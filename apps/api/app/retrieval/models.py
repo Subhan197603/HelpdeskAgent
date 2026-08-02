@@ -1,7 +1,9 @@
-"""Deterministic internal contracts for independent retrieval candidate lists."""
+"""Deterministic internal contracts for authorized retrieval and evidence."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from types import MappingProxyType
 from uuid import UUID
 
 
@@ -46,7 +48,13 @@ class RetrievalCandidate:
     release_code: str | None
     product_code: str | None
     product_name: str | None
+    module_code: str | None
+    module_name: str | None
     source_type: str
+    canonical_uri: str
+    section_title: str | None
+    section_anchor: str | None
+    page_number: int | None
     score: float
 
 
@@ -56,3 +64,60 @@ class RetrievalCandidates:
     embedding_model_code: str
     lexical: tuple[RetrievalCandidate, ...]
     vector: tuple[RetrievalCandidate, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalConfiguration:
+    version_id: UUID
+    rrf_k: int
+    lexical_weight: float
+    vector_weight: float
+    exact_identifier_boost: float
+    metadata_boost: float
+    rerank_weight: float
+    reranking_enabled: bool
+    source_authority_weights: Mapping[str, float] = MappingProxyType({})
+
+
+@dataclass(frozen=True, slots=True)
+class ScoreComponents:
+    lexical: float | None
+    vector: float | None
+    fusion: float
+    exact_identifier_boost: float
+    metadata_boost: float
+    source_authority_boost: float
+    rerank: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalEvidence:
+    rank: int
+    chunk_id: UUID
+    document_id: UUID
+    document_version_id: UUID
+    source_id: UUID
+    document_title: str
+    heading_path: str | None
+    section_title: str | None
+    section_anchor: str | None
+    content_text: str
+    language_code: str
+    release_family: str | None
+    release_code: str | None
+    product_code: str | None
+    product_name: str | None
+    module_code: str | None
+    module_name: str | None
+    source_type: str
+    canonical_uri: str
+    page_number: int | None
+    score: float
+    components: ScoreComponents
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalEvidenceSet:
+    normalized_query: str
+    retrieval_configuration_version_id: UUID
+    evidence: tuple[RetrievalEvidence, ...]

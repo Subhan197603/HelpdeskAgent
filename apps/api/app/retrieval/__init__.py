@@ -4,6 +4,8 @@ from apps.api.app.retrieval.models import (
     CandidateKind,
     RetrievalCandidate,
     RetrievalCandidates,
+    RetrievalEvidence,
+    RetrievalEvidenceSet,
     RetrievalFilters,
     RetrievalRequest,
 )
@@ -13,6 +15,8 @@ __all__ = [
     "CandidateKind",
     "RetrievalCandidate",
     "RetrievalCandidates",
+    "RetrievalEvidence",
+    "RetrievalEvidenceSet",
     "RetrievalFilters",
     "RetrievalRequest",
     "RetrievalService",

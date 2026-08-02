@@ -3,18 +3,28 @@
 import asyncio
 import math
 from collections.abc import Callable
+from uuid import UUID
 
 from apps.api.app.core.context import RequestContext
-from apps.api.app.core.exceptions import AuthorizationError, ConflictError
+from apps.api.app.core.exceptions import AuthorizationError, ConflictError, ExternalDependencyError
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService, Permission
+from apps.api.app.retrieval.fusion import fuse_candidates
 from apps.api.app.retrieval.models import (
     RetrievalCandidates,
+    RetrievalConfiguration,
+    RetrievalEvidenceSet,
     RetrievalFilters,
     RetrievalRequest,
 )
 from apps.api.app.retrieval.normalization import InvalidRetrievalQuery, normalize_query
+from apps.api.app.retrieval.providers import (
+    DeterministicQueryEmbeddingProvider,
+    QueryEmbeddingProvider,
+    RerankingProvider,
+    RetrievalProviderError,
+)
 from apps.api.app.retrieval.repository import (
     RetrievalPrincipal,
     RetrievalQueryTimeout,
@@ -28,8 +38,10 @@ class RetrievalRequestError(ConflictError):
     error_code = "invalid_retrieval_request"
 
 
-class RetrievalDeadlineExceeded(RuntimeError):
+class RetrievalDeadlineExceeded(ExternalDependencyError):
     """The bounded retrieval operation was cancelled before completion."""
+
+    error_code = "retrieval_deadline_exceeded"
 
 
 class RetrievalService:
@@ -38,10 +50,82 @@ class RetrievalService:
         factory: UnitOfWorkFactory,
         authorization: AuthorizationService,
         settings: Settings,
+        embeddings: QueryEmbeddingProvider | None = None,
+        reranker: RerankingProvider | None = None,
     ) -> None:
         self._factory = factory
         self._authorization = authorization
         self._settings = settings
+        self._embeddings = embeddings or DeterministicQueryEmbeddingProvider(
+            settings.retrieval_embedding_model_code
+        )
+        self._reranker = reranker
+
+    async def evidence(
+        self,
+        context: RequestContext,
+        *,
+        query: str,
+        filters: RetrievalFilters,
+        limit: int,
+        persona: str,
+    ) -> RetrievalEvidenceSet:
+        self._principal(context, persona)
+        normalized_query = _query(query)
+        normalized_filters = _filters(filters)
+        try:
+            embedding = await self._embeddings.embed(normalized_query)
+            candidates = await self.search(
+                context,
+                RetrievalRequest(
+                    query=normalized_query,
+                    query_embedding=embedding,
+                    filters=normalized_filters,
+                    limit=limit,
+                    persona=persona,
+                    embedding_model_code=self._embeddings.model_code,
+                ),
+            )
+            configuration = await self._configuration(context)
+            authorized = tuple(
+                {item.chunk_id: item for item in (*candidates.lexical, *candidates.vector)}.values()
+            )
+            rerank_scores: dict[UUID, float] | None = None
+            if configuration.reranking_enabled:
+                if self._reranker is None:
+                    raise ExternalDependencyError("Approved reranking is not configured.")
+                rerank_scores = await self._reranker.rerank(normalized_query, authorized)
+        except RetrievalProviderError as error:
+            raise ExternalDependencyError("Retrieval provider is unavailable.") from error
+        except RetrievalQueryTimeout as error:
+            raise RetrievalDeadlineExceeded("Retrieval deadline exceeded.") from error
+        evidence = fuse_candidates(
+            normalized_query,
+            candidates.lexical,
+            candidates.vector,
+            normalized_filters,
+            configuration,
+            rerank_scores,
+            limit=limit,
+        )
+        return RetrievalEvidenceSet(
+            normalized_query=normalized_query,
+            retrieval_configuration_version_id=configuration.version_id,
+            evidence=evidence,
+        )
+
+    async def _configuration(self, context: RequestContext) -> RetrievalConfiguration:
+        if context.tenant_id is None:
+            raise AuthorizationError("Authenticated retrieval identity is required.")
+        async with self._factory(context) as uow:
+            repository = RetrievalRepository(
+                uow.session, self._settings.retrieval_statement_timeout_ms
+            )
+            configuration = await repository.configuration(context.tenant_id)
+            await uow.commit()
+        if configuration is None:
+            raise ExternalDependencyError("Published retrieval configuration is unavailable.")
+        return configuration
 
     async def search(
         self, context: RequestContext, request: RetrievalRequest

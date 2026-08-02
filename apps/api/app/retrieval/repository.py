@@ -8,7 +8,12 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.retrieval.models import CandidateKind, RetrievalCandidate, RetrievalFilters
+from apps.api.app.retrieval.models import (
+    CandidateKind,
+    RetrievalCandidate,
+    RetrievalConfiguration,
+    RetrievalFilters,
+)
 
 
 class RetrievalQueryTimeout(RuntimeError):
@@ -30,7 +35,8 @@ class RetrievalPrincipal:
 _ELIGIBLE_CTE = """
 WITH RECURSIVE eligible_documents AS MATERIALIZED (
   SELECT d.document_id,d.tenant_id,d.source_id,d.product_node_id,d.release_id,
-    d.document_title,d.language_code,s.source_type,r.release_family,r.release_code,
+    d.document_title,d.language_code,s.source_type,s.canonical_location,
+    d.canonical_url,r.release_family,r.release_code,
     pn.product_code,pn.product_name,dv.document_version_id,
     dv.published_processing_version_id
   FROM kb.document d
@@ -45,6 +51,7 @@ WITH RECURSIVE eligible_documents AS MATERIALIZED (
     AND d.active_flag AND d.approval_status='APPROVED'
     AND (d.effective_from IS NULL OR d.effective_from<=CURRENT_DATE)
     AND (d.effective_to IS NULL OR d.effective_to>=CURRENT_DATE)
+    AND (d.next_review_date IS NULL OR d.next_review_date>=CURRENT_DATE)
     AND d.audience_code=ANY(CAST(:audiences AS text[]))
     AND d.security_classification=ANY(CAST(:security_levels AS text[]))
     AND (CAST(:source_ids AS uuid[]) IS NULL
@@ -107,10 +114,25 @@ WITH RECURSIVE eligible_documents AS MATERIALIZED (
   WHERE NOT parent.product_node_id=ANY(lineage.path)
 ), eligible_chunks AS NOT MATERIALIZED (
   SELECT chunk.chunk_id,chunk.document_version_id,eligible.document_id,
-    eligible.source_id,eligible.document_title,chunk.heading_path,chunk.content_text,
+    eligible.source_id,eligible.document_title,chunk.heading_path,chunk.section_title,
+    chunk.section_anchor,chunk.page_number,chunk.content_text,
     chunk.search_vector,eligible.language_code,eligible.release_family,
-    eligible.release_code,eligible.product_code,eligible.product_name,
-    eligible.source_type
+    eligible.release_code,
+    (SELECT lineage.product_code FROM product_lineage lineage
+      WHERE lineage.document_id=eligible.document_id AND lineage.product_level='PRODUCT'
+      ORDER BY cardinality(lineage.path) DESC LIMIT 1) AS product_code,
+    (SELECT node.product_name FROM product_lineage lineage JOIN kb.product_node node
+      ON node.product_node_id=lineage.node_id
+      WHERE lineage.document_id=eligible.document_id AND lineage.product_level='PRODUCT'
+      ORDER BY cardinality(lineage.path) DESC LIMIT 1) AS product_name,
+    (SELECT lineage.product_code FROM product_lineage lineage
+      WHERE lineage.document_id=eligible.document_id AND lineage.product_level='MODULE'
+      ORDER BY cardinality(lineage.path) DESC LIMIT 1) AS module_code,
+    (SELECT node.product_name FROM product_lineage lineage JOIN kb.product_node node
+      ON node.product_node_id=lineage.node_id
+      WHERE lineage.document_id=eligible.document_id AND lineage.product_level='MODULE'
+      ORDER BY cardinality(lineage.path) DESC LIMIT 1) AS module_name,
+    eligible.source_type,COALESCE(eligible.canonical_url,eligible.canonical_location) canonical_uri
   FROM eligible_documents eligible
   JOIN kb.document_chunk chunk
     ON chunk.document_version_id=eligible.document_version_id
@@ -132,8 +154,23 @@ WITH RECURSIVE eligible_documents AS MATERIALIZED (
 _COLUMNS = """
   chunk_id,document_id,document_version_id,source_id,document_title,heading_path,
   content_text,language_code,release_family,release_code,product_code,product_name,
-  source_type
+  module_code,module_name,source_type,canonical_uri,section_title,section_anchor,page_number
 """
+
+_CONFIGURATION = text("""
+SELECT version.retrieval_configuration_version_id,version.configuration_json
+FROM ai.retrieval_configuration configuration
+JOIN ai.retrieval_configuration_version version
+  ON version.retrieval_configuration_id=configuration.retrieval_configuration_id
+WHERE configuration.active_flag
+  AND (configuration.tenant_id=:tenant_id OR configuration.tenant_id IS NULL)
+  AND configuration.retrieval_code='HYBRID_EVIDENCE'
+  AND version.version_status='PUBLISHED'
+  AND (version.effective_from IS NULL OR version.effective_from<=now())
+  AND (version.effective_to IS NULL OR version.effective_to>now())
+ORDER BY (configuration.tenant_id IS NOT NULL) DESC,version.version_number DESC
+LIMIT 1
+""")
 
 _LEXICAL = text(
     _ELIGIBLE_CTE
@@ -199,6 +236,49 @@ class RetrievalRepository:
             limit,
             {"query": query},
         )
+
+    async def configuration(self, tenant_id: UUID) -> RetrievalConfiguration | None:
+        await self._session.execute(
+            text("SELECT set_config('statement_timeout',:timeout,true)"),
+            {"timeout": f"{self._statement_timeout_ms}ms"},
+        )
+        try:
+            row = (
+                await self._session.execute(_CONFIGURATION, {"tenant_id": tenant_id})
+            ).one_or_none()
+        except DBAPIError as error:
+            if getattr(error.orig, "sqlstate", None) == "57014":
+                raise RetrievalQueryTimeout("Retrieval statement deadline exceeded") from error
+            raise
+        if row is None:
+            return None
+        values = row.configuration_json
+        if not isinstance(values, dict):
+            return None
+        try:
+            authority = values.get("source_authority_weights", {})
+            if not isinstance(authority, dict) or not isinstance(
+                values.get("reranking_enabled"), bool
+            ):
+                return None
+            configuration = RetrievalConfiguration(
+                version_id=row.retrieval_configuration_version_id,
+                rrf_k=int(values["rrf_k"]),
+                lexical_weight=float(values["lexical_weight"]),
+                vector_weight=float(values["vector_weight"]),
+                exact_identifier_boost=float(values["exact_identifier_boost"]),
+                metadata_boost=float(values["metadata_boost"]),
+                rerank_weight=float(values["rerank_weight"]),
+                reranking_enabled=bool(values["reranking_enabled"]),
+                source_authority_weights={
+                    str(key): float(value) for key, value in authority.items()
+                },
+            )
+        except (KeyError, TypeError, ValueError):
+            return None
+        if not _valid_configuration(configuration):
+            return None
+        return configuration
 
     async def vector(
         self,
@@ -271,7 +351,13 @@ class RetrievalRepository:
                 release_code=row.release_code,
                 product_code=row.product_code,
                 product_name=row.product_name,
+                module_code=row.module_code,
+                module_name=row.module_name,
                 source_type=row.source_type,
+                canonical_uri=row.canonical_uri,
+                section_title=row.section_title,
+                section_anchor=row.section_anchor,
+                page_number=row.page_number,
                 score=float(row.score),
             )
             for rank, row in enumerate(rows, start=1)
@@ -280,3 +366,21 @@ class RetrievalRepository:
 
 def _optional(values: tuple[object, ...]) -> list[object] | None:
     return list(values) if values else None
+
+
+def _valid_configuration(configuration: RetrievalConfiguration) -> bool:
+    bounded = (
+        configuration.lexical_weight,
+        configuration.vector_weight,
+        configuration.exact_identifier_boost,
+        configuration.metadata_boost,
+        *configuration.source_authority_weights.values(),
+    )
+    return (
+        1 <= configuration.rrf_k <= 1000
+        and all(0 <= value <= 10 for value in bounded)
+        and 0 <= configuration.rerank_weight <= 1
+        and configuration.lexical_weight + configuration.vector_weight > 0
+        and len(configuration.source_authority_weights) <= 20
+        and all(len(key) <= 80 for key in configuration.source_authority_weights)
+    )

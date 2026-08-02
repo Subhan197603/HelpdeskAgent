@@ -113,6 +113,15 @@ class Settings(BaseSettings):
     retrieval_max_results: int = Field(default=20, ge=1, le=50)
     retrieval_statement_timeout_ms: int = Field(default=1500, ge=50, le=30000)
     retrieval_timeout_seconds: float = Field(default=2.0, ge=0.1, le=60)
+    retrieval_embedding_provider: Literal["deterministic", "http"] = "deterministic"
+    retrieval_embedding_endpoint: str | None = None
+    retrieval_embedding_api_key: SecretStr | None = None
+    retrieval_embedding_model_code: str = "DEFAULT_1536"
+    retrieval_provider_timeout_seconds: float = Field(default=10, ge=1, le=60)
+    retrieval_reranker_enabled: bool = False
+    retrieval_reranker_endpoint: str | None = None
+    retrieval_reranker_api_key: SecretStr | None = None
+    retrieval_reranker_model_code: str = "APPROVED_RERANKER"
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:
@@ -128,6 +137,22 @@ class Settings(BaseSettings):
                 oidc_errors.append("OIDC_AUDIENCE is required")
         if oidc_errors:
             raise ValueError("Invalid OIDC configuration: " + "; ".join(oidc_errors))
+
+        retrieval_errors: list[str] = []
+        if self.retrieval_embedding_provider == "http":
+            if not self.retrieval_embedding_endpoint:
+                retrieval_errors.append("RETRIEVAL_EMBEDDING_ENDPOINT is required")
+            if self.retrieval_embedding_api_key is None:
+                retrieval_errors.append("RETRIEVAL_EMBEDDING_API_KEY is required")
+        if self.retrieval_reranker_enabled:
+            if not self.retrieval_reranker_endpoint:
+                retrieval_errors.append("RETRIEVAL_RERANKER_ENDPOINT is required")
+            if self.retrieval_reranker_api_key is None:
+                retrieval_errors.append("RETRIEVAL_RERANKER_API_KEY is required")
+        if retrieval_errors:
+            raise ValueError(
+                "Invalid retrieval provider configuration: " + "; ".join(retrieval_errors)
+            )
 
         if self.app_env is not Environment.PRODUCTION:
             return self
@@ -182,6 +207,23 @@ class Settings(BaseSettings):
                 errors.append("OBJECT_STORAGE_SSE_KEY_ID is required for aws:kms")
             if not self.clamav_required:
                 errors.append("CLAMAV_REQUIRED must be true")
+        if self.retrieval_embedding_provider != "http":
+            errors.append("RETRIEVAL_EMBEDDING_PROVIDER must be http")
+        if (
+            not self.retrieval_embedding_endpoint
+            or not self.retrieval_embedding_endpoint.startswith("https://")
+        ):
+            errors.append("RETRIEVAL_EMBEDDING_ENDPOINT must use HTTPS")
+        if self.retrieval_embedding_api_key is None:
+            errors.append("RETRIEVAL_EMBEDDING_API_KEY is required")
+        if self.retrieval_reranker_enabled:
+            if (
+                not self.retrieval_reranker_endpoint
+                or not self.retrieval_reranker_endpoint.startswith("https://")
+            ):
+                errors.append("RETRIEVAL_RERANKER_ENDPOINT must use HTTPS")
+            if self.retrieval_reranker_api_key is None:
+                errors.append("RETRIEVAL_RERANKER_API_KEY is required")
         if errors:
             raise ValueError("Unsafe production configuration: " + "; ".join(errors))
         return self

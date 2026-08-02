@@ -602,6 +602,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/knowledge/evidence/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Search Evidence */
+    post: operations["search_evidence_api_v1_knowledge_evidence_search_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/me": {
     parameters: {
       query?: never;
@@ -1403,6 +1420,125 @@ export interface components {
     DraftVersionRequest: {
       /** Row Version */
       row_version: number;
+    };
+    /** EvidenceFilters */
+    EvidenceFilters: {
+      /** Language Codes */
+      language_codes?: string[];
+      /** Module Codes */
+      module_codes?: string[];
+      /** Product Codes */
+      product_codes?: string[];
+      /** Release Codes */
+      release_codes?: string[];
+      /** Release Families */
+      release_families?: string[];
+      /** Source Ids */
+      source_ids?: string[];
+    };
+    /** EvidenceItem */
+    EvidenceItem: {
+      /** Canonical Uri */
+      canonical_uri: string;
+      /**
+       * Chunk Id
+       * Format: uuid
+       */
+      chunk_id: string;
+      /** Content */
+      content: string;
+      /**
+       * Document Id
+       * Format: uuid
+       */
+      document_id: string;
+      /** Document Title */
+      document_title: string;
+      /**
+       * Document Version Id
+       * Format: uuid
+       */
+      document_version_id: string;
+      /** Final Score */
+      final_score: number;
+      /** Heading Path */
+      heading_path: string | null;
+      /** Language Code */
+      language_code: string;
+      /** Module Code */
+      module_code: string | null;
+      /** Module Name */
+      module_name: string | null;
+      /** Page Number */
+      page_number: number | null;
+      /** Product Code */
+      product_code: string | null;
+      /** Product Name */
+      product_name: string | null;
+      /** Rank */
+      rank: number;
+      /** Release Code */
+      release_code: string | null;
+      /** Release Family */
+      release_family: string | null;
+      score_components: components["schemas"]["EvidenceScoreComponents"];
+      /** Section Anchor */
+      section_anchor: string | null;
+      /** Section Title */
+      section_title: string | null;
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Source Type */
+      source_type: string;
+    };
+    /** EvidenceScoreComponents */
+    EvidenceScoreComponents: {
+      /** Exact Identifier Boost */
+      exact_identifier_boost: number;
+      /** Fusion */
+      fusion: number;
+      /** Lexical */
+      lexical: number | null;
+      /** Metadata Boost */
+      metadata_boost: number;
+      /** Rerank */
+      rerank: number | null;
+      /** Source Authority Boost */
+      source_authority_boost: number;
+      /** Vector */
+      vector: number | null;
+    };
+    /** EvidenceSearchRequest */
+    EvidenceSearchRequest: {
+      filters?: components["schemas"]["EvidenceFilters"];
+      /**
+       * Limit
+       * @default 8
+       */
+      limit: number;
+      /**
+       * Persona
+       * @default EMPLOYEE
+       * @enum {string}
+       */
+      persona: "EMPLOYEE" | "ANALYST";
+      /** Query */
+      query: string;
+    };
+    /** EvidenceSearchResponse */
+    EvidenceSearchResponse: {
+      /** Evidence */
+      evidence: components["schemas"]["EvidenceItem"][];
+      /** Normalized Query */
+      normalized_query: string;
+      /**
+       * Retrieval Configuration Version Id
+       * Format: uuid
+       */
+      retrieval_configuration_version_id: string;
     };
     /** FieldOptionResponse */
     FieldOptionResponse: {
@@ -5486,6 +5622,75 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["IdentityDiagnosticResponse"];
+        };
+      };
+    };
+  };
+  search_evidence_api_v1_knowledge_evidence_search_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EvidenceSearchRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvidenceSearchResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval request conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval dependency unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
         };
       };
     };

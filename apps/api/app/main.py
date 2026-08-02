@@ -34,6 +34,13 @@ from apps.api.app.knowledge.document_service import KnowledgeDocumentService
 from apps.api.app.knowledge.service import KnowledgeSourceService
 from apps.api.app.notifications.service import NotificationService
 from apps.api.app.queues.service import QueueService
+from apps.api.app.retrieval.providers import (
+    DeterministicQueryEmbeddingProvider,
+    HttpQueryEmbeddingProvider,
+    HttpRerankingProvider,
+    QueryEmbeddingProvider,
+    RerankingProvider,
+)
 from apps.api.app.retrieval.service import RetrievalService
 from apps.api.app.routing.service import RoutingService
 from apps.api.app.tickets.service import TicketMetrics, TicketService
@@ -102,6 +109,10 @@ def create_app(
                 "name": "knowledge-publication",
                 "description": "Human-reviewed knowledge corpus publication.",
             },
+            {
+                "name": "knowledge-evidence",
+                "description": "Authorized hybrid retrieval with canonical evidence.",
+            },
         ],
     )
     app.state.settings = settings
@@ -157,7 +168,11 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, settings
     )
     app.state.retrieval_service = RetrievalService(
-        unit_of_work_factory, app.state.authorization_service, settings
+        unit_of_work_factory,
+        app.state.authorization_service,
+        settings,
+        _embedding_provider(settings),
+        _reranking_provider(settings),
     )
     app.state.ingestion_service = IngestionService(
         unit_of_work_factory,
@@ -197,6 +212,32 @@ def create_app(
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
     app.add_middleware(RequestContextMiddleware, hsts=settings.is_production)
     return app
+
+
+def _embedding_provider(settings: Settings) -> QueryEmbeddingProvider:
+    if settings.retrieval_embedding_provider == "http":
+        assert settings.retrieval_embedding_endpoint is not None
+        assert settings.retrieval_embedding_api_key is not None
+        return HttpQueryEmbeddingProvider(
+            settings.retrieval_embedding_endpoint,
+            settings.retrieval_embedding_api_key.get_secret_value(),
+            settings.retrieval_embedding_model_code,
+            settings.retrieval_provider_timeout_seconds,
+        )
+    return DeterministicQueryEmbeddingProvider(settings.retrieval_embedding_model_code)
+
+
+def _reranking_provider(settings: Settings) -> RerankingProvider | None:
+    if not settings.retrieval_reranker_enabled:
+        return None
+    assert settings.retrieval_reranker_endpoint is not None
+    assert settings.retrieval_reranker_api_key is not None
+    return HttpRerankingProvider(
+        settings.retrieval_reranker_endpoint,
+        settings.retrieval_reranker_api_key.get_secret_value(),
+        settings.retrieval_reranker_model_code,
+        settings.retrieval_provider_timeout_seconds,
+    )
 
 
 app = create_app()

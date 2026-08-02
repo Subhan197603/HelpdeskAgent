@@ -22,7 +22,12 @@ from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.main import create_app
-from apps.api.app.retrieval.models import RetrievalCandidates, RetrievalFilters, RetrievalRequest
+from apps.api.app.retrieval.models import (
+    RetrievalCandidates,
+    RetrievalEvidenceSet,
+    RetrievalFilters,
+    RetrievalRequest,
+)
 from apps.api.app.retrieval.service import RetrievalService
 from apps.worker.worker.acquisition_worker import (
     AcquisitionWorker,
@@ -464,6 +469,31 @@ async def _retrieve(context: RequestContext, request: RetrievalRequest) -> Retri
     )
     try:
         return await service.search(context, request)
+    finally:
+        await engine.dispose()
+
+
+async def _retrieve_evidence(
+    context: RequestContext, query: str, filters: RetrievalFilters
+) -> RetrievalEvidenceSet:
+    settings = Settings.model_validate(
+        {
+            "app_env": "integration",
+            "database_url": (f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"),
+            "rls_enabled": True,
+        }
+    )
+    engine = create_async_engine(settings.database_url.get_secret_value())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    service = RetrievalService(
+        lambda identity: SqlAlchemyUnitOfWork(sessions, identity, rls_enabled=True),
+        AuthorizationService(),
+        settings,
+    )
+    try:
+        return await service.evidence(
+            context, query=query, filters=filters, limit=8, persona="EMPLOYEE"
+        )
     finally:
         await engine.dispose()
 
@@ -1068,6 +1098,12 @@ def _seed_retrieval_corpus() -> tuple[str, dict[str, str]]:
         WHERE processing.document_version_id=version.document_version_id
           AND version.document_id IN
             ('{ids["apps"]}','{ids["fdi"]}','{ids["analyst"]}','{ids["denied"]}');
+        UPDATE kb.document SET canonical_url='https://docs.example.invalid/26c/payables/holds'
+          WHERE document_id='{ids["apps"]}';
+        UPDATE kb.document_chunk SET section_title='Validation Holds',
+          section_anchor='validation-holds',page_number=123,
+          content_text='AP-810 invoice validation holds procedure for Fusion Applications 26C.'
+          WHERE document_id='{ids["apps"]}';
         """
     )
     _psql(
@@ -1201,6 +1237,43 @@ def test_authorization_first_full_text_vector_filters_and_query_plans(
         loop_factory=asyncio.SelectorEventLoop,
     )
     assert {item.document_id for item in (*apps.lexical, *apps.vector)} == {UUID(ids["apps"])}
+    evidence = asyncio.run(
+        _retrieve_evidence(
+            customer,
+            "AP-810 invoice validation holds for 26C Accounts Payable",
+            RetrievalFilters(
+                product_codes=("FINANCIALS",),
+                module_codes=("ACCOUNTS_PAYABLE",),
+                release_families=("FUSION_APPLICATIONS",),
+                release_codes=("26C",),
+            ),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert evidence.evidence[0].document_id == UUID(ids["apps"])
+    assert evidence.evidence[0].release_family == "FUSION_APPLICATIONS"
+    assert evidence.evidence[0].release_code == "26C"
+    assert evidence.evidence[0].module_code == "ACCOUNTS_PAYABLE"
+    assert evidence.evidence[0].canonical_uri.endswith("/26c/payables/holds")
+    assert evidence.evidence[0].section_anchor == "validation-holds"
+    assert evidence.evidence[0].components.exact_identifier_boost > 0
+    _psql(
+        f"UPDATE kb.document SET next_review_date=CURRENT_DATE-1 WHERE document_id='{ids['apps']}'"
+    )
+    stale = asyncio.run(
+        _retrieve_evidence(
+            customer,
+            "AP-810 invoice validation holds for 26C",
+            RetrievalFilters(
+                module_codes=("ACCOUNTS_PAYABLE",),
+                release_families=("FUSION_APPLICATIONS",),
+                release_codes=("26C",),
+            ),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert stale.evidence == ()
+    _psql(f"UPDATE kb.document SET next_review_date=NULL WHERE document_id='{ids['apps']}'")
     fdi = asyncio.run(
         _retrieve(
             customer,

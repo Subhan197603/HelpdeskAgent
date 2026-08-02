@@ -47,6 +47,9 @@ def test_production_accepts_explicit_secure_configuration() -> None:
         oidc_audience="helpdesk-api",
         oidc_client_id="helpdesk-web",
         clamav_required=True,
+        retrieval_embedding_provider="http",
+        retrieval_embedding_endpoint="https://ai.example.test/embeddings",
+        retrieval_embedding_api_key="retrieval-secret",
     )
     assert settings.is_production
 
