@@ -1,0 +1,106 @@
+{
+  "dataset_version": "retrieval-regression-v1",
+  "quality_thresholds": {
+    "minimum_top_1_accuracy": 1.0,
+    "minimum_mean_reciprocal_rank": 1.0,
+    "maximum_warm_p95_latency_ms": 750
+  },
+  "cases": [
+    {
+      "case_id": "fusion-apps-26c-ap-error",
+      "query": "AP-810 invoice validation holds",
+      "role": "CUSTOMER",
+      "persona": "EMPLOYEE",
+      "filters": {
+        "product_codes": ["FINANCIALS"],
+        "module_codes": ["ACCOUNTS_PAYABLE"],
+        "release_families": ["FUSION_APPLICATIONS"],
+        "release_codes": ["26C"]
+      },
+      "expected_top_external_key": "retrieval-apps-26c",
+      "forbidden_external_keys": [
+        "retrieval-fdi-26r2",
+        "retrieval-analyst",
+        "retrieval-denied",
+        "other-tenant-invoice"
+      ]
+    },
+    {
+      "case_id": "fdi-26r2-release-family",
+      "query": "FDI invoice validation analytics",
+      "role": "CUSTOMER",
+      "persona": "EMPLOYEE",
+      "filters": {
+        "module_codes": ["FDI_FINANCIALS"],
+        "release_families": ["FUSION_DATA_INTELLIGENCE"],
+        "release_codes": ["26.R2"]
+      },
+      "expected_top_external_key": "retrieval-fdi-26r2",
+      "forbidden_external_keys": [
+        "retrieval-apps-26c",
+        "retrieval-analyst",
+        "retrieval-denied",
+        "other-tenant-invoice"
+      ]
+    },
+    {
+      "case_id": "analyst-source-separation",
+      "query": "analyst invoice diagnostic",
+      "role": "AGENT",
+      "persona": "ANALYST",
+      "filters": {
+        "module_codes": ["ACCOUNTS_PAYABLE"],
+        "release_families": ["FUSION_APPLICATIONS"],
+        "release_codes": ["26C"]
+      },
+      "expected_top_external_key": "retrieval-analyst",
+      "forbidden_external_keys": [
+        "retrieval-fdi-26r2",
+        "retrieval-denied",
+        "other-tenant-invoice"
+      ]
+    },
+    {
+      "case_id": "employee-cannot-see-analyst-source",
+      "query": "analyst invoice diagnostic",
+      "role": "CUSTOMER",
+      "persona": "EMPLOYEE",
+      "filters": {
+        "module_codes": ["ACCOUNTS_PAYABLE"],
+        "release_families": ["FUSION_APPLICATIONS"],
+        "release_codes": ["26C"]
+      },
+      "expected_top_external_key": "retrieval-apps-26c",
+      "forbidden_external_keys": [
+        "retrieval-analyst",
+        "retrieval-denied",
+        "other-tenant-invoice"
+      ]
+    },
+    {
+      "case_id": "restricted-and-cross-tenant-canary-denial",
+      "query": "RESTRICTED-CANARY-991 OTHER-TENANT-CANARY-992",
+      "role": "CUSTOMER",
+      "persona": "EMPLOYEE",
+      "filters": {},
+      "forbidden_external_keys": ["retrieval-denied", "other-tenant-invoice"]
+    },
+    {
+      "case_id": "bounded-zero-result",
+      "query": "no matching approved source",
+      "role": "CUSTOMER",
+      "persona": "EMPLOYEE",
+      "filters": {
+        "source_ids": ["7f000000-0000-0000-0000-000000000001"]
+      },
+      "expected_empty": true,
+      "forbidden_external_keys": [
+        "retrieval-apps-26c",
+        "retrieval-fdi-26r2",
+        "retrieval-analyst",
+        "retrieval-denied",
+        "other-tenant-invoice"
+      ]
+    }
+  ]
+}

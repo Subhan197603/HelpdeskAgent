@@ -58,3 +58,19 @@ similarly formatted code in another family.
 Fusion never expands the authorized candidate set. Do not weaken hard SQL filters to compensate
 for poor ranking. A document past `next_review_date`, retired, inactive, unpublished, or outside its
 effective period is intentionally excluded.
+
+## Regression gate
+
+`tests/ai_evaluation/retrieval_regression_v1.json` pins the approved queries, expected documents,
+forbidden documents, and quality/latency thresholds. The PostgreSQL runner verifies authorization
+at the candidate and evidence boundaries, canonical evidence joins, release-family isolation,
+identifier boosts, stale and retired exclusion, deterministic ordering, empty results, and absence
+of restricted canaries from captured logs. Retrieval has no cache; do not add one without a design
+review proving tenant/ACL-safe keys and invalidation.
+
+Run the dedicated gate with:
+
+```powershell
+uv run pytest tests/integration/test_document_acquisition.py `
+  -k retrieval_regression_corpus_quality_acl_evidence_and_latency -m integration
+```

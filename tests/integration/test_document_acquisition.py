@@ -2,8 +2,12 @@
 
 import asyncio
 import hashlib
+import json
+import logging
+import math
 import os
 import subprocess
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -474,7 +478,11 @@ async def _retrieve(context: RequestContext, request: RetrievalRequest) -> Retri
 
 
 async def _retrieve_evidence(
-    context: RequestContext, query: str, filters: RetrievalFilters
+    context: RequestContext,
+    query: str,
+    filters: RetrievalFilters,
+    *,
+    persona: str = "EMPLOYEE",
 ) -> RetrievalEvidenceSet:
     settings = Settings.model_validate(
         {
@@ -492,7 +500,7 @@ async def _retrieve_evidence(
     )
     try:
         return await service.evidence(
-            context, query=query, filters=filters, limit=8, persona="EMPLOYEE"
+            context, query=query, filters=filters, limit=8, persona=persona
         )
     finally:
         await engine.dispose()
@@ -1084,7 +1092,8 @@ def _seed_retrieval_corpus() -> tuple[str, dict[str, str]]:
             repeat('3',64),'36000000-0000-0000-0000-000000000003','{TENANT_ID}',
             '{ids["analyst"]}','31000000-0000-0000-0000-000000000003','ANALYST','CONFIDENTIAL',repeat('3',64)),
           ('37000000-0000-0000-0000-000000000004','35000000-0000-0000-0000-000000000004',
-            1,'Privileged > Secret','Privileged invoice secret for knowledge approvers.',10,
+            1,'Privileged > Secret',
+            'RESTRICTED-CANARY-991 privileged invoice secret for knowledge approvers.',10,
             repeat('4',64),'36000000-0000-0000-0000-000000000004','{TENANT_ID}',
             '{ids["denied"]}','31000000-0000-0000-0000-000000000004','EMPLOYEE','INTERNAL',repeat('4',64));
         INSERT INTO kb.chunk_embedding_1536(chunk_id,embedding_model_code,embedding,tenant_id,
@@ -1150,7 +1159,7 @@ def _seed_retrieval_corpus() -> tuple[str, dict[str, str]]:
           source_id,audience_code,security_classification,embedding_input_hash)
         VALUES ('37000000-0000-0000-0000-000000000005',
           '35000000-0000-0000-0000-000000000005',1,'Other > Invoice',
-          'Other tenant invoice validation secret.',8,repeat('5',64),
+          'OTHER-TENANT-CANARY-992 other tenant invoice validation secret.',8,repeat('5',64),
           '36000000-0000-0000-0000-000000000005',
           '20000000-0000-0000-0000-000000000002','{ids["other_tenant"]}',
           '31000000-0000-0000-0000-000000000005','EMPLOYEE','INTERNAL',repeat('5',64));
@@ -1164,6 +1173,25 @@ def _seed_retrieval_corpus() -> tuple[str, dict[str, str]]:
         WHERE document_version_id='35000000-0000-0000-0000-000000000005';
         """
     )
+    return vector, ids
+
+
+def _ensure_retrieval_corpus() -> tuple[str, dict[str, str]]:
+    ids = {
+        "apps": "34000000-0000-0000-0000-000000000001",
+        "fdi": "34000000-0000-0000-0000-000000000002",
+        "analyst": "34000000-0000-0000-0000-000000000003",
+        "denied": "34000000-0000-0000-0000-000000000004",
+        "other_tenant": "34000000-0000-0000-0000-000000000005",
+    }
+    if _value(f"SELECT count(*) FROM kb.document WHERE document_id='{ids['apps']}'") == "0":
+        return _seed_retrieval_corpus()
+    _psql(
+        "UPDATE kb.document SET active_flag=true,next_review_date=NULL "
+        f"WHERE document_id IN ('{ids['apps']}','{ids['fdi']}','{ids['analyst']}',"
+        f"'{ids['denied']}')"
+    )
+    vector = "[1," + ",".join("0" for _ in range(1535)) + "]"
     return vector, ids
 
 
@@ -1190,7 +1218,9 @@ def _retrieval_context(
 def test_authorization_first_full_text_vector_filters_and_query_plans(
     application: tuple[TestClient, FastAPI, MemoryStorage],
 ) -> None:
-    del application
+    _, app, _ = application
+    assert not hasattr(app.state.retrieval_service, "_cache")
+    assert not hasattr(app.state.retrieval_service, "_tracer")
     vector, ids = _seed_retrieval_corpus()
     embedding = (1.0,) + (0.0,) * 1535
     customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
@@ -1357,3 +1387,162 @@ def test_authorization_first_full_text_vector_filters_and_query_plans(
         )
         == "4"
     )
+
+
+@pytest.mark.integration
+def test_retrieval_regression_corpus_quality_acl_evidence_and_latency(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    del application
+    _, ids = _ensure_retrieval_corpus()
+    corpus = cast(
+        "dict[str, Any]",
+        json.loads(
+            (ROOT / "tests/ai_evaluation/retrieval_regression_v1.json").read_text(encoding="utf-8")
+        ),
+    )
+    thresholds = cast("dict[str, float]", corpus["quality_thresholds"])
+    cases = cast("list[dict[str, Any]]", corpus["cases"])
+    external_ids = {
+        "retrieval-apps-26c": UUID(ids["apps"]),
+        "retrieval-fdi-26r2": UUID(ids["fdi"]),
+        "retrieval-analyst": UUID(ids["analyst"]),
+        "retrieval-denied": UUID(ids["denied"]),
+        "other-tenant-invoice": UUID(ids["other_tenant"]),
+    }
+    caplog.set_level(logging.DEBUG)
+    top_hits = 0
+    reciprocal_ranks: list[float] = []
+    latencies_ms: list[float] = []
+
+    for case in cases:
+        raw_filters = cast("dict[str, list[str]]", case.get("filters", {}))
+        filters = RetrievalFilters(
+            product_codes=tuple(raw_filters.get("product_codes", [])),
+            module_codes=tuple(raw_filters.get("module_codes", [])),
+            release_families=tuple(raw_filters.get("release_families", [])),
+            release_codes=tuple(raw_filters.get("release_codes", [])),
+            language_codes=tuple(raw_filters.get("language_codes", [])),
+            source_ids=tuple(UUID(value) for value in raw_filters.get("source_ids", [])),
+        )
+        context = _retrieval_context(str(case["role"]), str(case["persona"]))
+        started = time.perf_counter()
+        evidence = asyncio.run(
+            _retrieve_evidence(
+                context,
+                str(case["query"]),
+                filters,
+                persona=str(case["persona"]),
+            ),
+            loop_factory=asyncio.SelectorEventLoop,
+        )
+        latencies_ms.append((time.perf_counter() - started) * 1000)
+        replay = asyncio.run(
+            _retrieve_evidence(
+                context,
+                str(case["query"]),
+                filters,
+                persona=str(case["persona"]),
+            ),
+            loop_factory=asyncio.SelectorEventLoop,
+        )
+        assert replay == evidence, case["case_id"]
+        document_ids = [item.document_id for item in evidence.evidence]
+        forbidden = {
+            external_ids[key] for key in cast("list[str]", case["forbidden_external_keys"])
+        }
+        assert forbidden.isdisjoint(document_ids), case["case_id"]
+        if case.get("expected_empty"):
+            assert evidence.evidence == (), case["case_id"]
+        if case["case_id"] == "fusion-apps-26c-ap-error":
+            assert evidence.evidence[0].components.exact_identifier_boost > 0
+        expected_key = case.get("expected_top_external_key")
+        if expected_key is not None:
+            expected = external_ids[str(expected_key)]
+            assert expected in document_ids, case["case_id"]
+            rank = document_ids.index(expected) + 1
+            reciprocal_ranks.append(1 / rank)
+            top_hits += int(rank == 1)
+        assert [item.rank for item in evidence.evidence] == list(
+            range(1, len(evidence.evidence) + 1)
+        )
+        assert len({item.chunk_id for item in evidence.evidence}) == len(evidence.evidence)
+        for item in evidence.evidence:
+            row = _value(
+                "SELECT concat_ws('|',document.document_id,version.document_version_id,"
+                "chunk.chunk_id,COALESCE(document.canonical_url,source.canonical_location),"
+                "COALESCE(release.release_family,''),COALESCE(release.release_code,'')) "
+                "FROM kb.document_chunk chunk "
+                "JOIN kb.document_version version "
+                "ON version.document_version_id=chunk.document_version_id "
+                "JOIN kb.document document ON document.document_id=version.document_id "
+                "JOIN kb.source source ON source.source_id=document.source_id "
+                "LEFT JOIN kb.release release ON release.release_id=document.release_id "
+                f"WHERE chunk.chunk_id='{item.chunk_id}'"
+            ).split("|")
+            assert row == [
+                str(item.document_id),
+                str(item.document_version_id),
+                str(item.chunk_id),
+                item.canonical_uri,
+                item.release_family or "",
+                item.release_code or "",
+            ]
+
+    assert top_hits / len(reciprocal_ranks) >= thresholds["minimum_top_1_accuracy"]
+    assert (
+        sum(reciprocal_ranks) / len(reciprocal_ranks) >= thresholds["minimum_mean_reciprocal_rank"]
+    )
+    ordered_latency = sorted(latencies_ms)
+    p95_index = math.ceil(len(ordered_latency) * 0.95) - 1
+    assert ordered_latency[p95_index] <= thresholds["maximum_warm_p95_latency_ms"]
+
+    restricted_chunk = "37000000-0000-0000-0000-000000000004"
+    other_tenant_chunk = "37000000-0000-0000-0000-000000000005"
+    intermediate = asyncio.run(
+        _retrieve(
+            _retrieval_context("CUSTOMER", "EMPLOYEE"),
+            RetrievalRequest(
+                "RESTRICTED-CANARY-991 OTHER-TENANT-CANARY-992",
+                (1.0,) + (0.0,) * 1535,
+                persona="EMPLOYEE",
+            ),
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    intermediate_documents = {
+        item.document_id for item in (*intermediate.lexical, *intermediate.vector)
+    }
+    assert UUID(ids["denied"]) not in intermediate_documents
+    assert UUID(ids["other_tenant"]) not in intermediate_documents
+    captured = caplog.text
+    assert "RESTRICTED-CANARY-991" not in captured
+    assert "OTHER-TENANT-CANARY-992" not in captured
+    assert restricted_chunk not in captured
+    assert other_tenant_chunk not in captured
+
+    customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
+    application_filters = RetrievalFilters(
+        module_codes=("ACCOUNTS_PAYABLE",),
+        release_families=("FUSION_APPLICATIONS",),
+        release_codes=("26C",),
+    )
+    _psql(
+        f"UPDATE kb.document SET next_review_date=CURRENT_DATE-1 WHERE document_id='{ids['apps']}'"
+    )
+    stale = asyncio.run(
+        _retrieve_evidence(customer, "AP-810 invoice validation holds", application_filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert stale.evidence == ()
+    _psql(
+        f"UPDATE kb.document SET next_review_date=NULL,active_flag=false "
+        f"WHERE document_id='{ids['apps']}'"
+    )
+    retired = asyncio.run(
+        _retrieve_evidence(customer, "AP-810 invoice validation holds", application_filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert retired.evidence == ()
+    _psql(f"UPDATE kb.document SET active_flag=true WHERE document_id='{ids['apps']}'")
