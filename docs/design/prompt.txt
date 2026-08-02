@@ -1,0 +1,42 @@
+Read:
+
+* `BUILD_SPEC.md`
+* `CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`
+* `docs/design/HELPDESKAGENT_UI_IMPLEMENTATION_SPEC.md`
+
+Use:
+
+`docs/design/HELPDESKAGENT_TARGET_UI.png`
+
+as the approved visual reference for the application.
+
+Do not implement all screens at once.
+
+First create the shared UI foundation:
+
+1. Design tokens
+2. Typography
+3. Global layout
+4. Sidebar and top navigation
+5. Shared cards
+6. Shared tables
+7. Status and priority badges
+8. Loading, empty, error, unauthorized, and conflict states
+9. Responsive behavior
+10. Playwright screenshot-test infrastructure
+
+Do not invent a different design style for individual modules.
+
+Use existing backend APIs and generated OpenAPI types. Do not hard-code production data or bypass authorization.
+
+For every screen:
+
+1. Implement the assigned functionality.
+2. Run Prettier, ESLint, TypeScript, Vitest, accessibility checks, and Playwright.
+3. Capture desktop, tablet, and mobile screenshots.
+4. Compare them with the approved reference.
+5. Report remaining visual differences.
+6. Stop for human visual approval.
+7. Leave the changes uncommitted until approval.
+
+Begin the visual implementation only when the current project milestone assigns frontend work. Do not introduce backend features early.
