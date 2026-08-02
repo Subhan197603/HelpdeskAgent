@@ -35,10 +35,16 @@ test("employee submits an Oracle Fusion issue and exchanges a public comment", a
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.getByRole("button", { name: "Continue as analyst" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Ticket queues" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Unassigned.*ERP/ }),
+  ).toBeVisible();
   await expect(page.getByRole("link", { name: /ERP-1/ })).toBeVisible();
   await page.getByRole("link", { name: /ERP-1/ }).click();
   await page
-    .getByLabel("Add a public comment")
+    .getByLabel("Add an update")
     .fill("We are investigating the invoice validation service.");
   await page.getByRole("button", { name: "Post public comment" }).click();
   await expect(

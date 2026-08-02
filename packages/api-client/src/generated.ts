@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+  "/api/v1/agent/queues": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Queues */
+    get: operations["queues_api_v1_agent_queues_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/queues/{queue_id}/tickets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Queue Tickets */
+    get: operations["queue_tickets_api_v1_agent_queues__queue_id__tickets_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/tickets": {
     parameters: {
       query?: never;
@@ -55,6 +89,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/comments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Add Analyst Comment */
+    post: operations["add_analyst_comment_api_v1_agent_tickets__ticket_key__comments_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/tickets/{ticket_key}/route": {
     parameters: {
       query?: never;
@@ -66,6 +117,23 @@ export interface paths {
     put?: never;
     /** Route Ticket */
     post: operations["route_ticket_api_v1_agent_tickets__ticket_key__route_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/tickets/{ticket_key}/timeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Analyst Timeline */
+    get: operations["analyst_timeline_api_v1_agent_tickets__ticket_key__timeline_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -364,6 +432,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/tickets/{ticket_key}/timeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Customer Timeline */
+    get: operations["customer_timeline_api_v1_tickets__ticket_key__timeline_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health/live": {
     parameters: {
       query?: never;
@@ -402,6 +487,43 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ActivityItemResponse */
+    ActivityItemResponse: {
+      /** Actor Name */
+      actor_name: string | null;
+      /** Actor User Id */
+      actor_user_id: string | null;
+      /** Body */
+      body: string | null;
+      /**
+       * Classification
+       * @enum {string}
+       */
+      classification: "PUBLIC" | "INTERNAL" | "SYSTEM";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Details */
+      details: {
+        [key: string]: unknown;
+      };
+      /** Id */
+      id: string;
+      /** Type */
+      type: string;
+    };
+    /** AnalystCommentCreateRequest */
+    AnalystCommentCreateRequest: {
+      /** Body */
+      body: string;
+      /**
+       * Visibility
+       * @enum {string}
+       */
+      visibility: "PUBLIC" | "INTERNAL";
+    };
     /** AssignmentResponse */
     AssignmentResponse: {
       /** Assignee User Id */
@@ -878,6 +1000,104 @@ export interface components {
        */
       id: string;
     };
+    /** QueueListResponse */
+    QueueListResponse: {
+      /** Items */
+      items: components["schemas"]["QueueResponse"][];
+    };
+    /** QueueResponse */
+    QueueResponse: {
+      /** Columns */
+      columns: string[];
+      /** Description */
+      description: string | null;
+      /** Display Order */
+      display_order: number;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Project Code */
+      project_code: string;
+      /**
+       * Project Id
+       * Format: uuid
+       */
+      project_id: string;
+      /** Sort */
+      sort: {
+        [key: string]: string;
+      }[];
+      /**
+       * Version Id
+       * Format: uuid
+       */
+      version_id: string;
+      /**
+       * Visibility
+       * @enum {string}
+       */
+      visibility: "GROUP" | "PROJECT_AGENTS" | "ALL_AGENTS";
+    };
+    /** QueueTicketPage */
+    QueueTicketPage: {
+      /** Items */
+      items: components["schemas"]["QueueTicketResponse"][];
+      /** Limit */
+      limit: number;
+      /**
+       * Next Cursor
+       * @description Opaque scoped keyset cursor
+       */
+      next_cursor?: string | null;
+    };
+    /** QueueTicketResponse */
+    QueueTicketResponse: {
+      /** Assignee Name */
+      assignee_name: string | null;
+      /** Assignee User Id */
+      assignee_user_id: string | null;
+      /** Assignment Group Id */
+      assignment_group_id: string | null;
+      /** Assignment Group Name */
+      assignment_group_name: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** First Response Sla Target */
+      first_response_sla_target: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Key */
+      key: string;
+      /** Priority */
+      priority: string;
+      /** Project Code */
+      project_code: string;
+      /** Reporter Name */
+      reporter_name: string;
+      /** Resolution Sla Target */
+      resolution_sla_target: string | null;
+      /** Status */
+      status: string;
+      /** Status Name */
+      status_name: string;
+      /** Summary */
+      summary: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** RequestFormResponse */
     RequestFormResponse: {
       /** Code */
@@ -1071,6 +1291,13 @@ export interface components {
       /** Work Type */
       work_type: string;
     };
+    /** TimelineResponse */
+    TimelineResponse: {
+      /** Items */
+      items: components["schemas"]["ActivityItemResponse"][];
+      /** Ticket Key */
+      ticket_key: string;
+    };
     /** TransitionCommand */
     TransitionCommand: {
       /** Comment */
@@ -1111,6 +1338,146 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  queues_api_v1_agent_queues_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["QueueListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue or ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Query validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  queue_tickets_api_v1_agent_queues__queue_id__tickets_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string | null;
+        status_code?: string | null;
+        priority_code?: string | null;
+        search?: string | null;
+        assignment_group_id?: string | null;
+        assignee?: string | null;
+      };
+      header?: never;
+      path: {
+        queue_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["QueueTicketPage"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue or ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Query validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   analyst_tickets_api_v1_agent_tickets_get: {
     parameters: {
       query?: {
@@ -1320,6 +1687,79 @@ export interface operations {
       };
     };
   };
+  add_analyst_comment_api_v1_agent_tickets__ticket_key__comments_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AnalystCommentCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActivityItemResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue or ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Query validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   route_ticket_api_v1_agent_tickets__ticket_key__route_post: {
     parameters: {
       query?: never;
@@ -1384,6 +1824,73 @@ export interface operations {
         };
       };
       /** @description Assignment validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  analyst_timeline_api_v1_agent_tickets__ticket_key__timeline_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TimelineResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue or ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Query validation failed */
       422: {
         headers: {
           [name: string]: unknown;
@@ -2646,6 +3153,73 @@ export interface operations {
         };
       };
       /** @description Structured validation failure */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  customer_timeline_api_v1_tickets__ticket_key__timeline_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TimelineResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue or ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Queue configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Query validation failed */
       422: {
         headers: {
           [name: string]: unknown;

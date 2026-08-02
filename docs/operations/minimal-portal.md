@@ -8,8 +8,9 @@ not contain workflow, routing, SLA, attachment, notification, or AI behavior.
 
 Employees can browse published catalogue projects and request types, render the effective
 request form, create and edit a draft, review it, explicitly confirm submission, list their
-tickets, open ticket details, and exchange public comments. Analysts can list the tickets
-visible to their support groups, open details, and add the same public comment type.
+tickets, open ticket details, and exchange public comments. Analysts can navigate published,
+authorized queues, safely search and page their results, open ticket details, view classified
+activity, and add either a public comment or an internal note.
 
 Request-specific controls are generated from the API form contract. Field labels, help text,
 required flags, select options, and restricted conditional rules are configuration data; the
@@ -78,12 +79,12 @@ the physical baseline, loads deterministic development fixtures, starts API and 
 and proves this journey:
 
 1. employee reports an Oracle Fusion error and explicitly submits it;
-2. analyst sees the new ticket and posts a public comment;
+2. analyst sees the new ticket in the Unassigned queue and posts a public comment;
 3. employee signs back in and sees the analyst comment.
 
 Run it with `pnpm test:e2e`. Global teardown removes only the named test project and its isolated
 volume. Playwright browser binaries must already be present (`pnpm exec playwright install
 chromium`).
 
-Queue UI, internal comments, attachments, SLA behavior, notifications, administration, and AI
-remain intentionally deferred.
+Queue administration, attachments, SLA processing, notifications, and AI remain intentionally
+deferred.

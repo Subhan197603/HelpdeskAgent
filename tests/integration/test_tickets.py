@@ -1087,3 +1087,201 @@ def test_explicit_default_route_and_concurrent_assignment_conflict(client: TestC
     assert winner.assignee_user_id is None
     assert winner.fallback is True
     assert winner.routing_rule_version_id == "36100000-0000-0000-0000-000000000002"
+
+
+@pytest.mark.integration
+def test_versioned_queues_are_scoped_searchable_and_stably_paginated(
+    client: TestClient,
+) -> None:
+    customer_headers = {"X-Developer-User": "DEV/customer"}
+    agent_headers = {"X-Developer-User": "DEV/agent"}
+    assert client.get("/api/v1/agent/queues", headers=customer_headers).status_code == 403
+
+    queues = client.get("/api/v1/agent/queues", headers=agent_headers)
+    assert queues.status_code == 200
+    items = queues.json()["items"]
+    assert [item["name"] for item in items] == [
+        "Unassigned",
+        "Assigned to me",
+        "Fusion AP group",
+        "ERP project",
+    ]
+    assert all(item["version_id"].startswith("37100000-") for item in items)
+    assert (
+        _psql(
+            "SELECT count(*) FROM pg_indexes WHERE schemaname='itsm' AND indexname IN ("
+            "'ticket_queue_unassigned_created_ix','ticket_queue_assignee_created_ix',"
+            "'ticket_queue_group_created_ix','ticket_queue_project_created_ix',"
+            "'ticket_queue_search_ix')"
+        )
+        == "5"
+    )
+
+    body = _body()
+    body["summary"] = "Unique queue search invoice failure"
+    body["service_node_id"] = "31000000-0000-0000-0000-000000000005"
+    draft = _draft(client, body)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            **customer_headers,
+            "Idempotency-Key": f"queue-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert submitted.status_code == 201
+    ticket = submitted.json()
+
+    unassigned_id = "37000000-0000-0000-0000-000000000001"
+    unassigned = client.get(
+        f"/api/v1/agent/queues/{unassigned_id}/tickets",
+        headers=agent_headers,
+        params={"search": "Unique queue"},
+    )
+    assert unassigned.status_code == 200
+    assert [item["key"] for item in unassigned.json()["items"]] == [ticket["key"]]
+    safe_search = client.get(
+        f"/api/v1/agent/queues/{unassigned_id}/tickets",
+        headers=agent_headers,
+        params={"search": "' OR true --"},
+    )
+    assert safe_search.status_code == 200
+
+    routed = client.post(
+        f"/api/v1/agent/tickets/{ticket['key']}/route",
+        headers={
+            "X-Developer-User": "DEV/support-manager",
+            "Idempotency-Key": f"queue-route-{uuid4()}",
+        },
+        json={"row_version": ticket["row_version"]},
+    )
+    assert routed.status_code == 200
+    assert routed.json()["assignee_user_id"] == "22000000-0000-0000-0000-000000000004"
+
+    for queue_id in (
+        "37000000-0000-0000-0000-000000000002",
+        "37000000-0000-0000-0000-000000000003",
+        "37000000-0000-0000-0000-000000000004",
+    ):
+        page = client.get(
+            f"/api/v1/agent/queues/{queue_id}/tickets",
+            headers=agent_headers,
+            params={"search": "Unique queue"},
+        )
+        assert page.status_code == 200
+        assert ticket["key"] in {item["key"] for item in page.json()["items"]}
+
+    project_path = "/api/v1/agent/queues/37000000-0000-0000-0000-000000000004/tickets"
+    first = client.get(project_path, headers=agent_headers, params={"limit": 1})
+    assert first.status_code == 200 and first.json()["next_cursor"]
+    second = client.get(
+        project_path,
+        headers=agent_headers,
+        params={"limit": 1, "cursor": first.json()["next_cursor"]},
+    )
+    assert second.status_code == 200
+    assert first.json()["items"][0]["id"] != second.json()["items"][0]["id"]
+    assert (
+        client.get(
+            project_path,
+            headers=agent_headers,
+            params={"limit": 1, "cursor": first.json()["next_cursor"], "search": "invoice"},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.get(
+            project_path,
+            headers=agent_headers,
+            params={"assignment_group_id": str(uuid4())},
+        ).status_code
+        == 403
+    )
+
+
+@pytest.mark.integration
+def test_activity_timeline_classifies_comments_without_customer_leakage(
+    client: TestClient,
+) -> None:
+    customer_headers = {"X-Developer-User": "DEV/customer"}
+    agent_headers = {"X-Developer-User": "DEV/agent"}
+    draft = _draft(client)
+    submitted = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            **customer_headers,
+            "Idempotency-Key": f"timeline-submit-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    ).json()
+    comment_path = f"/api/v1/agent/tickets/{submitted['key']}/comments"
+    assert (
+        client.post(
+            comment_path,
+            headers={
+                **customer_headers,
+                "Idempotency-Key": f"customer-agent-comment-{uuid4()}",
+            },
+            json={"visibility": "PUBLIC", "body": "attempt"},
+        ).status_code
+        == 403
+    )
+
+    internal_key = f"internal-comment-{uuid4()}"
+    internal_headers = {**agent_headers, "Idempotency-Key": internal_key}
+    internal = client.post(
+        comment_path,
+        headers=internal_headers,
+        json={"visibility": "INTERNAL", "body": "Private investigation detail"},
+    )
+    assert internal.status_code == 201
+    assert internal.json()["classification"] == "INTERNAL"
+    replay = client.post(
+        comment_path,
+        headers=internal_headers,
+        json={"visibility": "INTERNAL", "body": "Private investigation detail"},
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+
+    public = client.post(
+        comment_path,
+        headers={**agent_headers, "Idempotency-Key": f"agent-public-{uuid4()}"},
+        json={"visibility": "PUBLIC", "body": "Public investigation update"},
+    )
+    assert public.status_code == 201
+    customer_timeline = client.get(
+        f"/api/v1/tickets/{submitted['key']}/timeline", headers=customer_headers
+    )
+    assert customer_timeline.status_code == 200
+    serialized = customer_timeline.text
+    assert "Public investigation update" in serialized
+    assert "Private investigation detail" not in serialized
+    assert {item["classification"] for item in customer_timeline.json()["items"]} == {"PUBLIC"}
+
+    analyst_timeline = client.get(
+        f"/api/v1/agent/tickets/{submitted['key']}/timeline", headers=agent_headers
+    )
+    assert analyst_timeline.status_code == 200
+    assert {item["classification"] for item in analyst_timeline.json()["items"]} >= {
+        "PUBLIC",
+        "INTERNAL",
+    }
+    ticket_id = submitted["id"]
+    assert (
+        _psql(
+            "SELECT count(*) FROM itsm.ticket_event "
+            f"WHERE ticket_id='{ticket_id}' "
+            "AND event_type IN ('PUBLIC_COMMENT_ADDED','INTERNAL_COMMENT_ADDED')"
+        )
+        == "2"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM audit.audit_event "
+            f"WHERE change_summary_json->>'ticket_id'='{ticket_id}' "
+            "AND action_code IN ('TICKET_PUBLIC_COMMENT_ADDED',"
+            "'TICKET_INTERNAL_COMMENT_ADDED')"
+        )
+        == "2"
+    )

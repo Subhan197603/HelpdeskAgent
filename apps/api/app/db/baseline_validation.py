@@ -13,7 +13,7 @@ from apps.api.app.core.settings import Settings
 from apps.api.app.db.migration_support import get_migration_url
 
 BASELINE_MARKER = "0000_physical_baseline"
-SAMPLE_REVISION = "0006_ticket_draft_submission"
+SAMPLE_REVISION = "0007_queue_performance_indexes"
 EXPECTED_SCHEMAS = frozenset({"identity", "config", "itsm", "kb", "ai", "audit", "integration"})
 EXPECTED_EXTENSIONS = frozenset({"pgcrypto", "pg_trgm", "unaccent", "vector"})
 EXPECTED_TABLES = frozenset(

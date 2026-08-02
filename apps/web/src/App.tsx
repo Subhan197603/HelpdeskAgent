@@ -54,7 +54,7 @@ function Shell({ children }: { children: ReactNode }) {
                 <Link to="/portal/requests">My requests</Link>
               </>
             ) : (
-              <Link to="/agent/tickets">Analyst tickets</Link>
+              <Link to="/agent/tickets">Analyst queues</Link>
             )}
             <button
               className="button-link"
@@ -726,6 +726,138 @@ function TicketListPage({ analyst = false }: { analyst?: boolean }) {
   );
 }
 
+function AgentQueuePage() {
+  const client = useIdentityClient();
+  const [queueId, setQueueId] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [cursor, setCursor] = useState<string | null>(null);
+  const queues = useQuery({
+    queryKey: ["agent-queues"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/agent/queues")),
+  });
+  useEffect(() => {
+    if (!queueId && queues.data?.items[0]) setQueueId(queues.data.items[0].id);
+  }, [queueId, queues.data]);
+  const tickets = useQuery({
+    queryKey: ["agent-queue-tickets", queueId, cursor, search],
+    enabled: Boolean(queueId),
+    queryFn: async () => {
+      if (!queueId) throw new Error("Select an analyst queue.");
+      return unwrap(
+        await client.GET("/api/v1/agent/queues/{queue_id}/tickets", {
+          params: {
+            path: { queue_id: queueId },
+            query: {
+              cursor: cursor ?? undefined,
+              search: search || undefined,
+            },
+          },
+        }),
+      );
+    },
+  });
+  const selected = queues.data?.items.find((queue) => queue.id === queueId);
+  return (
+    <div className="page analyst-queues">
+      <p className="eyebrow">Analyst workspace</p>
+      <h1>Ticket queues</h1>
+      {queues.isPending && <StatusPanel>Loading queues…</StatusPanel>}
+      {queues.error && <ErrorSummary error={queues.error} />}
+      {queues.data?.items.length === 0 && (
+        <StatusPanel>No queues are available for your groups.</StatusPanel>
+      )}
+      {queues.data && queues.data.items.length > 0 && (
+        <div className="queue-layout">
+          <nav aria-label="Analyst queues" className="queue-navigation">
+            {queues.data.items.map((queue) => (
+              <button
+                aria-current={queue.id === queueId ? "page" : undefined}
+                className={queue.id === queueId ? "active" : ""}
+                key={queue.id}
+                onClick={() => {
+                  setQueueId(queue.id);
+                  setCursor(null);
+                }}
+                type="button"
+              >
+                <strong>{queue.name}</strong>
+                <small>{queue.project_code}</small>
+              </button>
+            ))}
+          </nav>
+          <section aria-labelledby="queue-heading" className="queue-results">
+            <h2 id="queue-heading">{selected?.name}</h2>
+            {selected?.description && <p>{selected.description}</p>}
+            <form
+              className="queue-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setSearch(searchInput.trim());
+                setCursor(null);
+              }}
+              role="search"
+            >
+              <label htmlFor="queue-search">Search ticket key or summary</label>
+              <div>
+                <input
+                  id="queue-search"
+                  maxLength={100}
+                  onChange={(event) => {
+                    setSearchInput(event.target.value);
+                  }}
+                  value={searchInput}
+                />
+                <button className="button secondary" type="submit">
+                  Search
+                </button>
+              </div>
+            </form>
+            {tickets.isPending && (
+              <StatusPanel>Loading queue tickets…</StatusPanel>
+            )}
+            {tickets.error && <ErrorSummary error={tickets.error} />}
+            {tickets.data?.items.length === 0 && (
+              <StatusPanel>No tickets match this queue.</StatusPanel>
+            )}
+            <div className="ticket-list">
+              {tickets.data?.items.map((ticket) => (
+                <Link
+                  className="ticket-row"
+                  key={ticket.id}
+                  to={`/agent/tickets/${ticket.key}`}
+                >
+                  <span className="ticket-key">{ticket.key}</span>
+                  <span>
+                    <strong>{ticket.summary}</strong>
+                    <small>
+                      {ticket.assignment_group_name ?? "Unassigned"}
+                      {ticket.assignee_name ? ` · ${ticket.assignee_name}` : ""}
+                    </small>
+                  </span>
+                  <span className="pill">{ticket.status_name}</span>
+                  <span className="priority">{ticket.priority}</span>
+                </Link>
+              ))}
+            </div>
+            {tickets.data?.next_cursor && (
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setCursor(tickets.data.next_cursor ?? null);
+                }}
+                type="button"
+              >
+                Next page
+              </button>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
   const { ticketKey = "" } = useParams();
   const client = useIdentityClient();
@@ -741,10 +873,37 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
         await client.GET(path, { params: { path: { ticket_key: ticketKey } } }),
       ),
   });
-  const [comment, setComment] = useState("");
-  const addComment = useMutation({
-    mutationFn: async () =>
+  const timelinePath = analyst
+    ? ("/api/v1/agent/tickets/{ticket_key}/timeline" as const)
+    : ("/api/v1/tickets/{ticket_key}/timeline" as const);
+  const timelineKey = [analyst ? "agent-timeline" : "timeline", ticketKey];
+  const timeline = useQuery({
+    queryKey: timelineKey,
+    queryFn: async () =>
       unwrap(
+        await client.GET(timelinePath, {
+          params: { path: { ticket_key: ticketKey } },
+        }),
+      ),
+  });
+  const [comment, setComment] = useState("");
+  const [visibility, setVisibility] = useState<"PUBLIC" | "INTERNAL">("PUBLIC");
+  const addComment = useMutation({
+    mutationFn: async () => {
+      if (analyst) {
+        return unwrap(
+          await client.POST("/api/v1/agent/tickets/{ticket_key}/comments", {
+            params: {
+              path: { ticket_key: ticketKey },
+              header: {
+                "Idempotency-Key": newIdempotencyKey("analyst-comment"),
+              },
+            },
+            body: { body: comment, visibility },
+          }),
+        );
+      }
+      return unwrap(
         await client.POST("/api/v1/tickets/{ticket_key}/comments", {
           params: {
             path: { ticket_key: ticketKey },
@@ -752,9 +911,11 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
           },
           body: { body: comment },
         }),
-      ),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(queryKey, updated);
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: timelineKey });
       setComment("");
     },
   });
@@ -797,20 +958,31 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
             </div>
           </dl>
           <section aria-labelledby="activity-heading" className="activity">
-            <h2 id="activity-heading">Public activity</h2>
-            {(ticket.data.public_comments ?? []).length === 0 ? (
-              <StatusPanel>No public comments yet.</StatusPanel>
+            <h2 id="activity-heading">
+              {analyst ? "Activity timeline" : "Public activity"}
+            </h2>
+            {timeline.isPending && <StatusPanel>Loading activity…</StatusPanel>}
+            {timeline.error && <ErrorSummary error={timeline.error} />}
+            {timeline.data?.items.length === 0 ? (
+              <StatusPanel>No activity yet.</StatusPanel>
             ) : (
               <ol>
-                {ticket.data.public_comments?.map((item) => (
+                {timeline.data?.items.map((item) => (
                   <li key={item.id}>
                     <div>
-                      <strong>{item.author_name}</strong>
+                      <strong>{item.actor_name ?? item.type}</strong>
+                      {analyst && (
+                        <span
+                          className={`visibility ${item.classification.toLowerCase()}`}
+                        >
+                          {item.classification}
+                        </span>
+                      )}
                       <time dateTime={item.created_at}>
                         {new Date(item.created_at).toLocaleString()}
                       </time>
                     </div>
-                    <p>{item.body}</p>
+                    <p>{item.body ?? item.type.replaceAll("_", " ")}</p>
                   </li>
                 ))}
               </ol>
@@ -822,10 +994,28 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
               }}
             >
               <div className="form-field">
-                <label htmlFor="public-comment">Add a public comment</label>
+                <label htmlFor="public-comment">
+                  {analyst ? "Add an update" : "Add a public comment"}
+                </label>
                 <p id="comment-help">
-                  This comment is visible to the employee and support analysts.
+                  {visibility === "PUBLIC"
+                    ? "This comment is visible to the employee and support analysts."
+                    : "This internal note is visible only to authorized analysts."}
                 </p>
+                {analyst && (
+                  <select
+                    aria-label="Comment visibility"
+                    onChange={(event) => {
+                      setVisibility(
+                        event.target.value as "PUBLIC" | "INTERNAL",
+                      );
+                    }}
+                    value={visibility}
+                  >
+                    <option value="PUBLIC">Public comment</option>
+                    <option value="INTERNAL">Internal note</option>
+                  </select>
+                )}
                 <textarea
                   aria-describedby="comment-help"
                   id="public-comment"
@@ -842,7 +1032,11 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
                 disabled={addComment.isPending}
                 type="submit"
               >
-                {addComment.isPending ? "Posting…" : "Post public comment"}
+                {addComment.isPending
+                  ? "Posting…"
+                  : visibility === "INTERNAL"
+                    ? "Post internal note"
+                    : "Post public comment"}
               </button>
             </form>
           </section>
@@ -910,7 +1104,7 @@ export function App() {
           path="/agent/tickets"
           element={
             <RequireSession>
-              <TicketListPage analyst />
+              <AgentQueuePage />
             </RequireSession>
           }
         />

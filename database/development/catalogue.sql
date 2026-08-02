@@ -215,4 +215,38 @@ WHERE request_type_id BETWEEN
     '33000000-0000-0000-0000-000000000009'
   AND version_status = 'DRAFT';
 
+INSERT INTO config.queue_definition(
+    queue_id,tenant_id,project_id,queue_name,description,filter_json,sort_json,
+    columns_json,visibility_type,owner_group_id,display_order
+) VALUES
+('37000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','Unassigned','ERP tickets awaiting a support group','{"field":"assignment_group_id","operator":"is_null"}','[{"field":"created_at","direction":"DESC"}]','["ticket_key","summary","priority","status","created_at"]','ALL_AGENTS',NULL,10),
+('37000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','Assigned to me','ERP tickets assigned to the current analyst','{"field":"assignee_user_id","operator":"equals_context","value":"user_id"}','[{"field":"created_at","direction":"DESC"}]','["ticket_key","summary","priority","status","assignment_group","created_at"]','ALL_AGENTS',NULL,20),
+('37000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','Fusion AP group','ERP tickets assigned to Fusion AP support','{"field":"assignment_group_id","operator":"equals","value":"23000000-0000-0000-0000-000000000002"}','[{"field":"created_at","direction":"DESC"}]','["ticket_key","summary","priority","status","assignee","created_at"]','GROUP','23000000-0000-0000-0000-000000000002',30),
+('37000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','30000000-0000-0000-0000-000000000002','ERP project','All authorized ERP tickets','{}','[{"field":"created_at","direction":"DESC"}]','["ticket_key","summary","priority","status","assignment_group","assignee","created_at"]','PROJECT_AGENTS',NULL,40)
+ON CONFLICT (queue_id) DO NOTHING;
+
+INSERT INTO config.queue_definition_version(
+    queue_definition_version_id,queue_id,version_number,version_status,
+    filter_json,sort_json,columns_json,visibility_type,owner_group_id,
+    effective_from,created_by,approved_by,approved_at,change_reason
+) SELECT
+    ('37100000-0000-0000-0000-' || right(queue.queue_id::text,12))::uuid,
+    queue.queue_id,1,'DRAFT',queue.filter_json,queue.sort_json,queue.columns_json,
+    queue.visibility_type,queue.owner_group_id,'2025-01-01T00:00:00Z',
+    '22000000-0000-0000-0000-000000000001',
+    '22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z',
+    'Initial deterministic analyst queue'
+FROM config.queue_definition AS queue
+WHERE queue.queue_id BETWEEN
+    '37000000-0000-0000-0000-000000000001' AND
+    '37000000-0000-0000-0000-000000000004'
+ON CONFLICT (queue_definition_version_id) DO NOTHING;
+
+UPDATE config.queue_definition_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE queue_definition_version_id BETWEEN
+    '37100000-0000-0000-0000-000000000001' AND
+    '37100000-0000-0000-0000-000000000004'
+  AND version_status='DRAFT';
+
 COMMIT;

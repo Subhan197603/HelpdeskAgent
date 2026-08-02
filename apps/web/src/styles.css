@@ -401,6 +401,80 @@ h2 {
   margin-top: 2rem;
 }
 
+.queue-layout {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+  gap: 2rem;
+  align-items: start;
+}
+
+.queue-navigation {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.queue-navigation button {
+  border: 1px solid #ced7d2;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: inherit;
+  padding: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.queue-navigation button.active {
+  border-color: #196b4a;
+  background: #e4f5ea;
+}
+
+.queue-navigation small {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.queue-search {
+  margin: 1rem 0;
+}
+
+.queue-search > div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.queue-search input {
+  flex: 1;
+}
+
+.visibility {
+  margin-left: 0.5rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+}
+
+.visibility.public {
+  background: #e4f5ea;
+  color: #155b31;
+}
+
+.visibility.internal {
+  background: #fff0cf;
+  color: #674500;
+}
+
+.visibility.system {
+  background: #e9edf2;
+  color: #364454;
+}
+
+@media (max-width: 760px) {
+  .queue-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 .ticket-row {
   align-items: center;
   border-bottom: 1px solid #ced7d2;

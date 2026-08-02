@@ -25,6 +25,7 @@ from apps.api.app.infrastructure.clamav_health import ClamAVHealthProbe
 from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
 from apps.api.app.infrastructure.redis_health import RedisHealthProbe
+from apps.api.app.queues.service import QueueService
 from apps.api.app.routing.service import RoutingService
 from apps.api.app.tickets.service import TicketMetrics, TicketService
 from apps.api.app.workflows.service import WorkflowService
@@ -79,6 +80,7 @@ def create_app(
             {"name": "tickets", "description": "Ticket drafts and confirmed submissions."},
             {"name": "workflows", "description": "Deterministic ticket transitions."},
             {"name": "routing", "description": "Deterministic routing and assignment."},
+            {"name": "queues", "description": "Analyst queues and immutable activity."},
         ],
     )
     app.state.settings = settings
@@ -124,6 +126,7 @@ def create_app(
     app.state.routing_service = RoutingService(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
     )
+    app.state.queue_service = QueueService(unit_of_work_factory, app.state.authorization_service)
     install_exception_handlers(app)
     app.include_router(api_router)
 
