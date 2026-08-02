@@ -379,6 +379,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/my/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Notifications */
+    get: operations["notifications_api_v1_my_notifications_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/my/notifications/{notification_id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Mark Notification Read */
+    post: operations["mark_notification_read_api_v1_my_notifications__notification_id__read_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/my/tickets": {
     parameters: {
       query?: never;
@@ -1041,6 +1075,11 @@ export interface components {
       required: boolean;
       validation: components["schemas"]["FieldValidationResponse"];
     };
+    /** HTTPValidationError */
+    HTTPValidationError: {
+      /** Detail */
+      detail?: components["schemas"]["ValidationError"][];
+    };
     /** HealthResponse */
     HealthResponse: {
       /** Correlation Id */
@@ -1126,6 +1165,40 @@ export interface components {
             [key: string]: unknown;
           }
         | null;
+    };
+    /** NotificationItem */
+    NotificationItem: {
+      /** Action Url */
+      action_url: string | null;
+      /** Body */
+      body: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Read At */
+      read_at: string | null;
+      /** Resource Id */
+      resource_id: string;
+      /** Resource Type */
+      resource_type: string;
+      /** Title */
+      title: string;
+      /** Unread */
+      unread: boolean;
+    };
+    /** NotificationList */
+    NotificationList: {
+      /** Items */
+      items: components["schemas"]["NotificationItem"][];
+      /** Unread Count */
+      unread_count: number;
     };
     /** PageMetadata */
     PageMetadata: {
@@ -1561,6 +1634,19 @@ export interface components {
        * @enum {string}
        */
       visibility: "PUBLIC" | "INTERNAL";
+    };
+    /** ValidationError */
+    ValidationError: {
+      /** Context */
+      ctx?: Record<string, never>;
+      /** Input */
+      input?: unknown;
+      /** Location */
+      loc: (string | number)[];
+      /** Message */
+      msg: string;
+      /** Error Type */
+      type: string;
     };
     /** WorkTypeResponse */
     WorkTypeResponse: {
@@ -3059,6 +3145,123 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  notifications_api_v1_my_notifications_get: {
+    parameters: {
+      query?: {
+        unread_only?: boolean;
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationList"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Notification not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mark_notification_read_api_v1_my_notifications__notification_id__read_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        notification_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationItem"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Notification not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

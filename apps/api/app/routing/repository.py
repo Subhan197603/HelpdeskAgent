@@ -312,6 +312,26 @@ class RoutingRepository:
         )
         await self._session.execute(
             text("""
+                INSERT INTO integration.outbox_event(
+                  tenant_id,aggregate_type,aggregate_id,event_type,payload_json,
+                  deduplication_key)
+                SELECT :tenant_id,'TICKET',CAST(:ticket_id AS varchar),
+                  'NOTIFY_TICKET_ASSIGNED',CAST(:payload AS jsonb),
+                  'notify-assigned:' || CAST(:ticket_id AS varchar) || ':' ||
+                    CAST(:new_row_version AS varchar)
+                WHERE CAST(:assignee_user_id AS uuid) IS NOT NULL
+                ON CONFLICT DO NOTHING
+            """),
+            {
+                "tenant_id": ticket.tenant_id,
+                "ticket_id": ticket.ticket_id,
+                "new_row_version": result.new_row_version,
+                "assignee_user_id": result.assignee_user_id,
+                "payload": json.dumps(payload),
+            },
+        )
+        await self._session.execute(
+            text("""
                 INSERT INTO audit.audit_event(
                   tenant_id,actor_id,actor_type,action_code,resource_type,resource_id,
                   change_summary_json,correlation_id,request_id,source_channel,outcome_code)

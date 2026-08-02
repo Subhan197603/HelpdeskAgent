@@ -5,14 +5,14 @@ from contextlib import suppress
 
 from apps.api.app.core.logging import configure_logging
 from apps.api.app.core.settings import Settings
+from apps.worker.worker.coordinator import create_application_worker
 from apps.worker.worker.settings import WorkerSettings
-from apps.worker.worker.sla_worker import create_worker
 
 
 async def run() -> None:
     settings = WorkerSettings()
     configure_logging(Settings())
-    worker, engine = create_worker(settings)
+    worker, engine = create_application_worker(settings)
     try:
         await worker.run_forever()
     finally:

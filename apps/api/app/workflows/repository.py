@@ -262,6 +262,25 @@ class WorkflowRepository:
         )
         await self._session.execute(
             text("""
+                INSERT INTO integration.outbox_event(
+                  tenant_id,aggregate_type,aggregate_id,event_type,payload_json,
+                  deduplication_key)
+                VALUES (:tenant_id,'TICKET',CAST(:ticket_id AS varchar),
+                  'NOTIFY_STATUS_CHANGED',CAST(:payload AS jsonb),
+                  'notify-status:' || CAST(:transition_id AS varchar) || ':' ||
+                    CAST(:ticket_id AS varchar) || ':' || CAST(:new_row_version AS varchar))
+                ON CONFLICT DO NOTHING
+            """),
+            {
+                "tenant_id": ticket.tenant_id,
+                "ticket_id": ticket.ticket_id,
+                "transition_id": transition.transition_id,
+                "new_row_version": new_row_version,
+                "payload": json.dumps(payload),
+            },
+        )
+        await self._session.execute(
+            text("""
                 INSERT INTO audit.audit_event(
                   tenant_id,actor_id,actor_type,action_code,resource_type,resource_id,
                   change_summary_json,correlation_id,request_id,source_channel,outcome_code)

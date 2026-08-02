@@ -248,6 +248,30 @@ class QueueRepository:
                 "request_id": request_id,
             },
         )
+        if visibility == "PUBLIC":
+            await self._session.execute(
+                text("""
+                    INSERT INTO integration.outbox_event(
+                      tenant_id,aggregate_type,aggregate_id,event_type,payload_json,
+                      deduplication_key)
+                    VALUES (:tenant_id,'TICKET',CAST(:ticket_id AS varchar),
+                      'NOTIFY_AGENT_PUBLIC_RESPONSE_ADDED',
+                      jsonb_build_object(
+                        'ticket_id',CAST(:ticket_id AS varchar),
+                        'comment_id',CAST(:comment_id AS varchar),
+                        'actor_user_id',CAST(:actor_user_id AS varchar),
+                        'visibility','PUBLIC'),
+                      'comment:' || CAST(:comment_id AS varchar) ||
+                        chr(58) || 'NOTIFY_AGENT_PUBLIC_RESPONSE_ADDED')
+                    ON CONFLICT DO NOTHING
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "ticket_id": ticket_id,
+                    "comment_id": row.comment_id,
+                    "actor_user_id": actor_user_id,
+                },
+            )
         return cast("UUID", row.comment_id)
 
     async def comment(self, tenant_id: UUID, comment_id: UUID) -> ActivityItem | None:

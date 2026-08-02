@@ -1511,6 +1511,13 @@ def test_activity_timeline_classifies_comments_without_customer_leakage(
     )
     assert internal.status_code == 201
     assert internal.json()["classification"] == "INTERNAL"
+    assert (
+        _psql(
+            "SELECT count(*) FROM integration.outbox_event "
+            f"WHERE aggregate_id='{submitted['id']}' AND event_type LIKE 'NOTIFY_%COMMENT%'"
+        )
+        == "0"
+    )
     replay = client.post(
         comment_path,
         headers=internal_headers,
@@ -1525,6 +1532,14 @@ def test_activity_timeline_classifies_comments_without_customer_leakage(
         json={"visibility": "PUBLIC", "body": "Public investigation update"},
     )
     assert public.status_code == 201
+    notification_events = _psql(
+        "SELECT event_type||':'||payload_json::text FROM integration.outbox_event "
+        f"WHERE aggregate_id='{submitted['id']}' ORDER BY created_at"
+    )
+    assert "NOTIFY_AGENT_PUBLIC_RESPONSE_ADDED" in notification_events, notification_events
+    assert "actor_user_id" in notification_events
+    assert "Private investigation detail" not in notification_events
+    assert "Public investigation update" not in notification_events
     customer_timeline = client.get(
         f"/api/v1/tickets/{submitted['key']}/timeline", headers=customer_headers
     )

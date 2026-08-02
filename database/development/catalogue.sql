@@ -401,4 +401,52 @@ WHERE sla_goal_version_id IN (
     '38500000-0000-0000-0000-000000000004'
 ) AND version_status='DRAFT';
 
+-- Development-only, non-sensitive notification templates. Variables are
+-- deliberately limited to identifiers, display labels, and portal links.
+WITH template_codes(ordinal,base_code) AS (VALUES
+    (1,'TICKET_CREATED'),(2,'TICKET_ASSIGNED'),(3,'PUBLIC_COMMENT_ADDED'),
+    (4,'STATUS_CHANGED'),(5,'APPROVAL_REQUESTED'),(6,'APPROVAL_DECIDED'),
+    (7,'SLA_WARNING'),(8,'SLA_BREACHED'),(9,'TICKET_RESOLVED'),
+    (10,'TICKET_CLOSED')
+), channels(channel_ordinal,channel_code) AS (VALUES (0,'EMAIL'),(1,'PORTAL'))
+INSERT INTO config.notification_template(
+    notification_template_id,tenant_id,template_code,template_name
+)
+SELECT
+    ('38800000-0000-0000-0000-' ||
+      lpad(((ordinal-1)*2+channel_ordinal+1)::text,12,'0'))::uuid,
+    '20000000-0000-0000-0000-000000000001',
+    base_code || '_' || channel_code,
+    initcap(replace(base_code,'_',' ')) || ' ' || lower(channel_code)
+FROM template_codes CROSS JOIN channels
+ON CONFLICT (notification_template_id) DO NOTHING;
+
+INSERT INTO config.notification_template_version(
+    notification_template_version_id,notification_template_id,version_number,
+    version_status,channel_code,subject_template,body_template,content_type,
+    effective_from,created_by,approved_by,approved_at,change_reason
+)
+SELECT
+    ('38900000-0000-0000-0000-' || right(template.notification_template_id::text,12))::uuid,
+    template.notification_template_id,1,'DRAFT',
+    CASE WHEN template.template_code LIKE '%_EMAIL' THEN 'EMAIL' ELSE 'PORTAL' END,
+    '{{ event_name }}: {{ ticket_key }}',
+    '{{ event_name }} for {{ ticket_key }}. Open {{ action_url }}.',
+    'TEXT','2025-01-01T00:00:00Z',
+    '22000000-0000-0000-0000-000000000001',
+    '22000000-0000-0000-0000-000000000001','2025-01-01T00:00:00Z',
+    'Initial safe notification template'
+FROM config.notification_template AS template
+WHERE template.notification_template_id BETWEEN
+  '38800000-0000-0000-0000-000000000001' AND
+  '38800000-0000-0000-0000-000000000020'
+ON CONFLICT (notification_template_version_id) DO NOTHING;
+
+UPDATE config.notification_template_version
+SET version_status='PUBLISHED',published_at='2025-01-01T00:00:00Z'
+WHERE notification_template_version_id BETWEEN
+  '38900000-0000-0000-0000-000000000001' AND
+  '38900000-0000-0000-0000-000000000020'
+  AND version_status='DRAFT';
+
 COMMIT;
