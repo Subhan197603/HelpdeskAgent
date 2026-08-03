@@ -201,6 +201,7 @@ def create_app(
         app.state.retrieval_service,
         app.state.ai_gateway,
         settings,
+        app.state.ticket_service,
     )
     app.state.ingestion_service = IngestionService(
         unit_of_work_factory,

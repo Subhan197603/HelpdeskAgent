@@ -32,12 +32,14 @@ from apps.api.app.employee_agent.repository import (
     ConversationClosedError,
     ConversationNotFoundError,
     EmployeeAgentRepository,
+    FeedbackConflictError,
 )
 from apps.api.app.employee_agent.safety import (
     contains_prompt_injection,
     requires_immediate_escalation,
     safe_context,
 )
+from apps.api.app.employee_agent.schemas import ResolutionFeedbackRequest
 from apps.api.app.employee_agent.state_machine import EmployeeAgentStateMachine
 from apps.api.app.identity.authorization import (
     AuthorizationResource,
@@ -46,6 +48,8 @@ from apps.api.app.identity.authorization import (
 )
 from apps.api.app.retrieval.models import RetrievalEvidence, RetrievalFilters
 from apps.api.app.retrieval.service import RetrievalService
+from apps.api.app.tickets.schemas import DraftCreateRequest, DraftResponse, TicketResponse
+from apps.api.app.tickets.service import TicketService
 
 logger = logging.getLogger(__name__)
 UnitOfWorkFactory = Callable[[RequestContext], SqlAlchemyUnitOfWork]
@@ -68,12 +72,14 @@ class EmployeeAgentService:
         retrieval: RetrievalService,
         gateway: AIGateway,
         settings: Settings,
+        ticket_service: TicketService | None = None,
     ) -> None:
         self._factory = factory
         self._authorization = authorization
         self._retrieval = retrieval
         self._gateway = gateway
         self._settings = settings
+        self._ticket_service = ticket_service
         self._cancellations: dict[tuple[UUID, UUID, UUID], asyncio.Event] = {}
         self._cancellation_lock = asyncio.Lock()
 
@@ -240,6 +246,112 @@ class EmployeeAgentService:
             event = self._cancellations.get(key)
             if event is not None:
                 event.set()
+
+    async def resolution_feedback(
+        self,
+        context: RequestContext,
+        conversation_id: UUID,
+        command: ResolutionFeedbackRequest,
+    ) -> tuple[AgentState, DraftResponse | None]:
+        self._authorize(context)
+        conversation = await self.conversation(context, conversation_id)
+        allowed = {
+            AgentState.AWAITING_RESOLUTION_CONFIRMATION,
+            AgentState.COLLECTING_TICKET_FIELDS,
+            AgentState.AWAITING_USER_CONFIRMATION,
+            AgentState.RESOLVED_WITHOUT_TICKET,
+        }
+        if conversation.state not in allowed:
+            raise ConflictError("This conversation is not awaiting resolution feedback.")
+        comment = _optional_text(command.comment)
+        if command.resolved:
+            try:
+                async with self._factory(context) as uow:
+                    state = await EmployeeAgentRepository(uow.session).record_resolution_feedback(
+                        context,
+                        conversation_id,
+                        helpful=command.helpful,
+                        resolved=True,
+                        comment=comment,
+                    )
+                    await uow.commit()
+            except (ConversationClosedError, FeedbackConflictError) as error:
+                raise ConflictError(
+                    "Resolution feedback conflicts with the recorded outcome."
+                ) from error
+            return state, None
+
+        ticket_service = self._require_ticket_service()
+        assert command.draft is not None
+        if conversation.state not in {
+            AgentState.AWAITING_RESOLUTION_CONFIRMATION,
+            AgentState.COLLECTING_TICKET_FIELDS,
+            AgentState.AWAITING_USER_CONFIRMATION,
+        }:
+            raise ConflictError("This conversation can no longer create a ticket draft.")
+        async with self._factory(context) as uow:
+            messages = await EmployeeAgentRepository(uow.session).user_message_summary(
+                context, conversation_id, limit=5
+            )
+            await uow.commit()
+        draft_command = _with_safe_conversation_summary(command.draft, messages)
+        draft = await ticket_service.create_agent_draft(context, draft_command, conversation_id)
+        try:
+            async with self._factory(context) as uow:
+                repository = EmployeeAgentRepository(uow.session)
+                await repository.record_resolution_feedback(
+                    context,
+                    conversation_id,
+                    helpful=command.helpful,
+                    resolved=False,
+                    comment=comment,
+                )
+                await repository.link_draft(context, conversation_id, draft.id)
+                await uow.commit()
+        except (ConversationClosedError, FeedbackConflictError) as error:
+            raise ConflictError(
+                "Resolution feedback conflicts with the recorded outcome."
+            ) from error
+        return AgentState.AWAITING_USER_CONFIRMATION, draft
+
+    async def confirm_ticket(
+        self,
+        context: RequestContext,
+        conversation_id: UUID,
+        row_version: int,
+        idempotency_key: str,
+    ) -> tuple[TicketResponse, bool]:
+        self._authorize(context)
+        ticket_service = self._require_ticket_service()
+        try:
+            async with self._factory(context) as uow:
+                draft_id, state = await EmployeeAgentRepository(uow.session).linked_draft(
+                    context, conversation_id
+                )
+                await uow.commit()
+        except ConversationNotFoundError:
+            raise NotFoundError("Conversation ticket draft was not found.") from None
+        if state not in {AgentState.AWAITING_USER_CONFIRMATION, AgentState.TICKET_SUBMITTED}:
+            raise ConflictError("The ticket draft is not awaiting confirmation.")
+        draft = await ticket_service.get_draft(context, draft_id)
+        if draft.status == "SUBMITTED" and draft.submitted_ticket_key is not None:
+            ticket = await ticket_service.get_ticket(context, draft.submitted_ticket_key)
+            replay = True
+        else:
+            if draft.status != "READY_FOR_REVIEW":
+                raise ConflictError("Review and validate the ticket draft before confirmation.")
+            ticket, replay = await ticket_service.submit(
+                context, draft_id, row_version, idempotency_key
+            )
+        try:
+            async with self._factory(context) as uow:
+                await EmployeeAgentRepository(uow.session).link_ticket(
+                    context, conversation_id, draft_id, ticket.id
+                )
+                await uow.commit()
+        except ConversationNotFoundError:
+            raise ConflictError("The submitted ticket could not be linked safely.") from None
+        return ticket, replay
 
     async def _answer_with_cancellation(
         self,
@@ -423,6 +535,11 @@ class EmployeeAgentService:
                 "The authenticated user is not permitted to use the employee assistant."
             )
 
+    def _require_ticket_service(self) -> TicketService:
+        if self._ticket_service is None:
+            raise RuntimeError("Employee ticket escalation is not configured")
+        return self._ticket_service
+
 
 def _state_event(turn_id: UUID, state: AgentState) -> StreamEvent:
     return StreamEvent("state", {"turn_id": str(turn_id), "state": state.value})
@@ -490,3 +607,24 @@ def _turn_key(context: RequestContext, turn_id: UUID) -> tuple[UUID, UUID, UUID]
     if context.tenant_id is None or context.user_id is None:
         raise AuthorizationError("Authenticated employee assistant context is required.")
     return context.tenant_id, context.user_id, turn_id
+
+
+def _optional_text(value: str | None) -> str | None:
+    normalized = " ".join(value.split()) if value else ""
+    return normalized or None
+
+
+def _with_safe_conversation_summary(
+    command: DraftCreateRequest, messages: tuple[str, ...]
+) -> DraftCreateRequest:
+    safe_messages = [
+        " ".join(message.split())[:500]
+        for message in messages
+        if not contains_prompt_injection(message)
+    ]
+    summary = " | ".join(safe_messages)[-1500:] or "No safe conversation excerpt retained."
+    provided = _optional_text(command.description)
+    description = (
+        f"Employee-provided issue details:\n{provided}\n\n" if provided else ""
+    ) + f"Bounded employee conversation summary:\n{summary}"
+    return command.model_copy(update={"description": description[:20_000]})

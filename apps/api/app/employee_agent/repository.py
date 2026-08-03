@@ -31,6 +31,10 @@ class ConversationClosedError(RuntimeError):
     pass
 
 
+class FeedbackConflictError(RuntimeError):
+    pass
+
+
 class EmployeeAgentRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -347,6 +351,260 @@ class EmployeeAgentRepository:
             )
         ).scalar_one_or_none()
         return value is not None
+
+    async def record_resolution_feedback(
+        self,
+        context: RequestContext,
+        conversation_id: UUID,
+        *,
+        helpful: bool,
+        resolved: bool,
+        comment: str | None,
+    ) -> AgentState:
+        tenant_id, user_id = _identity(context)
+        conversation = (
+            (
+                await self._session.execute(
+                    text(
+                        """
+                        SELECT COALESCE(metadata_json->>'state','NEW') state
+                        FROM ai.conversation
+                        WHERE conversation_id=:conversation_id AND tenant_id=:tenant_id
+                          AND user_id=:user_id AND conversation_type='EMPLOYEE_HELPDESK'
+                        FOR UPDATE
+                        """
+                    ),
+                    {
+                        "conversation_id": conversation_id,
+                        "tenant_id": tenant_id,
+                        "user_id": user_id,
+                    },
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if conversation is None:
+            raise ConversationNotFoundError
+        current = AgentState(conversation["state"])
+        allowed = {
+            AgentState.AWAITING_RESOLUTION_CONFIRMATION,
+            AgentState.COLLECTING_TICKET_FIELDS,
+            AgentState.AWAITING_USER_CONFIRMATION,
+            AgentState.RESOLVED_WITHOUT_TICKET,
+        }
+        if current not in allowed:
+            raise ConversationClosedError
+        if resolved and current is AgentState.COLLECTING_TICKET_FIELDS:
+            raise ConversationClosedError
+        target = (
+            AgentState.RESOLVED_WITHOUT_TICKET if resolved else AgentState.COLLECTING_TICKET_FIELDS
+        )
+        run_id = await self._session.scalar(
+            text(
+                """
+                SELECT agent_run_id FROM ai.conversation_turn
+                WHERE conversation_id=:conversation_id AND agent_run_id IS NOT NULL
+                ORDER BY completed_at DESC NULLS LAST,started_at DESC LIMIT 1
+                """
+            ),
+            {"conversation_id": conversation_id},
+        )
+        inserted = (
+            await self._session.execute(
+                text(
+                    """
+                    INSERT INTO ai.feedback(
+                      tenant_id,conversation_id,agent_run_id,user_id,feedback_type,
+                      rating_value,comment_text,resolved_issue_flag)
+                    VALUES (
+                      :tenant_id,:conversation_id,:agent_run_id,:user_id,'RESOLUTION_OUTCOME',
+                      :rating_value,:comment,:resolved)
+                    ON CONFLICT (conversation_id,user_id,feedback_type)
+                      WHERE feedback_type='RESOLUTION_OUTCOME' DO NOTHING
+                    RETURNING feedback_id
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "conversation_id": conversation_id,
+                    "agent_run_id": run_id,
+                    "user_id": user_id,
+                    "rating_value": 5 if helpful else 1,
+                    "comment": comment,
+                    "resolved": resolved,
+                },
+            )
+        ).scalar_one_or_none()
+        if inserted is None:
+            existing = (
+                (
+                    await self._session.execute(
+                        text(
+                            """
+                            SELECT rating_value,comment_text,resolved_issue_flag FROM ai.feedback
+                            WHERE conversation_id=:conversation_id AND user_id=:user_id
+                              AND feedback_type='RESOLUTION_OUTCOME'
+                            """
+                        ),
+                        {"conversation_id": conversation_id, "user_id": user_id},
+                    )
+                )
+                .mappings()
+                .one()
+            )
+            if (
+                existing["rating_value"] != (5 if helpful else 1)
+                or existing["comment_text"] != comment
+                or existing["resolved_issue_flag"] != resolved
+            ):
+                raise FeedbackConflictError
+        await self._session.execute(
+            text(
+                """
+                UPDATE ai.conversation SET metadata_json=jsonb_set(
+                  metadata_json,'{state}',to_jsonb(CAST(:state AS text)),true)
+                WHERE conversation_id=:conversation_id
+                """
+            ),
+            {"conversation_id": conversation_id, "state": target.value},
+        )
+        await self._audit(context, "AI_RESOLUTION_FEEDBACK_RECORDED", conversation_id, "SUCCESS")
+        return target
+
+    async def user_message_summary(
+        self, context: RequestContext, conversation_id: UUID, *, limit: int
+    ) -> tuple[str, ...]:
+        tenant_id, user_id = _identity(context)
+        rows = (
+            (
+                await self._session.execute(
+                    text(
+                        """
+                    SELECT message.content_text FROM ai.message message
+                    JOIN ai.conversation conversation USING(conversation_id)
+                    WHERE message.conversation_id=:conversation_id
+                      AND conversation.tenant_id=:tenant_id AND conversation.user_id=:user_id
+                      AND message.role_code='USER' AND message.content_text IS NOT NULL
+                    ORDER BY message.created_at DESC,message.message_id DESC LIMIT :limit
+                    """
+                    ),
+                    {
+                        "conversation_id": conversation_id,
+                        "tenant_id": tenant_id,
+                        "user_id": user_id,
+                        "limit": limit,
+                    },
+                )
+            )
+            .scalars()
+            .all()
+        )
+        return tuple(reversed(rows))
+
+    async def link_draft(
+        self, context: RequestContext, conversation_id: UUID, draft_id: UUID
+    ) -> None:
+        tenant_id, user_id = _identity(context)
+        result = cast(
+            CursorResult[Any],
+            await self._session.execute(
+                text(
+                    """
+                    UPDATE ai.conversation conversation SET metadata_json=jsonb_set(
+                      jsonb_set(conversation.metadata_json,'{state}',
+                        to_jsonb('AWAITING_USER_CONFIRMATION'::text),true),
+                      '{ticket_draft_id}',to_jsonb(CAST(:draft_id AS text)),true)
+                    FROM itsm.ticket_draft draft
+                    WHERE conversation.conversation_id=:conversation_id
+                      AND conversation.tenant_id=:tenant_id AND conversation.user_id=:user_id
+                      AND draft.draft_id=:draft_id AND draft.tenant_id=:tenant_id
+                      AND draft.owner_user_id=:user_id
+                      AND draft.source_conversation_id=conversation.conversation_id
+                    """
+                ),
+                {
+                    "conversation_id": conversation_id,
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "draft_id": draft_id,
+                },
+            ),
+        )
+        if result.rowcount != 1:
+            raise ConversationNotFoundError
+        await self._audit(context, "AI_TICKET_DRAFT_LINKED", conversation_id, "SUCCESS")
+
+    async def linked_draft(
+        self, context: RequestContext, conversation_id: UUID
+    ) -> tuple[UUID, AgentState]:
+        tenant_id, user_id = _identity(context)
+        row = (
+            (
+                await self._session.execute(
+                    text(
+                        """
+                        SELECT draft.draft_id,conversation.metadata_json->>'state' state
+                        FROM ai.conversation conversation
+                        JOIN itsm.ticket_draft draft
+                          ON draft.source_conversation_id=conversation.conversation_id
+                        WHERE conversation.conversation_id=:conversation_id
+                          AND conversation.tenant_id=:tenant_id AND conversation.user_id=:user_id
+                          AND draft.owner_user_id=:user_id
+                        """
+                    ),
+                    {
+                        "conversation_id": conversation_id,
+                        "tenant_id": tenant_id,
+                        "user_id": user_id,
+                    },
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise ConversationNotFoundError
+        return row["draft_id"], AgentState(row["state"])
+
+    async def link_ticket(
+        self,
+        context: RequestContext,
+        conversation_id: UUID,
+        draft_id: UUID,
+        ticket_id: UUID,
+    ) -> None:
+        tenant_id, user_id = _identity(context)
+        result = cast(
+            CursorResult[Any],
+            await self._session.execute(
+                text(
+                    """
+                    UPDATE ai.conversation conversation SET ticket_id=:ticket_id,
+                      metadata_json=jsonb_set(conversation.metadata_json,'{state}',
+                        to_jsonb('TICKET_SUBMITTED'::text),true)
+                    FROM itsm.ticket_draft draft,itsm.ticket ticket
+                    WHERE conversation.conversation_id=:conversation_id
+                      AND conversation.tenant_id=:tenant_id AND conversation.user_id=:user_id
+                      AND draft.draft_id=:draft_id
+                      AND draft.source_conversation_id=conversation.conversation_id
+                      AND draft.submitted_ticket_id=:ticket_id
+                      AND ticket.ticket_id=:ticket_id
+                      AND ticket.source_conversation_id=conversation.conversation_id
+                    """
+                ),
+                {
+                    "conversation_id": conversation_id,
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "draft_id": draft_id,
+                    "ticket_id": ticket_id,
+                },
+            ),
+        )
+        if result.rowcount != 1:
+            raise ConversationNotFoundError
+        await self._audit(context, "AI_CONFIRMED_TICKET_LINKED", ticket_id, "SUCCESS")
 
     async def fail_turn(
         self,

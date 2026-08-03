@@ -31,6 +31,7 @@ class TicketDraft:
     updated_at: datetime
     row_version: int
     expires_at: datetime | None
+    source_conversation_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)

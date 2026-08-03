@@ -27,13 +27,14 @@ class TicketRepository:
                         service_node_id, request_type_id, request_type_version_id,
                         work_type_id, application_environment_id, summary, description,
                         custom_values_json, impact_code, urgency_code, priority_code,
-                        priority_matrix_id, expires_at
+                        priority_matrix_id, expires_at, source_conversation_id
                     ) VALUES (
                         :tenant_id, :owner_user_id, :requested_for_user_id, :project_id,
                         :service_node_id, :request_type_id, :request_type_version_id,
                         :work_type_id, :application_environment_id, :summary, :description,
                         CAST(:custom_values AS jsonb), :impact_code, :urgency_code,
-                        :priority_code, :priority_matrix_id, :expires_at
+                        :priority_code, :priority_matrix_id, :expires_at,
+                        :source_conversation_id
                     ) RETURNING *
                 """),
                 values,
@@ -51,6 +52,30 @@ class TicketRepository:
                     f"SELECT * FROM itsm.ticket_draft WHERE tenant_id=:tenant_id AND draft_id=:draft_id{suffix}"
                 ),
                 {"tenant_id": tenant_id, "draft_id": draft_id},
+            )
+        ).one_or_none()
+        return _draft(row) if row is not None else None
+
+    async def draft_for_conversation(
+        self, tenant_id: UUID, user_id: UUID, conversation_id: UUID
+    ) -> TicketDraft | None:
+        row = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT draft.* FROM itsm.ticket_draft draft
+                    JOIN ai.conversation conversation
+                      ON conversation.conversation_id=draft.source_conversation_id
+                    WHERE draft.tenant_id=:tenant_id AND draft.owner_user_id=:user_id
+                      AND conversation.user_id=:user_id
+                      AND draft.source_conversation_id=:conversation_id
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "conversation_id": conversation_id,
+                },
             )
         ).one_or_none()
         return _draft(row) if row is not None else None
@@ -271,12 +296,17 @@ class TicketRepository:
               workflow_version_id, status_id, summary, description, reporter_user_id,
               requested_for_user_id, service_node_id, impact_code, urgency_code,
               priority_code, priority_matrix_id, channel_code, application_environment_id,
-              environment_code, created_by, updated_by)
+              environment_code, source_conversation_id, ai_created_flag, created_by, updated_by)
             SELECT :tenant_id,:project_id,:request_type_id,:request_type_version_id,:work_type_id,
               :workflow_version_id,:status_id,:summary,:description,:owner_user_id,
               :requested_for_user_id,:service_node_id,:impact_code,:urgency_code,
-              :priority_code,:priority_matrix_id,'PORTAL',:application_environment_id,
-              environment.environment_code,:owner_user_id,:owner_user_id
+              :priority_code,:priority_matrix_id,
+              CASE WHEN CAST(:source_conversation_id AS uuid) IS NULL
+                THEN 'PORTAL' ELSE 'CHAT' END,
+              :application_environment_id,environment.environment_code,
+              CAST(:source_conversation_id AS uuid),
+              (CAST(:source_conversation_id AS uuid) IS NOT NULL),
+              :owner_user_id,:owner_user_id
             FROM (SELECT 1) one
             LEFT JOIN config.application_environment environment
               ON environment.application_environment_id=:application_environment_id
@@ -751,6 +781,7 @@ def _draft(row: Any) -> TicketDraft:
         row.updated_at,
         row.row_version,
         row.expires_at,
+        row.source_conversation_id,
     )
 
 

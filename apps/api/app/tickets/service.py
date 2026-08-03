@@ -90,12 +90,40 @@ class TicketService:
     async def create_draft(
         self, context: RequestContext, command: DraftCreateRequest
     ) -> DraftResponse:
+        return await self._create_draft(context, command, source_conversation_id=None)
+
+    async def create_agent_draft(
+        self,
+        context: RequestContext,
+        command: DraftCreateRequest,
+        source_conversation_id: UUID,
+    ) -> DraftResponse:
+        return await self._create_draft(
+            context, command, source_conversation_id=source_conversation_id
+        )
+
+    async def _create_draft(
+        self,
+        context: RequestContext,
+        command: DraftCreateRequest,
+        *,
+        source_conversation_id: UUID | None,
+    ) -> DraftResponse:
         started = time.perf_counter()
         tenant_id, user_id = _identity(context)
         self._authorize(context, Permission.TICKET_DRAFT_CREATE)
         async with self._factory(context) as uow:
             catalogue = CatalogueConfigurationService(uow.session)
             ticket_repo = TicketRepository(uow.session)
+            if source_conversation_id is not None:
+                existing = await ticket_repo.draft_for_conversation(
+                    tenant_id, user_id, source_conversation_id
+                )
+                if existing is not None:
+                    fields = await catalogue.form_fields(
+                        tenant_id, existing.request_type_version_id
+                    )
+                    return _draft_response(existing, fields)
             request_type = await catalogue.published_request_type(
                 tenant_id, command.request_type_id, datetime.now(UTC)
             )
@@ -145,6 +173,7 @@ class TicketService:
                     "priority_code": priority[0],
                     "priority_matrix_id": priority[1],
                     "expires_at": datetime.now(UTC) + timedelta(days=30),
+                    "source_conversation_id": source_conversation_id,
                 }
             )
             await ticket_repo.audit(
@@ -219,7 +248,7 @@ class TicketService:
             supplied = (
                 command.custom_fields
                 if command.custom_fields is not None
-                else _stored_inputs(existing.custom_values)
+                else _stored_custom_inputs(existing.custom_values)
             )
             summary = command.summary if command.summary is not None else existing.summary
             description = command.description if "description" in values else existing.description
@@ -742,6 +771,14 @@ def _form_inputs(
 
 def _stored_inputs(values: dict[str, Any]) -> list[CustomFieldInput]:
     return [CustomFieldInput(field_code=key, value=value) for key, value in values.items()]
+
+
+def _stored_custom_inputs(values: dict[str, Any]) -> list[CustomFieldInput]:
+    return [
+        CustomFieldInput(field_code=key, value=value)
+        for key, value in values.items()
+        if key not in {"summary", "description"}
+    ]
 
 
 def _draft_response(

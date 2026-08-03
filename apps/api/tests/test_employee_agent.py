@@ -20,6 +20,7 @@ from apps.api.app.employee_agent.safety import (
     requires_immediate_escalation,
     safe_context,
 )
+from apps.api.app.employee_agent.schemas import ResolutionFeedbackRequest
 from apps.api.app.employee_agent.service import (
     EmployeeAgentService,
     _bounded_context,
@@ -38,6 +39,7 @@ from apps.api.app.retrieval.models import (
     ScoreComponents,
 )
 from apps.api.app.retrieval.service import RetrievalService
+from apps.api.app.tickets.schemas import DraftCreateRequest, TicketResponse
 
 from .conftest import FakeProbe, make_test_settings
 
@@ -285,6 +287,51 @@ class _ApiService:
     async def cancel(self, _: RequestContext, conversation_id: UUID, turn_id: UUID) -> None:
         del conversation_id, turn_id
 
+    async def resolution_feedback(
+        self, _: RequestContext, conversation_id: UUID, command: ResolutionFeedbackRequest
+    ) -> Any:
+        del conversation_id, command
+        return AgentState.RESOLVED_WITHOUT_TICKET, None
+
+    async def confirm_ticket(
+        self,
+        _: RequestContext,
+        conversation_id: UUID,
+        row_version: int,
+        idempotency_key: str,
+    ) -> Any:
+        del conversation_id, row_version, idempotency_key
+        return (
+            TicketResponse.model_validate(
+                {
+                    "id": uuid4(),
+                    "key": "HD-000001",
+                    "summary": "Reset password",
+                    "description": None,
+                    "project_code": "HD",
+                    "project_name": "Helpdesk",
+                    "request_type_code": "INCIDENT",
+                    "request_type_name": "Incident",
+                    "service_name": None,
+                    "environment_name": None,
+                    "work_type": "INCIDENT",
+                    "status": "OPEN",
+                    "status_name": "Open",
+                    "priority": "P3",
+                    "reporter_user_id": USER,
+                    "reporter_name": "Employee",
+                    "requested_for_user_id": None,
+                    "requested_for_name": None,
+                    "created_at": "2026-08-03T00:00:00Z",
+                    "updated_at": "2026-08-03T00:00:00Z",
+                    "creation_event_at": "2026-08-03T00:00:00Z",
+                    "row_version": 1,
+                    "public_comments": [],
+                }
+            ),
+            False,
+        )
+
 
 def _api_app(context: RequestContext | None) -> FastAPI:
     app = create_app(
@@ -333,3 +380,43 @@ def test_assistant_api_rejects_anonymous_and_roleless_callers() -> None:
         roleless.request_id,
     )
     assert not AuthorizationService().is_allowed(roleless, Permission.AI_EMPLOYEE_USE)
+
+
+def test_resolution_feedback_requires_draft_only_for_unresolved_outcome() -> None:
+    resolved = ResolutionFeedbackRequest(helpful=True, resolved=True)
+    assert resolved.draft is None
+    with pytest.raises(ValueError, match="requires ticket draft"):
+        ResolutionFeedbackRequest(helpful=False, resolved=False)
+    with pytest.raises(ValueError, match="cannot include"):
+        ResolutionFeedbackRequest(
+            helpful=True,
+            resolved=True,
+            draft=DraftCreateRequest(
+                request_type_id=uuid4(),
+                summary="Issue",
+                impact="LIMITED",
+                urgency="NORMAL",
+            ),
+        )
+
+
+def test_feedback_and_confirmation_api_require_explicit_confirmation_contract() -> None:
+    with TestClient(_api_app(_context("CUSTOMER"))) as client:
+        feedback = client.post(
+            f"/api/v1/assistant/conversations/{_ApiService.conversation_id}/resolution-feedback",
+            json={"helpful": True, "resolved": True},
+        )
+        missing_key = client.post(
+            f"/api/v1/assistant/conversations/{_ApiService.conversation_id}/confirm-ticket",
+            json={"row_version": 2},
+        )
+        confirmed = client.post(
+            f"/api/v1/assistant/conversations/{_ApiService.conversation_id}/confirm-ticket",
+            headers={"Idempotency-Key": "agent-confirm-1"},
+            json={"row_version": 2},
+        )
+    assert feedback.status_code == 200
+    assert feedback.json()["state"] == "RESOLVED_WITHOUT_TICKET"
+    assert missing_key.status_code == 422
+    assert confirmed.status_code == 201
+    assert confirmed.json()["ticket"]["key"] == "HD-000001"

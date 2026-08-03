@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request, Response, status
 from starlette.responses import StreamingResponse
 
 from apps.api.app.catalog.schemas import ProblemResponse
@@ -15,9 +15,13 @@ from apps.api.app.dependencies.request_context import require_permission
 from apps.api.app.employee_agent.models import StreamEvent
 from apps.api.app.employee_agent.schemas import (
     CancellationResponse,
+    ConfirmTicketRequest,
+    ConfirmTicketResponse,
     ConversationCreateRequest,
     ConversationResponse,
     MessageRequest,
+    ResolutionFeedbackRequest,
+    ResolutionFeedbackResponse,
 )
 from apps.api.app.employee_agent.service import EmployeeAgentService
 from apps.api.app.identity.authorization import Permission
@@ -96,6 +100,66 @@ async def cancel_turn(
         conversation_id=conversation_id,
         turn_id=turn_id,
         cancelled_at=datetime.now(UTC),
+    )
+
+
+@router.post(
+    "/{conversation_id}/resolution-feedback",
+    response_model=ResolutionFeedbackResponse,
+    responses=ERRORS,
+)
+async def resolution_feedback(
+    request: Request,
+    conversation_id: UUID,
+    command: ResolutionFeedbackRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.AI_EMPLOYEE_USE))],
+) -> ResolutionFeedbackResponse:
+    state, draft = await _service(request).resolution_feedback(context, conversation_id, command)
+    return ResolutionFeedbackResponse(
+        conversation_id=conversation_id,
+        state=state.value,
+        helpful=command.helpful,
+        resolved=command.resolved,
+        draft=draft,
+    )
+
+
+@router.post(
+    "/{conversation_id}/confirm-ticket",
+    response_model=ConfirmTicketResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses={
+        **ERRORS,
+        200: {"model": ConfirmTicketResponse, "description": "Idempotent confirmation replay"},
+    },
+)
+async def confirm_ticket(
+    response: Response,
+    request: Request,
+    conversation_id: UUID,
+    command: ConfirmTicketRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.AI_EMPLOYEE_USE))],
+    idempotency_key: Annotated[
+        str,
+        Header(
+            alias="Idempotency-Key",
+            min_length=8,
+            max_length=255,
+            pattern=r"^[A-Za-z0-9._:-]+$",
+        ),
+    ],
+) -> ConfirmTicketResponse:
+    ticket, replay = await _service(request).confirm_ticket(
+        context, conversation_id, command.row_version, idempotency_key
+    )
+    if replay:
+        response.status_code = status.HTTP_200_OK
+        response.headers["Idempotent-Replayed"] = "true"
+    return ConfirmTicketResponse(
+        conversation_id=conversation_id,
+        state="TICKET_SUBMITTED",
+        ticket=ticket,
+        idempotent_replay=replay,
     )
 
 

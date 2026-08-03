@@ -466,6 +466,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/assistant/conversations/{conversation_id}/confirm-ticket": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Confirm Ticket */
+    post: operations["confirm_ticket_api_v1_assistant_conversations__conversation_id__confirm_ticket_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/assistant/conversations/{conversation_id}/messages": {
     parameters: {
       query?: never;
@@ -477,6 +494,23 @@ export interface paths {
     put?: never;
     /** Stream Message */
     post: operations["stream_message_api_v1_assistant_conversations__conversation_id__messages_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/assistant/conversations/{conversation_id}/resolution-feedback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Resolution Feedback */
+    post: operations["resolution_feedback_api_v1_assistant_conversations__conversation_id__resolution_feedback_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1220,6 +1254,24 @@ export interface components {
       all?: components["schemas"]["ConditionPredicate"][] | null;
       /** Any */
       any?: components["schemas"]["ConditionPredicate"][] | null;
+    };
+    /** ConfirmTicketRequest */
+    ConfirmTicketRequest: {
+      /** Row Version */
+      row_version: number;
+    };
+    /** ConfirmTicketResponse */
+    ConfirmTicketResponse: {
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /** Idempotent Replay */
+      idempotent_replay: boolean;
+      /** State */
+      state: string;
+      ticket: components["schemas"]["TicketResponse"];
     };
     /** ConversationCreateRequest */
     ConversationCreateRequest: Record<string, never>;
@@ -2447,6 +2499,31 @@ export interface components {
       /** Version Number */
       version_number: number;
       work_type: components["schemas"]["WorkTypeResponse"];
+    };
+    /** ResolutionFeedbackRequest */
+    ResolutionFeedbackRequest: {
+      /** Comment */
+      comment?: string | null;
+      draft?: components["schemas"]["DraftCreateRequest"] | null;
+      /** Helpful */
+      helpful: boolean;
+      /** Resolved */
+      resolved: boolean;
+    };
+    /** ResolutionFeedbackResponse */
+    ResolutionFeedbackResponse: {
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      draft?: components["schemas"]["DraftResponse"] | null;
+      /** Helpful */
+      helpful: boolean;
+      /** Resolved */
+      resolved: boolean;
+      /** State */
+      state: string;
     };
     /** RetireDocumentCommand */
     RetireDocumentCommand: {
@@ -5269,6 +5346,97 @@ export interface operations {
       };
     };
   };
+  confirm_ticket_api_v1_assistant_conversations__conversation_id__confirm_ticket_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConfirmTicketRequest"];
+      };
+    };
+    responses: {
+      /** @description Idempotent confirmation replay */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmTicketResponse"];
+        };
+      };
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConfirmTicketResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Assistant access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Conversation not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Conversation conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Message validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Assistant unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   stream_message_api_v1_assistant_conversations__conversation_id__messages_post: {
     parameters: {
       query?: never;
@@ -5290,6 +5458,86 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Assistant access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Conversation not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Conversation conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Message validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Assistant unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  resolution_feedback_api_v1_assistant_conversations__conversation_id__resolution_feedback_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResolutionFeedbackRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResolutionFeedbackResponse"];
+        };
       };
       /** @description Authentication required */
       401: {
