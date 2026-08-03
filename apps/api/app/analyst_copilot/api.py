@@ -3,7 +3,7 @@
 from typing import Annotated, Any, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 
 from apps.api.app.analyst_copilot.schemas import (
     CopilotAnalysisRequest,
@@ -14,6 +14,10 @@ from apps.api.app.analyst_copilot.schemas import (
     CopilotDraftResolveRequest,
     CopilotDraftResolveResponse,
     CopilotDraftResponse,
+    CopilotFeedbackRequest,
+    CopilotFeedbackResponse,
+    CopilotUsageMetricsResponse,
+    EvaluationDatasetResponse,
 )
 from apps.api.app.analyst_copilot.service import AnalystCopilotService
 from apps.api.app.catalog.schemas import ProblemResponse
@@ -104,3 +108,46 @@ async def resolve_with_draft(
     return await _service(request).resolve_draft(
         context, ticket_key, draft_id, command, idempotency_key
     )
+
+
+@router.post(
+    "/{ticket_key}/copilot/runs/{agent_run_id}/feedback",
+    response_model=CopilotFeedbackResponse,
+    responses=ERRORS,
+)
+async def submit_run_feedback(
+    request: Request,
+    ticket_key: str,
+    agent_run_id: UUID,
+    command: CopilotFeedbackRequest,
+    context: Annotated[RequestContext, Depends(require_authenticated_context)],
+) -> CopilotFeedbackResponse:
+    return await _service(request).submit_feedback(context, ticket_key, agent_run_id, command)
+
+
+oversight_router = APIRouter(prefix="/api/v1/admin/ai/copilot", tags=["ai-oversight"])
+
+
+@oversight_router.get(
+    "/evaluation-dataset",
+    response_model=EvaluationDatasetResponse,
+    responses=ERRORS,
+)
+async def evaluation_dataset(
+    request: Request,
+    context: Annotated[RequestContext, Depends(require_authenticated_context)],
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+) -> EvaluationDatasetResponse:
+    return await _service(request).evaluation_dataset(context, limit)
+
+
+@oversight_router.get(
+    "/metrics",
+    response_model=CopilotUsageMetricsResponse,
+    responses=ERRORS,
+)
+async def copilot_usage_metrics(
+    request: Request,
+    context: Annotated[RequestContext, Depends(require_authenticated_context)],
+) -> CopilotUsageMetricsResponse:
+    return await _service(request).usage_metrics(context)

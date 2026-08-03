@@ -69,6 +69,30 @@ identifier, so retried or concurrent duplicates collapse into one comment or one
 second action attempt returns a conflict. Whether the analyst edited the draft before acting is
 recorded in the conversation for audit.
 
+## Feedback and oversight (Task 9.3)
+
+```http
+POST /api/v1/agent/tickets/{ticket_key}/copilot/runs/{agent_run_id}/feedback
+GET  /api/v1/admin/ai/copilot/metrics
+GET  /api/v1/admin/ai/copilot/evaluation-dataset?limit=100
+```
+
+Analysts record one decision per copilot run: `APPROVED`, `EDITED`, or `REJECTED`. A rejection
+requires a `reason_code` from `INCORRECT`, `INCOMPLETE`, `NOT_RELEVANT`, `RISKY_ACTION`,
+`POLICY_CONCERN`, `STYLE`, or `OTHER`. Only the analyst who owns the run's conversation on that
+ticket can submit feedback; duplicates return a conflict; comments are redacted and
+instruction-shaped comments are replaced. Feedback rows are append-only — runtime roles hold no
+UPDATE or DELETE grants on `ai.feedback`.
+
+The two admin endpoints require the `AI_OVERSIGHT` permission (`AI_ADMIN` and `PLATFORM_ADMIN`
+roles only). `metrics` returns tenant-scoped usage and outcome counts; `evaluation-dataset`
+returns bounded, PII-redacted records (claims, server-bound citations, supported flags, analyst
+decision and reason) with no user identities, ticket keys, or raw ticket content.
+
+AI-disabled behavior: draft generation and analysis fail closed, while posting an existing draft,
+ticket comments, transitions, and all deterministic ticketing continue to work. Provider
+failures are counted in service metrics and never change ticket state.
+
 ## Required deployment configuration
 
 Publish an approved AI configuration with:

@@ -56,6 +56,7 @@ class Permission(StrEnum):
     KNOWLEDGE_DOCUMENT_RETIRE = "KNOWLEDGE_DOCUMENT_RETIRE"
     AI_EMPLOYEE_USE = "AI_EMPLOYEE_USE"
     AI_ANALYST_USE = "AI_ANALYST_USE"
+    AI_OVERSIGHT = "AI_OVERSIGHT"
 
 
 INITIAL_ROLE_CODES = frozenset(
@@ -170,6 +171,8 @@ for analyst_knowledge_role in ("PLATFORM_ADMIN", "SUPPORT_MANAGER", "AGENT"):
     ROLE_PERMISSIONS[analyst_knowledge_role] |= frozenset(
         {Permission.KNOWLEDGE_READ_ANALYST, Permission.AI_ANALYST_USE}
     )
+for ai_oversight_role in ("AI_ADMIN", "PLATFORM_ADMIN"):
+    ROLE_PERMISSIONS[ai_oversight_role] |= frozenset({Permission.AI_OVERSIGHT})
 ROLE_PERMISSIONS["APPROVER"] |= frozenset(
     {Permission.APPROVAL_READ_ASSIGNED, Permission.APPROVAL_DECIDE}
 )

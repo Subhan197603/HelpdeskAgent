@@ -5,14 +5,19 @@ from typing import Literal, cast
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.app.analyst_copilot.models import (
+    CopilotUsageCounts,
     CopilotVersionCapture,
+    EvaluationRow,
+    FeedbackRecord,
     SimilarResolvedTicket,
     StoredDraft,
 )
 from apps.api.app.core.context import RequestContext
+from apps.api.app.core.exceptions import ConflictError, NotFoundError
 from apps.api.app.retrieval.models import RetrievalEvidence
 
 
@@ -418,6 +423,189 @@ class AnalystCopilotRepository:
             {"conversation_id": draft.conversation_id},
         )
         await self._audit(context, draft.conversation_id, f"AI_ANALYST_COPILOT_DRAFT_{action}")
+
+    async def insert_feedback(
+        self,
+        context: RequestContext,
+        *,
+        ticket_id: UUID,
+        agent_run_id: UUID,
+        decision: str,
+        reason_code: str | None,
+        comment: str | None,
+    ) -> FeedbackRecord:
+        tenant_id, user_id = _identity(context)
+        owned = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT run.conversation_id FROM ai.agent_run run
+                    JOIN ai.conversation conversation
+                      ON conversation.conversation_id=run.conversation_id
+                    WHERE run.agent_run_id=:agent_run_id
+                      AND run.tenant_id=:tenant_id
+                      AND conversation.conversation_type='ANALYST_COPILOT'
+                      AND conversation.tenant_id=:tenant_id
+                      AND conversation.ticket_id=:ticket_id
+                      AND conversation.user_id=:user_id
+                    """
+                ),
+                {
+                    "agent_run_id": agent_run_id,
+                    "tenant_id": tenant_id,
+                    "ticket_id": ticket_id,
+                    "user_id": user_id,
+                },
+            )
+        ).scalar_one_or_none()
+        if owned is None:
+            raise NotFoundError("Copilot run was not found for this ticket.")
+        try:
+            row = (
+                (
+                    await self._session.execute(
+                        text(
+                            """
+                            INSERT INTO ai.feedback(
+                              tenant_id,conversation_id,agent_run_id,user_id,feedback_type,
+                              decision_code,reason_code,comment_text)
+                            VALUES (
+                              :tenant_id,:conversation_id,:agent_run_id,:user_id,
+                              'ANALYST_ACCEPTANCE',:decision,:reason_code,:comment)
+                            RETURNING feedback_id,created_at
+                            """
+                        ),
+                        {
+                            "tenant_id": tenant_id,
+                            "conversation_id": owned,
+                            "agent_run_id": agent_run_id,
+                            "user_id": user_id,
+                            "decision": decision,
+                            "reason_code": reason_code,
+                            "comment": comment,
+                        },
+                    )
+                )
+                .mappings()
+                .one()
+            )
+        except IntegrityError as error:
+            raise ConflictError("Analyst feedback was already recorded for this run.") from error
+        await self._audit(context, owned, "AI_ANALYST_COPILOT_FEEDBACK")
+        return FeedbackRecord(row["feedback_id"], row["created_at"])
+
+    async def evaluation_records(
+        self, context: RequestContext, *, limit: int
+    ) -> tuple[EvaluationRow, ...]:
+        tenant_id, _ = _identity(context)
+        rows = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT run.agent_run_id,
+                      draft.content_json->>'draft_kind' AS draft_kind,
+                      coalesce(draft.content_json->'claims','[]'::jsonb) AS claims,
+                      feedback.decision_code,feedback.reason_code,
+                      run.started_at AS created_at
+                    FROM ai.agent_run run
+                    JOIN ai.conversation conversation
+                      ON conversation.conversation_id=run.conversation_id
+                     AND conversation.conversation_type='ANALYST_COPILOT'
+                     AND conversation.tenant_id=:tenant_id
+                    LEFT JOIN LATERAL (
+                      SELECT content_json FROM ai.message
+                      WHERE conversation_id=conversation.conversation_id
+                        AND role_code='ASSISTANT'
+                        AND content_json ? 'draft_kind'
+                      ORDER BY created_at DESC LIMIT 1
+                    ) draft ON true
+                    LEFT JOIN LATERAL (
+                      SELECT decision_code,reason_code FROM ai.feedback
+                      WHERE agent_run_id=run.agent_run_id
+                        AND feedback_type='ANALYST_ACCEPTANCE'
+                      ORDER BY created_at DESC LIMIT 1
+                    ) feedback ON true
+                    WHERE run.tenant_id=:tenant_id
+                    ORDER BY run.started_at DESC,run.agent_run_id
+                    LIMIT :limit
+                    """
+                ),
+                {"tenant_id": tenant_id, "limit": limit},
+            )
+        ).all()
+        return tuple(
+            EvaluationRow(
+                row.agent_run_id,
+                f"DRAFT_{row.draft_kind}" if row.draft_kind else "TICKET_ANALYSIS",
+                row.draft_kind,
+                tuple(row.claims),
+                row.decision_code,
+                row.reason_code,
+                row.created_at,
+            )
+            for row in rows
+        )
+
+    async def usage_counts(self, context: RequestContext) -> CopilotUsageCounts:
+        tenant_id, _ = _identity(context)
+        row = (
+            (
+                await self._session.execute(
+                    text(
+                        """
+                        WITH copilot_conversations AS (
+                          SELECT conversation_id FROM ai.conversation
+                          WHERE tenant_id=:tenant_id
+                            AND conversation_type='ANALYST_COPILOT'
+                        )
+                        SELECT
+                          (SELECT count(*) FROM ai.agent_run run
+                            JOIN copilot_conversations scope
+                              ON scope.conversation_id=run.conversation_id) AS runs,
+                          (SELECT count(*) FROM ai.message message
+                            JOIN copilot_conversations scope
+                              ON scope.conversation_id=message.conversation_id
+                            WHERE message.role_code='ASSISTANT'
+                              AND message.content_json ? 'draft_kind') AS drafts,
+                          (SELECT count(*) FROM ai.message message
+                            JOIN copilot_conversations scope
+                              ON scope.conversation_id=message.conversation_id
+                            WHERE message.role_code='SYSTEM'
+                              AND message.content_json->>'action'='POSTED') AS drafts_posted,
+                          (SELECT count(*) FROM ai.message message
+                            JOIN copilot_conversations scope
+                              ON scope.conversation_id=message.conversation_id
+                            WHERE message.role_code='SYSTEM'
+                              AND message.content_json->>'action'='RESOLVED') AS drafts_resolved
+                        """
+                    ),
+                    {"tenant_id": tenant_id},
+                )
+            )
+            .mappings()
+            .one()
+        )
+        feedback_rows = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT decision_code,count(*) AS decision_count FROM ai.feedback
+                    WHERE tenant_id=:tenant_id
+                      AND feedback_type='ANALYST_ACCEPTANCE'
+                      AND decision_code IS NOT NULL
+                    GROUP BY decision_code
+                    """
+                ),
+                {"tenant_id": tenant_id},
+            )
+        ).all()
+        return CopilotUsageCounts(
+            runs=int(row["runs"]),
+            drafts=int(row["drafts"]),
+            drafts_posted=int(row["drafts_posted"]),
+            drafts_resolved=int(row["drafts_resolved"]),
+            feedback={item.decision_code: int(item.decision_count) for item in feedback_rows},
+        )
 
     async def _audit(self, context: RequestContext, conversation_id: UUID, action: str) -> None:
         tenant_id, user_id = _identity(context)

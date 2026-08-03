@@ -1095,6 +1095,123 @@
         "title": "CopilotDraftResponse",
         "type": "object"
       },
+      "CopilotFeedbackRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "decision": {
+            "enum": ["APPROVED", "EDITED", "REJECTED"],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "required": ["decision"],
+        "title": "CopilotFeedbackRequest",
+        "type": "object"
+      },
+      "CopilotFeedbackResponse": {
+        "properties": {
+          "agent_run_id": {
+            "format": "uuid",
+            "title": "Agent Run Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision": {
+            "enum": ["APPROVED", "EDITED", "REJECTED"],
+            "title": "Decision",
+            "type": "string"
+          },
+          "feedback_id": {
+            "format": "uuid",
+            "title": "Feedback Id",
+            "type": "string"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          }
+        },
+        "required": [
+          "feedback_id",
+          "agent_run_id",
+          "decision",
+          "reason_code",
+          "created_at"
+        ],
+        "title": "CopilotFeedbackResponse",
+        "type": "object"
+      },
+      "CopilotUsageMetricsResponse": {
+        "properties": {
+          "drafts": {
+            "title": "Drafts",
+            "type": "integer"
+          },
+          "drafts_posted": {
+            "title": "Drafts Posted",
+            "type": "integer"
+          },
+          "drafts_resolved": {
+            "title": "Drafts Resolved",
+            "type": "integer"
+          },
+          "feedback": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Feedback",
+            "type": "object"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "drafts",
+          "drafts_posted",
+          "drafts_resolved",
+          "feedback"
+        ],
+        "title": "CopilotUsageMetricsResponse",
+        "type": "object"
+      },
       "CopilotVersionCaptureResponse": {
         "properties": {
           "agent_configuration_version_id": {
@@ -1977,6 +2094,90 @@
         },
         "required": ["row_version"],
         "title": "DraftVersionRequest",
+        "type": "object"
+      },
+      "EvaluationDatasetResponse": {
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": ["records"],
+        "title": "EvaluationDatasetResponse",
+        "type": "object"
+      },
+      "EvaluationRecord": {
+        "properties": {
+          "agent_run_id": {
+            "format": "uuid",
+            "title": "Agent Run Id",
+            "type": "string"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/DraftClaim"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "enum": ["APPROVED", "EDITED", "REJECTED"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision"
+          },
+          "draft_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Kind"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "use_case": {
+            "title": "Use Case",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_run_id",
+          "use_case",
+          "draft_kind",
+          "claims",
+          "decision",
+          "reason_code",
+          "created_at"
+        ],
+        "title": "EvaluationRecord",
         "type": "object"
       },
       "EvidenceFilters": {
@@ -6061,6 +6262,188 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/ai/copilot/evaluation-dataset": {
+      "get": {
+        "operationId": "evaluation_dataset_api_v1_admin_ai_copilot_evaluation_dataset_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationDatasetResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Evaluation Dataset",
+        "tags": ["ai-oversight"]
+      }
+    },
+    "/api/v1/admin/ai/copilot/metrics": {
+      "get": {
+        "operationId": "copilot_usage_metrics_api_v1_admin_ai_copilot_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotUsageMetricsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Copilot Usage Metrics",
+        "tags": ["ai-oversight"]
+      }
+    },
     "/api/v1/admin/ingestion/runs": {
       "post": {
         "operationId": "create_run_api_v1_admin_ingestion_runs_post",
@@ -9090,6 +9473,121 @@
           }
         ],
         "summary": "Resolve With Draft",
+        "tags": ["analyst-copilot"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/copilot/runs/{agent_run_id}/feedback": {
+      "post": {
+        "operationId": "submit_run_feedback_api_v1_agent_tickets__ticket_key__copilot_runs__agent_run_id__feedback_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "agent_run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Agent Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopilotFeedbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotFeedbackResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Submit Run Feedback",
         "tags": ["analyst-copilot"]
       }
     },
@@ -12694,6 +13192,10 @@
     {
       "description": "Analyst-only ticket analysis with authorized evidence.",
       "name": "analyst-copilot"
+    },
+    {
+      "description": "Administrator AI usage metrics and evaluation datasets.",
+      "name": "ai-oversight"
     }
   ]
 }

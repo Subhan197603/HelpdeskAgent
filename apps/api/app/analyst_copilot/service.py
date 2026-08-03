@@ -3,11 +3,11 @@
 import json
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
 
-from apps.api.app.ai.models import ProviderRequest
+from apps.api.app.ai.models import AIGeneration, ProviderRequest
 from apps.api.app.ai.service import AIGateway
 from apps.api.app.analyst_copilot.models import SimilarResolvedTicket, StoredDraft
 from apps.api.app.analyst_copilot.repository import AnalystCopilotRepository
@@ -21,8 +21,13 @@ from apps.api.app.analyst_copilot.schemas import (
     CopilotDraftResolveRequest,
     CopilotDraftResolveResponse,
     CopilotDraftResponse,
+    CopilotFeedbackRequest,
+    CopilotFeedbackResponse,
+    CopilotUsageMetricsResponse,
     CopilotVersionCaptureResponse,
     DraftClaim,
+    EvaluationDatasetResponse,
+    EvaluationRecord,
     KnowledgeEvidence,
     SafeTicketSummary,
     SimilarTicketEvidence,
@@ -61,6 +66,9 @@ _POSTABLE_KINDS: dict[str, Literal["PUBLIC", "INTERNAL"]] = {
 }
 
 
+_EXCLUDED_CLAIM = "[excluded untrusted instruction-shaped content]"
+
+
 def parse_draft_claims(model_text: str, allowed_citation_ids: set[str]) -> list[DraftClaim]:
     """Bind model claims to server-supplied citations; anything else is unsupported."""
     stripped = model_text.strip()
@@ -71,13 +79,16 @@ def parse_draft_claims(model_text: str, allowed_citation_ids: set[str]) -> list[
         raw_claims = payload["claims"]
         assert isinstance(raw_claims, list)
     except (ValueError, KeyError, TypeError, AssertionError):
-        return [DraftClaim(text=_safe_text(stripped, 4_000), citation_ids=[], supported=False)]
+        return [DraftClaim(text=_neutralized(stripped), citation_ids=[], supported=False)]
     claims: list[DraftClaim] = []
     for raw in raw_claims:
         if not isinstance(raw, dict):
             continue
         text_value = _safe_text(str(raw.get("text", "")), 4_000)
         if not text_value:
+            continue
+        if contains_prompt_injection(text_value):
+            claims.append(DraftClaim(text=_EXCLUDED_CLAIM, citation_ids=[], supported=False))
             continue
         requested = raw.get("citation_ids")
         bound = [
@@ -87,6 +98,12 @@ def parse_draft_claims(model_text: str, allowed_citation_ids: set[str]) -> list[
         ]
         claims.append(DraftClaim(text=text_value, citation_ids=bound, supported=bool(bound)))
     return claims
+
+
+def _neutralized(value: str) -> str:
+    if contains_prompt_injection(value):
+        return _EXCLUDED_CLAIM
+    return _safe_text(value, 4_000)
 
 
 def compose_draft_body(claims: list[DraftClaim]) -> str:
@@ -142,6 +159,19 @@ def _claim_citations(claim: dict[str, object]) -> list[str]:
     return [citation for citation in raw if isinstance(citation, str)]
 
 
+@dataclass(slots=True)
+class CopilotMetrics:
+    analyses: int = 0
+    drafts_created: int = 0
+    drafts_posted: int = 0
+    drafts_resolved: int = 0
+    provider_failures: int = 0
+    feedback_decisions: dict[str, int] = field(default_factory=dict)
+
+    def record_feedback(self, decision: str) -> None:
+        self.feedback_decisions[decision] = self.feedback_decisions.get(decision, 0) + 1
+
+
 @dataclass(frozen=True, slots=True)
 class _GatheredEvidence:
     ticket: TicketResponse
@@ -164,6 +194,7 @@ class AnalystCopilotService:
         retrieval: RetrievalService,
         gateway: AIGateway,
         workflows: WorkflowService,
+        metrics: CopilotMetrics | None = None,
     ) -> None:
         self._factory = factory
         self._authorization = authorization
@@ -172,6 +203,29 @@ class AnalystCopilotService:
         self._retrieval = retrieval
         self._gateway = gateway
         self._workflows = workflows
+        self._metrics = metrics if metrics is not None else CopilotMetrics()
+
+    async def _generate(
+        self,
+        context: RequestContext,
+        *,
+        conversation_id: UUID,
+        agent_code: str,
+        use_case_code: str,
+        request: ProviderRequest,
+    ) -> AIGeneration:
+        try:
+            return await self._gateway.generate_with_run(
+                context,
+                conversation_id=conversation_id,
+                agent_code=agent_code,
+                use_case_code=use_case_code,
+                request=request,
+                environment_id=None,
+            )
+        except Exception:
+            self._metrics.provider_failures += 1
+            raise
 
     async def _gather(
         self, context: RequestContext, ticket_key: str, focus: str | None
@@ -267,7 +321,8 @@ class AnalystCopilotService:
                 context, ticket.id, safe_context
             )
             await uow.commit()
-        generation = await self._gateway.generate_with_run(
+        self._metrics.analyses += 1
+        generation = await self._generate(
             context,
             conversation_id=conversation_id,
             agent_code="ANALYST_COPILOT",
@@ -283,7 +338,6 @@ class AnalystCopilotService:
                 tools=(),
                 metadata={"ticket_key": ticket.key, "mode": "analyst_copilot"},
             ),
-            environment_id=None,
         )
         citation_ids = [
             *(f"ticket:{item.ticket_key}" for item in similar),
@@ -350,7 +404,8 @@ class AnalystCopilotService:
                 context, gathered.ticket.id, safe_context
             )
             await uow.commit()
-        generation = await self._gateway.generate_with_run(
+        self._metrics.drafts_created += 1
+        generation = await self._generate(
             context,
             conversation_id=conversation_id,
             agent_code="ANALYST_COPILOT",
@@ -372,7 +427,6 @@ class AnalystCopilotService:
                     "draft_kind": command.kind,
                 },
             ),
-            environment_id=None,
         )
         claims = (
             parse_draft_claims(generation.result.text, set(citation_labels))
@@ -455,6 +509,7 @@ class AnalystCopilotService:
         await self._record_action(
             context, draft, "POSTED", "TICKET_COMMENT", comment_id, command.body
         )
+        self._metrics.drafts_posted += 1
         return CopilotDraftPostResponse(
             ticket_key=ticket_key,
             comment_id=comment_id,
@@ -500,11 +555,94 @@ class AnalystCopilotService:
             result.ticket.id,
             command.resolution_summary,
         )
+        self._metrics.drafts_resolved += 1
         return CopilotDraftResolveResponse(
             ticket_key=result.ticket.key,
             status=result.ticket.status,
             row_version=result.ticket.row_version,
         )
+
+    async def submit_feedback(
+        self,
+        context: RequestContext,
+        ticket_key: str,
+        agent_run_id: UUID,
+        command: CopilotFeedbackRequest,
+    ) -> CopilotFeedbackResponse:
+        self._authorize(context)
+        ticket = await self._tickets.analyst_ticket(context, ticket_key)
+        comment = _safe_text(command.comment, 2_000) if command.comment else None
+        if comment and contains_prompt_injection(comment):
+            comment = _EXCLUDED_CLAIM
+        async with self._factory(context) as uow:
+            repository = AnalystCopilotRepository(uow.session)
+            record = await repository.insert_feedback(
+                context,
+                ticket_id=ticket.id,
+                agent_run_id=agent_run_id,
+                decision=command.decision,
+                reason_code=command.reason_code,
+                comment=comment,
+            )
+            await uow.commit()
+        self._metrics.record_feedback(command.decision)
+        return CopilotFeedbackResponse(
+            feedback_id=record.feedback_id,
+            agent_run_id=agent_run_id,
+            decision=command.decision,
+            reason_code=command.reason_code,
+            created_at=record.created_at,
+        )
+
+    async def evaluation_dataset(
+        self, context: RequestContext, limit: int
+    ) -> EvaluationDatasetResponse:
+        self._authorize_oversight(context)
+        async with self._factory(context) as uow:
+            rows = await AnalystCopilotRepository(uow.session).evaluation_records(
+                context, limit=limit
+            )
+            await uow.commit()
+        records = [
+            EvaluationRecord(
+                agent_run_id=row.agent_run_id,
+                use_case=row.use_case,
+                draft_kind=row.draft_kind,
+                claims=[
+                    DraftClaim(
+                        text=_neutralized(str(claim.get("text", ""))),
+                        citation_ids=_claim_citations(claim),
+                        supported=bool(claim.get("supported")),
+                    )
+                    for claim in row.claims
+                    if str(claim.get("text", "")).strip()
+                ],
+                decision=row.decision,
+                reason_code=row.reason_code,
+                created_at=row.created_at,
+            )
+            for row in rows
+        ]
+        return EvaluationDatasetResponse(records=records)
+
+    async def usage_metrics(self, context: RequestContext) -> CopilotUsageMetricsResponse:
+        self._authorize_oversight(context)
+        async with self._factory(context) as uow:
+            usage = await AnalystCopilotRepository(uow.session).usage_counts(context)
+            await uow.commit()
+        return CopilotUsageMetricsResponse(
+            runs=usage.runs,
+            drafts=usage.drafts,
+            drafts_posted=usage.drafts_posted,
+            drafts_resolved=usage.drafts_resolved,
+            feedback=usage.feedback,
+        )
+
+    def _authorize_oversight(self, context: RequestContext) -> None:
+        if not self._authorization.is_allowed(
+            context, Permission.AI_OVERSIGHT, AuthorizationResource(tenant_id=context.tenant_id)
+        ):
+            raise AuthorizationError("AI oversight access is not authorized.")
 
     async def _claim_draft(
         self,
@@ -605,10 +743,10 @@ def _provider_context(
     evidence: tuple[RetrievalEvidence, ...],
 ) -> dict[str, object]:
     ticket_context = ticket.model_dump(mode="json")
-    for field in ("summary", "description"):
-        value = ticket_context.get(field)
+    for field_name in ("summary", "description"):
+        value = ticket_context.get(field_name)
         if isinstance(value, str):
-            ticket_context[field] = _provider_value(value, 4_000)
+            ticket_context[field_name] = _provider_value(value, 4_000)
     return {
         "ticket": ticket_context,
         "classified_activity": [

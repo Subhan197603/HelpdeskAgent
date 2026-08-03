@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CopilotAnalysisRequest(BaseModel):
@@ -139,3 +139,60 @@ class CopilotDraftResolveResponse(BaseModel):
     ticket_key: str
     status: str
     row_version: int
+
+
+FeedbackDecision = Literal["APPROVED", "EDITED", "REJECTED"]
+FEEDBACK_REASON_CODES: tuple[str, ...] = (
+    "INCORRECT",
+    "INCOMPLETE",
+    "NOT_RELEVANT",
+    "RISKY_ACTION",
+    "POLICY_CONCERN",
+    "STYLE",
+    "OTHER",
+)
+
+
+class CopilotFeedbackRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    decision: FeedbackDecision
+    reason_code: str | None = Field(default=None, max_length=40)
+    comment: str | None = Field(default=None, max_length=2_000)
+
+    @model_validator(mode="after")
+    def _validate_reason(self) -> "CopilotFeedbackRequest":
+        if self.reason_code is not None and self.reason_code not in FEEDBACK_REASON_CODES:
+            raise ValueError("reason_code must be one of the approved reason codes")
+        if self.decision == "REJECTED" and self.reason_code is None:
+            raise ValueError("A reason_code is required when rejecting copilot output")
+        return self
+
+
+class CopilotFeedbackResponse(BaseModel):
+    feedback_id: UUID
+    agent_run_id: UUID
+    decision: FeedbackDecision
+    reason_code: str | None
+    created_at: datetime
+
+
+class EvaluationRecord(BaseModel):
+    agent_run_id: UUID
+    use_case: str
+    draft_kind: str | None
+    claims: list[DraftClaim]
+    decision: FeedbackDecision | None
+    reason_code: str | None
+    created_at: datetime
+
+
+class EvaluationDatasetResponse(BaseModel):
+    records: list[EvaluationRecord]
+
+
+class CopilotUsageMetricsResponse(BaseModel):
+    runs: int
+    drafts: int
+    drafts_posted: int
+    drafts_resolved: int
+    feedback: dict[str, int]

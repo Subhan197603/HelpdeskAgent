@@ -16,16 +16,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.api.app.ai.models import AIGeneration, LLMResult, ModelUsage, ProviderRequest
-from apps.api.app.ai.service import AIGateway
+from apps.api.app.ai.service import AIDisabledError, AIGateway
 from apps.api.app.analyst_copilot.schemas import (
     CopilotAnalysisRequest,
     CopilotDraftPostRequest,
     CopilotDraftRequest,
     CopilotDraftResolveRequest,
+    CopilotFeedbackRequest,
 )
-from apps.api.app.analyst_copilot.service import AnalystCopilotService
+from apps.api.app.analyst_copilot.service import AnalystCopilotService, CopilotMetrics
 from apps.api.app.core.context import RequestContext
-from apps.api.app.core.exceptions import AuthorizationError, ConflictError
+from apps.api.app.core.exceptions import AuthorizationError, ConflictError, NotFoundError
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -253,6 +254,14 @@ def test_owned_turn_lifecycle_active_turn_guard_and_cross_user_isolation() -> No
 
 @pytest.mark.integration
 def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
+    _migrate("downgrade", "0018_agent_escalation")
+    assert (
+        _psql(
+            "SELECT count(*) FROM information_schema.columns WHERE table_schema='ai' "
+            "AND table_name='feedback' AND column_name='decision_code'"
+        )
+        == "0"
+    )
     _migrate("downgrade", "0017_employee_agent")
     assert (
         _psql(
@@ -265,7 +274,14 @@ def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
     assert _psql("SELECT to_regclass('ai.conversation_turn')") == ""
     _migrate("upgrade", "head")
     assert _psql("SELECT to_regclass('ai.conversation_turn')") == "ai.conversation_turn"
-    assert _psql("SELECT version_num FROM config.alembic_version") == "0018_agent_escalation"
+    assert (
+        _psql(
+            "SELECT count(*) FROM information_schema.columns WHERE table_schema='ai' "
+            "AND table_name='feedback' AND column_name='decision_code'"
+        )
+        == "1"
+    )
+    assert _psql("SELECT version_num FROM config.alembic_version") == "0019_analyst_feedback"
 
 
 def _api_settings() -> Settings:
@@ -1000,3 +1016,122 @@ def test_analyst_copilot_draft_post_and_resolve_use_normal_services() -> None:
         )
         >= 1
     )
+
+
+class _DisabledGateway:
+    async def generate_with_run(self, *_: object, **__: object) -> AIGeneration:
+        raise AIDisabledError("AI is disabled; use the deterministic ticketing workflow.")
+
+
+@pytest.mark.integration
+def test_analyst_copilot_feedback_dataset_and_ai_disabled_fallback() -> None:
+    _seed_copilot()
+    ticket_key = _psql(f"SELECT ticket_key FROM itsm.ticket WHERE ticket_id='{COPILOT_ALLOWED}'")
+
+    async def exercise() -> None:
+        engine = create_async_engine(
+            f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"
+        )
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+        def factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
+            return SqlAlchemyUnitOfWork(sessions, context, rls_enabled=False)
+
+        authorization = AuthorizationService()
+        tickets = TicketService(factory, authorization, TicketMetrics())
+        queues = QueueService(factory, authorization)
+        metrics = CopilotMetrics()
+
+        def build(gateway: object) -> AnalystCopilotService:
+            return AnalystCopilotService(
+                factory,
+                authorization,
+                tickets,
+                queues,
+                cast(RetrievalService, _CopilotRetrieval()),
+                cast(AIGateway, gateway),
+                WorkflowService(factory, authorization, tickets),
+                metrics,
+            )
+
+        service = build(_CopilotDraftGateway())
+        disabled_service = build(_DisabledGateway())
+        try:
+            context = _copilot_context()
+            drafted = await service.draft(
+                context, ticket_key, CopilotDraftRequest(kind="INTERNAL_NOTE")
+            )
+            feedback = await service.submit_feedback(
+                context,
+                ticket_key,
+                drafted.versions.agent_run_id,
+                CopilotFeedbackRequest(
+                    decision="EDITED",
+                    reason_code="STYLE",
+                    comment="Rewrote the tone; contact reviewer@example.test for details.",
+                ),
+            )
+            assert feedback.decision == "EDITED"
+            stored_comment = _psql(
+                f"SELECT comment_text FROM ai.feedback WHERE feedback_id='{feedback.feedback_id}'"
+            )
+            assert "reviewer@example.test" not in stored_comment
+            assert "[redacted email]" in stored_comment
+            with pytest.raises(ConflictError):
+                await service.submit_feedback(
+                    context,
+                    ticket_key,
+                    drafted.versions.agent_run_id,
+                    CopilotFeedbackRequest(decision="APPROVED"),
+                )
+            with pytest.raises(NotFoundError):
+                await service.submit_feedback(
+                    context,
+                    ticket_key,
+                    uuid4(),
+                    CopilotFeedbackRequest(decision="APPROVED"),
+                )
+            with pytest.raises(AuthorizationError):
+                await service.evaluation_dataset(context, 50)
+            oversight = _copilot_context("AI_ADMIN")
+            dataset = await service.evaluation_dataset(oversight, 50)
+            our_record = next(
+                record
+                for record in dataset.records
+                if record.agent_run_id == drafted.versions.agent_run_id
+            )
+            assert our_record.decision == "EDITED"
+            assert our_record.reason_code == "STYLE"
+            assert our_record.draft_kind == "INTERNAL_NOTE"
+            for record in dataset.records:
+                for claim in record.claims:
+                    assert "@example.test" not in claim.text
+                    assert "Ignore previous instructions" not in claim.text
+            usage = await service.usage_metrics(oversight)
+            assert usage.runs >= 1
+            assert usage.drafts >= 1
+            assert usage.feedback.get("EDITED", 0) >= 1
+            with pytest.raises(AIDisabledError):
+                await disabled_service.draft(
+                    context, ticket_key, CopilotDraftRequest(kind="INTERNAL_NOTE")
+                )
+            assert metrics.provider_failures == 1
+            posted = await disabled_service.post_draft(
+                context,
+                ticket_key,
+                drafted.draft_id,
+                CopilotDraftPostRequest(body="Internal note posted while AI is disabled."),
+                "copilot-ai-off-post-1",
+            )
+            assert posted.visibility == "INTERNAL"
+            assert (
+                _psql(
+                    "SELECT visibility_code FROM itsm.ticket_comment "
+                    f"WHERE comment_id='{posted.comment_id}'"
+                )
+                == "INTERNAL"
+            )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(exercise(), loop_factory=asyncio.SelectorEventLoop)

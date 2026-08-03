@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+  "/api/v1/admin/ai/copilot/evaluation-dataset": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Evaluation Dataset */
+    get: operations["evaluation_dataset_api_v1_admin_ai_copilot_evaluation_dataset_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/ai/copilot/metrics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Copilot Usage Metrics */
+    get: operations["copilot_usage_metrics_api_v1_admin_ai_copilot_metrics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/ingestion/runs": {
     parameters: {
       query?: never;
@@ -425,6 +459,23 @@ export interface paths {
     put?: never;
     /** Resolve With Draft */
     post: operations["resolve_with_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__resolve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/tickets/{ticket_key}/copilot/runs/{agent_run_id}/feedback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Submit Run Feedback */
+    post: operations["submit_run_feedback_api_v1_agent_tickets__ticket_key__copilot_runs__agent_run_id__feedback_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1495,6 +1546,58 @@ export interface components {
       ticket_key: string;
       versions: components["schemas"]["CopilotVersionCaptureResponse"];
     };
+    /** CopilotFeedbackRequest */
+    CopilotFeedbackRequest: {
+      /** Comment */
+      comment?: string | null;
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "APPROVED" | "EDITED" | "REJECTED";
+      /** Reason Code */
+      reason_code?: string | null;
+    };
+    /** CopilotFeedbackResponse */
+    CopilotFeedbackResponse: {
+      /**
+       * Agent Run Id
+       * Format: uuid
+       */
+      agent_run_id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "APPROVED" | "EDITED" | "REJECTED";
+      /**
+       * Feedback Id
+       * Format: uuid
+       */
+      feedback_id: string;
+      /** Reason Code */
+      reason_code: string | null;
+    };
+    /** CopilotUsageMetricsResponse */
+    CopilotUsageMetricsResponse: {
+      /** Drafts */
+      drafts: number;
+      /** Drafts Posted */
+      drafts_posted: number;
+      /** Drafts Resolved */
+      drafts_resolved: number;
+      /** Feedback */
+      feedback: {
+        [key: string]: number;
+      };
+      /** Runs */
+      runs: number;
+    };
     /** CopilotVersionCaptureResponse */
     CopilotVersionCaptureResponse: {
       /**
@@ -1837,6 +1940,34 @@ export interface components {
     DraftVersionRequest: {
       /** Row Version */
       row_version: number;
+    };
+    /** EvaluationDatasetResponse */
+    EvaluationDatasetResponse: {
+      /** Records */
+      records: components["schemas"]["EvaluationRecord"][];
+    };
+    /** EvaluationRecord */
+    EvaluationRecord: {
+      /**
+       * Agent Run Id
+       * Format: uuid
+       */
+      agent_run_id: string;
+      /** Claims */
+      claims: components["schemas"]["DraftClaim"][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Decision */
+      decision: ("APPROVED" | "EDITED" | "REJECTED") | null;
+      /** Draft Kind */
+      draft_kind: string | null;
+      /** Reason Code */
+      reason_code: string | null;
+      /** Use Case */
+      use_case: string;
     };
     /** EvidenceFilters */
     EvidenceFilters: {
@@ -3429,6 +3560,156 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  evaluation_dataset_api_v1_admin_ai_copilot_evaluation_dataset_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvaluationDatasetResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  copilot_usage_metrics_api_v1_admin_ai_copilot_metrics_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopilotUsageMetricsResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   create_run_api_v1_admin_ingestion_runs_post: {
     parameters: {
       query?: never;
@@ -5441,6 +5722,87 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CopilotDraftResolveResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  submit_run_feedback_api_v1_agent_tickets__ticket_key__copilot_runs__agent_run_id__feedback_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+        agent_run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopilotFeedbackRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopilotFeedbackResponse"];
         };
       };
       /** @description Authentication required */
