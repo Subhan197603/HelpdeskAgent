@@ -225,6 +225,7 @@ def create_app(
         app.state.queue_service,
         app.state.retrieval_service,
         app.state.ai_gateway,
+        app.state.workflow_service,
     )
     app.state.attachment_service = AttachmentService(
         unit_of_work_factory,

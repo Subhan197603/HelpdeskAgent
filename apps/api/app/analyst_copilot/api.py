@@ -1,10 +1,20 @@
-"""Analyst-only copilot endpoint."""
+"""Analyst-only copilot endpoints."""
 
 from typing import Annotated, Any, cast
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Header, Request
 
-from apps.api.app.analyst_copilot.schemas import CopilotAnalysisRequest, CopilotAnalysisResponse
+from apps.api.app.analyst_copilot.schemas import (
+    CopilotAnalysisRequest,
+    CopilotAnalysisResponse,
+    CopilotDraftPostRequest,
+    CopilotDraftPostResponse,
+    CopilotDraftRequest,
+    CopilotDraftResolveRequest,
+    CopilotDraftResolveResponse,
+    CopilotDraftResponse,
+)
 from apps.api.app.analyst_copilot.service import AnalystCopilotService
 from apps.api.app.catalog.schemas import ProblemResponse
 from apps.api.app.core.context import RequestContext
@@ -19,6 +29,13 @@ ERRORS: dict[int | str, dict[str, Any]] = {
     503: {"model": ProblemResponse, "description": "AI or retrieval unavailable"},
 }
 router = APIRouter(prefix="/api/v1/agent/tickets", tags=["analyst-copilot"])
+
+_IDEMPOTENCY_KEY = Header(
+    alias="Idempotency-Key",
+    min_length=8,
+    max_length=255,
+    pattern=r"^[A-Za-z0-9._:-]+$",
+)
 
 
 def _service(request: Request) -> AnalystCopilotService:
@@ -37,3 +54,53 @@ async def analyze_ticket(
     context: Annotated[RequestContext, Depends(require_authenticated_context)],
 ) -> CopilotAnalysisResponse:
     return await _service(request).analyze(context, ticket_key, command)
+
+
+@router.post(
+    "/{ticket_key}/copilot/drafts",
+    response_model=CopilotDraftResponse,
+    responses=ERRORS,
+)
+async def draft_for_ticket(
+    request: Request,
+    ticket_key: str,
+    command: CopilotDraftRequest,
+    context: Annotated[RequestContext, Depends(require_authenticated_context)],
+) -> CopilotDraftResponse:
+    return await _service(request).draft(context, ticket_key, command)
+
+
+@router.post(
+    "/{ticket_key}/copilot/drafts/{draft_id}/post",
+    response_model=CopilotDraftPostResponse,
+    responses=ERRORS,
+)
+async def post_draft(
+    request: Request,
+    ticket_key: str,
+    draft_id: UUID,
+    command: CopilotDraftPostRequest,
+    context: Annotated[RequestContext, Depends(require_authenticated_context)],
+    idempotency_key: Annotated[str, _IDEMPOTENCY_KEY],
+) -> CopilotDraftPostResponse:
+    return await _service(request).post_draft(
+        context, ticket_key, draft_id, command, idempotency_key
+    )
+
+
+@router.post(
+    "/{ticket_key}/copilot/drafts/{draft_id}/resolve",
+    response_model=CopilotDraftResolveResponse,
+    responses=ERRORS,
+)
+async def resolve_with_draft(
+    request: Request,
+    ticket_key: str,
+    draft_id: UUID,
+    command: CopilotDraftResolveRequest,
+    context: Annotated[RequestContext, Depends(require_authenticated_context)],
+    idempotency_key: Annotated[str, _IDEMPOTENCY_KEY],
+) -> CopilotDraftResolveResponse:
+    return await _service(request).resolve_draft(
+        context, ticket_key, draft_id, command, idempotency_key
+    )

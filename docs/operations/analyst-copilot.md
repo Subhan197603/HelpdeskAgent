@@ -36,12 +36,46 @@ exact release family and code.
 - The provider receives no tools. This endpoint cannot comment, assign, change priority, change
   status, resolve, close, or otherwise mutate a ticket.
 
+## Evidence-backed drafts (Task 9.2)
+
+```http
+POST /api/v1/agent/tickets/{ticket_key}/copilot/drafts
+POST /api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/post
+POST /api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/resolve
+```
+
+Draft kinds are `PUBLIC_RESPONSE`, `INTERNAL_NOTE`, and `RESOLUTION_SUMMARY`. Drafting a kind
+requires `AI_ANALYST_USE` plus the permission needed to act on it: `TICKET_COMMENT_PUBLIC`,
+`TICKET_COMMENT_INTERNAL`, or `TICKET_TRANSITION`.
+
+The draft response contains the claims the model produced, each with the server-bound citations
+that survived validation and a `supported` flag. Fabricated or unknown citation identifiers are
+dropped; claims without evidence are marked `[Unverified]` in the composed body; malformed model
+output degrades to a single unsupported claim. The evidence panel repeats the similar-ticket,
+runbook, and Oracle-documentation evidence the citations refer to.
+
+Drafts never change the ticket. The analyst reviews and edits the body, then triggers one explicit
+action with an `Idempotency-Key` header:
+
+- `post` sends the edited body through the normal analyst comment service using the visibility
+  implied by the draft kind. The server appends a `Sources:` block built from the draft's
+  server-bound citation labels.
+- `resolve` sends the edited resolution summary (plus `transition_code`, `row_version`, and
+  `resolution_code`) through the normal workflow transition service, which applies its usual
+  authorization, guard, optimistic-concurrency, event, and notification behavior.
+
+Each draft can be actioned once; the business idempotency key is derived from the draft
+identifier, so retried or concurrent duplicates collapse into one comment or one transition, and a
+second action attempt returns a conflict. Whether the analyst edited the draft before acting is
+recorded in the conversation for audit.
+
 ## Required deployment configuration
 
 Publish an approved AI configuration with:
 
 - agent code `ANALYST_COPILOT`
-- use case `TICKET_ANALYSIS`
+- use cases `TICKET_ANALYSIS`, `DRAFT_PUBLIC_RESPONSE`, `DRAFT_INTERNAL_NOTE`, and
+  `DRAFT_RESOLUTION_SUMMARY`
 - a published prompt, empty/read-only tool-set version, model-policy version, and retrieval-policy
   version
 - an approved enabled feature policy and applicable budget/rate limits

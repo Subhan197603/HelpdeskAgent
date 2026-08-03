@@ -380,6 +380,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/copilot/drafts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Draft For Ticket */
+    post: operations["draft_for_ticket_api_v1_agent_tickets__ticket_key__copilot_drafts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/post": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Post Draft */
+    post: operations["post_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__post_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/resolve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Resolve With Draft */
+    post: operations["resolve_with_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__resolve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/tickets/{ticket_key}/route": {
     parameters: {
       query?: never;
@@ -1349,6 +1400,101 @@ export interface components {
       ticket: components["schemas"]["SafeTicketSummary"];
       versions: components["schemas"]["CopilotVersionCaptureResponse"];
     };
+    /** CopilotDraftPostRequest */
+    CopilotDraftPostRequest: {
+      /** Body */
+      body: string;
+    };
+    /** CopilotDraftPostResponse */
+    CopilotDraftPostResponse: {
+      /** Body */
+      body: string;
+      /**
+       * Comment Id
+       * Format: uuid
+       */
+      comment_id: string;
+      /** Replayed */
+      replayed: boolean;
+      /** Ticket Key */
+      ticket_key: string;
+      /**
+       * Visibility
+       * @enum {string}
+       */
+      visibility: "PUBLIC" | "INTERNAL";
+    };
+    /** CopilotDraftRequest */
+    CopilotDraftRequest: {
+      /** Focus */
+      focus?: string | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "PUBLIC_RESPONSE" | "INTERNAL_NOTE" | "RESOLUTION_SUMMARY";
+    };
+    /** CopilotDraftResolveRequest */
+    CopilotDraftResolveRequest: {
+      /** Comment */
+      comment?: string | null;
+      /** Resolution Code */
+      resolution_code: string;
+      /** Resolution Summary */
+      resolution_summary: string;
+      /** Row Version */
+      row_version: number;
+      /** Transition Code */
+      transition_code: string;
+    };
+    /** CopilotDraftResolveResponse */
+    CopilotDraftResolveResponse: {
+      /** Row Version */
+      row_version: number;
+      /** Status */
+      status: string;
+      /** Ticket Key */
+      ticket_key: string;
+    };
+    /** CopilotDraftResponse */
+    CopilotDraftResponse: {
+      /** Body */
+      body: string;
+      /** Claims */
+      claims: components["schemas"]["DraftClaim"][];
+      /**
+       * Classification
+       * @default INFERENCE
+       * @constant
+       */
+      classification: "INFERENCE";
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /**
+       * Draft Id
+       * Format: uuid
+       */
+      draft_id: string;
+      /** Internal Runbooks */
+      internal_runbooks: components["schemas"]["KnowledgeEvidence"][];
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "PUBLIC_RESPONSE" | "INTERNAL_NOTE" | "RESOLUTION_SUMMARY";
+      /** Oracle Documentation */
+      oracle_documentation: components["schemas"]["KnowledgeEvidence"][];
+      /** Safety Notice */
+      safety_notice: string;
+      /** Similar Tickets */
+      similar_tickets: components["schemas"]["SimilarTicketEvidence"][];
+      /** Ticket Key */
+      ticket_key: string;
+      versions: components["schemas"]["CopilotVersionCaptureResponse"];
+    };
     /** CopilotVersionCaptureResponse */
     CopilotVersionCaptureResponse: {
       /**
@@ -1554,6 +1700,15 @@ export interface components {
        * Format: date-time
        */
       expires_at: string;
+    };
+    /** DraftClaim */
+    DraftClaim: {
+      /** Citation Ids */
+      citation_ids: string[];
+      /** Supported */
+      supported: boolean;
+      /** Text */
+      text: string;
     };
     /** DraftCreateRequest */
     DraftCreateRequest: {
@@ -5040,6 +5195,252 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CopilotAnalysisResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  draft_for_ticket_api_v1_agent_tickets__ticket_key__copilot_drafts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopilotDraftRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopilotDraftResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  post_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__post_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        ticket_key: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopilotDraftPostRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopilotDraftPostResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  resolve_with_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__resolve_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        ticket_key: string;
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopilotDraftResolveRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopilotDraftResolveResponse"];
         };
       };
       /** @description Authentication required */

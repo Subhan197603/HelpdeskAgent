@@ -7,7 +7,11 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.analyst_copilot.models import CopilotVersionCapture, SimilarResolvedTicket
+from apps.api.app.analyst_copilot.models import (
+    CopilotVersionCapture,
+    SimilarResolvedTicket,
+    StoredDraft,
+)
 from apps.api.app.core.context import RequestContext
 from apps.api.app.retrieval.models import RetrievalEvidence
 
@@ -271,6 +275,149 @@ class AnalystCopilotRepository:
             row["model_policy_version_id"],
             row["retrieval_configuration_version_id"],
         )
+
+    async def store_draft(
+        self,
+        context: RequestContext,
+        *,
+        conversation_id: UUID,
+        kind: str,
+        claims: list[dict[str, object]],
+        citation_labels: dict[str, str],
+    ) -> UUID:
+        draft_id = (
+            await self._session.execute(
+                text(
+                    """
+                    INSERT INTO ai.message(conversation_id,role_code,content_text,content_json)
+                    VALUES (
+                      :conversation_id,'ASSISTANT',:content,
+                      jsonb_build_object(
+                        'classification','INFERENCE','draft_kind',CAST(:kind AS text),
+                        'claims',CAST(:claims AS jsonb),
+                        'citation_labels',CAST(:labels AS jsonb)))
+                    RETURNING message_id
+                    """
+                ),
+                {
+                    "conversation_id": conversation_id,
+                    "content": " ".join(str(claim.get("text", "")) for claim in claims)[:20_000],
+                    "kind": kind,
+                    "claims": json.dumps(claims),
+                    "labels": json.dumps(citation_labels),
+                },
+            )
+        ).scalar_one()
+        await self._audit(context, conversation_id, "AI_ANALYST_COPILOT_DRAFTED")
+        if not isinstance(draft_id, UUID):
+            raise RuntimeError("Database returned an invalid draft identifier")
+        return draft_id
+
+    async def locked_draft(
+        self, context: RequestContext, *, draft_id: UUID, ticket_id: UUID
+    ) -> StoredDraft | None:
+        tenant_id, user_id = _identity(context)
+        row = (
+            (
+                await self._session.execute(
+                    text(
+                        """
+                        SELECT message.message_id,message.conversation_id,
+                          conversation.ticket_id,message.content_json
+                        FROM ai.message message
+                        JOIN ai.conversation conversation
+                          ON conversation.conversation_id=message.conversation_id
+                        WHERE message.message_id=:draft_id
+                          AND message.role_code='ASSISTANT'
+                          AND message.content_json ? 'draft_kind'
+                          AND conversation.conversation_type='ANALYST_COPILOT'
+                          AND conversation.tenant_id=:tenant_id
+                          AND conversation.user_id=:user_id
+                          AND conversation.ticket_id=:ticket_id
+                        FOR UPDATE OF conversation
+                        """
+                    ),
+                    {
+                        "draft_id": draft_id,
+                        "tenant_id": tenant_id,
+                        "user_id": user_id,
+                        "ticket_id": ticket_id,
+                    },
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            return None
+        content = row["content_json"]
+        return StoredDraft(
+            row["message_id"],
+            row["conversation_id"],
+            row["ticket_id"],
+            str(content.get("draft_kind", "")),
+            tuple(content.get("claims", ())),
+            dict(content.get("citation_labels", {})),
+        )
+
+    async def draft_action_exists(self, draft_id: UUID) -> bool:
+        count = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT count(*) FROM ai.message
+                    WHERE role_code='SYSTEM'
+                      AND content_json->>'actioned_draft_id'=CAST(:draft_id AS text)
+                    """
+                ),
+                {"draft_id": draft_id},
+            )
+        ).scalar_one()
+        return bool(count)
+
+    async def record_draft_action(
+        self,
+        context: RequestContext,
+        *,
+        draft: StoredDraft,
+        action: str,
+        resource_type: str,
+        resource_id: UUID,
+        posted_body_matches_draft: bool,
+    ) -> None:
+        await self._session.execute(
+            text(
+                """
+                INSERT INTO ai.message(conversation_id,role_code,content_text,content_json)
+                VALUES (
+                  :conversation_id,'SYSTEM',:content,
+                  jsonb_build_object(
+                    'actioned_draft_id',CAST(:draft_id AS text),'action',CAST(:action AS text),
+                    'resource_type',CAST(:resource_type AS text),
+                    'resource_id',CAST(:resource_id AS text),
+                    'analyst_edited',CAST(:edited AS boolean)))
+                """
+            ),
+            {
+                "conversation_id": draft.conversation_id,
+                "content": f"Analyst {action.lower()} the copilot draft.",
+                "draft_id": draft.draft_id,
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "edited": not posted_body_matches_draft,
+            },
+        )
+        await self._session.execute(
+            text(
+                """
+                UPDATE ai.conversation SET status_code='CLOSED',ended_at=now()
+                WHERE conversation_id=:conversation_id AND status_code='OPEN'
+                """
+            ),
+            {"conversation_id": draft.conversation_id},
+        )
+        await self._audit(context, draft.conversation_id, f"AI_ANALYST_COPILOT_DRAFT_{action}")
 
     async def _audit(self, context: RequestContext, conversation_id: UUID, action: str) -> None:
         tenant_id, user_id = _identity(context)

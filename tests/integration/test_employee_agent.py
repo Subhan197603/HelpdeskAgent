@@ -1,9 +1,11 @@
 """PostgreSQL validation for employee-agent and analyst-copilot workflows."""
 
 import asyncio
+import json
 import os
 import subprocess
 from collections.abc import Iterator
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -15,10 +17,15 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.api.app.ai.models import AIGeneration, LLMResult, ModelUsage, ProviderRequest
 from apps.api.app.ai.service import AIGateway
-from apps.api.app.analyst_copilot.schemas import CopilotAnalysisRequest
+from apps.api.app.analyst_copilot.schemas import (
+    CopilotAnalysisRequest,
+    CopilotDraftPostRequest,
+    CopilotDraftRequest,
+    CopilotDraftResolveRequest,
+)
 from apps.api.app.analyst_copilot.service import AnalystCopilotService
 from apps.api.app.core.context import RequestContext
-from apps.api.app.core.exceptions import AuthorizationError
+from apps.api.app.core.exceptions import AuthorizationError, ConflictError
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -40,6 +47,7 @@ from apps.api.app.retrieval.models import (
 )
 from apps.api.app.retrieval.service import RetrievalService
 from apps.api.app.tickets.service import TicketMetrics, TicketService
+from apps.api.app.workflows.service import WorkflowService
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-employee-agent-test"
@@ -755,6 +763,7 @@ def test_analyst_copilot_acl_citations_versions_and_no_ticket_mutation() -> None
             queues,
             cast(RetrievalService, retrieval),
             cast(AIGateway, gateway),
+            WorkflowService(factory, authorization, tickets),
         )
         try:
             with pytest.raises(AuthorizationError):
@@ -827,4 +836,167 @@ def test_analyst_copilot_acl_citations_versions_and_no_ticket_mutation() -> None
             f"WHERE agent_run_id='{response.versions.agent_run_id}'"
         )
         == "0"
+    )
+
+
+_RUNBOOK_CITATION = "knowledge:82900000-0000-0000-0000-000000000001"
+
+
+class _CopilotDraftGateway(_CopilotGateway):
+    async def generate_with_run(self, *args: object, **kwargs: Any) -> AIGeneration:
+        generation = await super().generate_with_run(*args, **kwargs)
+        text = json.dumps(
+            {
+                "claims": [
+                    {
+                        "text": "Apply the approved AP-810 rebuild runbook.",
+                        "citation_ids": [_RUNBOOK_CITATION, "knowledge:fabricated"],
+                    },
+                    {"text": "Restart random pods until it works.", "citation_ids": []},
+                ]
+            }
+        )
+        return AIGeneration(generation.agent_run_id, replace(generation.result, text=text))
+
+
+@pytest.mark.integration
+def test_analyst_copilot_draft_post_and_resolve_use_normal_services() -> None:
+    _seed_copilot()
+    ticket_key = _psql(f"SELECT ticket_key FROM itsm.ticket WHERE ticket_id='{COPILOT_CURRENT}'")
+
+    async def exercise() -> None:
+        engine = create_async_engine(
+            f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"
+        )
+        sessions = async_sessionmaker(engine, expire_on_commit=False)
+
+        def factory(context: RequestContext) -> SqlAlchemyUnitOfWork:
+            return SqlAlchemyUnitOfWork(sessions, context, rls_enabled=False)
+
+        authorization = AuthorizationService()
+        tickets = TicketService(factory, authorization, TicketMetrics())
+        queues = QueueService(factory, authorization)
+        service = AnalystCopilotService(
+            factory,
+            authorization,
+            tickets,
+            queues,
+            cast(RetrievalService, _CopilotRetrieval()),
+            cast(AIGateway, _CopilotDraftGateway()),
+            WorkflowService(factory, authorization, tickets),
+        )
+        try:
+            context = _copilot_context()
+            drafted = await service.draft(
+                context, ticket_key, CopilotDraftRequest(kind="PUBLIC_RESPONSE")
+            )
+            assert drafted.claims[0].supported is True
+            assert drafted.claims[0].citation_ids == [_RUNBOOK_CITATION]
+            assert drafted.claims[1].supported is False
+            assert "[Unverified] Restart random pods" in drafted.body
+            assert (
+                _psql(
+                    "SELECT content_json->>'draft_kind' FROM ai.message "
+                    f"WHERE message_id='{drafted.draft_id}'"
+                )
+                == "PUBLIC_RESPONSE"
+            )
+            posted = await service.post_draft(
+                context,
+                ticket_key,
+                drafted.draft_id,
+                CopilotDraftPostRequest(body="Please retry invoice validation after the rebuild."),
+                "copilot-post-attempt-1",
+            )
+            comment = _psql(
+                "SELECT visibility_code || '|' || comment_body FROM itsm.ticket_comment "
+                f"WHERE comment_id='{posted.comment_id}'"
+            )
+            assert comment.startswith("PUBLIC|Please retry invoice validation")
+            assert "Sources:" in comment
+            assert _RUNBOOK_CITATION in comment
+            assert (
+                _psql(
+                    "SELECT status_code FROM ai.conversation "
+                    f"WHERE conversation_id='{drafted.conversation_id}'"
+                )
+                == "CLOSED"
+            )
+            assert (
+                _psql(
+                    "SELECT content_json->>'analyst_edited' FROM ai.message "
+                    "WHERE role_code='SYSTEM' "
+                    f"AND content_json->>'actioned_draft_id'='{drafted.draft_id}'"
+                )
+                == "true"
+            )
+            with pytest.raises(ConflictError):
+                await service.post_draft(
+                    context,
+                    ticket_key,
+                    drafted.draft_id,
+                    CopilotDraftPostRequest(body="Second attempt"),
+                    "copilot-post-attempt-2",
+                )
+            resolution_draft = await service.draft(
+                context, ticket_key, CopilotDraftRequest(kind="RESOLUTION_SUMMARY")
+            )
+            row_version = int(
+                _psql(f"SELECT row_version FROM itsm.ticket WHERE ticket_id='{COPILOT_CURRENT}'")
+            )
+            resolved = await service.resolve_draft(
+                context,
+                ticket_key,
+                resolution_draft.draft_id,
+                CopilotDraftResolveRequest(
+                    transition_code="RESOLVE",
+                    row_version=row_version,
+                    resolution_code="FIXED",
+                    resolution_summary=(
+                        "Rebuilt the AP-810 validation request and verified posting."
+                    ),
+                ),
+                "copilot-resolve-attempt-1",
+            )
+            assert resolved.status == "RESOLVED"
+            with pytest.raises(ConflictError):
+                await service.resolve_draft(
+                    context,
+                    ticket_key,
+                    resolution_draft.draft_id,
+                    CopilotDraftResolveRequest(
+                        transition_code="RESOLVE",
+                        row_version=resolved.row_version,
+                        resolution_code="FIXED",
+                        resolution_summary="Duplicate resolve",
+                    ),
+                    "copilot-resolve-attempt-2",
+                )
+        finally:
+            await engine.dispose()
+
+    asyncio.run(exercise(), loop_factory=asyncio.SelectorEventLoop)
+    resolved_row = _psql(
+        "SELECT status.status_code || '|' || ticket.resolution_summary FROM itsm.ticket ticket "
+        "JOIN config.workflow_status status ON status.status_id=ticket.status_id "
+        f"WHERE ticket.ticket_id='{COPILOT_CURRENT}'"
+    )
+    assert resolved_row.startswith("RESOLVED|Rebuilt the AP-810 validation request")
+    assert "Sources:" in resolved_row
+    assert (
+        _psql(
+            f"SELECT count(*) FROM itsm.ticket WHERE ticket_id='{COPILOT_CURRENT}' "
+            "AND resolved_at IS NOT NULL"
+        )
+        == "1"
+    )
+    assert (
+        int(
+            _psql(
+                "SELECT count(*) FROM itsm.ticket_event "
+                f"WHERE ticket_id='{COPILOT_CURRENT}' "
+                "AND event_type='WORKFLOW_TRANSITION_EXECUTED'"
+            )
+        )
+        >= 1
     )

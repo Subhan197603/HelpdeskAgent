@@ -870,6 +870,231 @@
         "title": "CopilotAnalysisResponse",
         "type": "object"
       },
+      "CopilotDraftPostRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": ["body"],
+        "title": "CopilotDraftPostRequest",
+        "type": "object"
+      },
+      "CopilotDraftPostResponse": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "comment_id": {
+            "format": "uuid",
+            "title": "Comment Id",
+            "type": "string"
+          },
+          "replayed": {
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          },
+          "visibility": {
+            "enum": ["PUBLIC", "INTERNAL"],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket_key",
+          "comment_id",
+          "visibility",
+          "body",
+          "replayed"
+        ],
+        "title": "CopilotDraftPostResponse",
+        "type": "object"
+      },
+      "CopilotDraftRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "focus": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          },
+          "kind": {
+            "enum": ["PUBLIC_RESPONSE", "INTERNAL_NOTE", "RESOLUTION_SUMMARY"],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": ["kind"],
+        "title": "CopilotDraftRequest",
+        "type": "object"
+      },
+      "CopilotDraftResolveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 8000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "resolution_code": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Resolution Code",
+            "type": "string"
+          },
+          "resolution_summary": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Resolution Summary",
+            "type": "string"
+          },
+          "row_version": {
+            "minimum": 1.0,
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "transition_code": {
+            "maxLength": 100,
+            "minLength": 1,
+            "pattern": "^[A-Z0-9_]+$",
+            "title": "Transition Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transition_code",
+          "row_version",
+          "resolution_code",
+          "resolution_summary"
+        ],
+        "title": "CopilotDraftResolveRequest",
+        "type": "object"
+      },
+      "CopilotDraftResolveResponse": {
+        "properties": {
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          }
+        },
+        "required": ["ticket_key", "status", "row_version"],
+        "title": "CopilotDraftResolveResponse",
+        "type": "object"
+      },
+      "CopilotDraftResponse": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/DraftClaim"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "classification": {
+            "const": "INFERENCE",
+            "default": "INFERENCE",
+            "title": "Classification",
+            "type": "string"
+          },
+          "conversation_id": {
+            "format": "uuid",
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "draft_id": {
+            "format": "uuid",
+            "title": "Draft Id",
+            "type": "string"
+          },
+          "internal_runbooks": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeEvidence"
+            },
+            "title": "Internal Runbooks",
+            "type": "array"
+          },
+          "kind": {
+            "enum": ["PUBLIC_RESPONSE", "INTERNAL_NOTE", "RESOLUTION_SUMMARY"],
+            "title": "Kind",
+            "type": "string"
+          },
+          "oracle_documentation": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeEvidence"
+            },
+            "title": "Oracle Documentation",
+            "type": "array"
+          },
+          "safety_notice": {
+            "title": "Safety Notice",
+            "type": "string"
+          },
+          "similar_tickets": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarTicketEvidence"
+            },
+            "title": "Similar Tickets",
+            "type": "array"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/CopilotVersionCaptureResponse"
+          }
+        },
+        "required": [
+          "draft_id",
+          "conversation_id",
+          "ticket_key",
+          "kind",
+          "body",
+          "claims",
+          "similar_tickets",
+          "internal_runbooks",
+          "oracle_documentation",
+          "safety_notice",
+          "versions"
+        ],
+        "title": "CopilotDraftResponse",
+        "type": "object"
+      },
       "CopilotVersionCaptureResponse": {
         "properties": {
           "agent_configuration_version_id": {
@@ -1310,6 +1535,28 @@
         },
         "required": ["attachment_id", "download_url", "expires_at"],
         "title": "DownloadResponse",
+        "type": "object"
+      },
+      "DraftClaim": {
+        "properties": {
+          "citation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Citation Ids",
+            "type": "array"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": ["text", "citation_ids", "supported"],
+        "title": "DraftClaim",
         "type": "object"
       },
       "DraftCreateRequest": {
@@ -8484,6 +8731,365 @@
           }
         ],
         "summary": "Analyze Ticket",
+        "tags": ["analyst-copilot"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/copilot/drafts": {
+      "post": {
+        "operationId": "draft_for_ticket_api_v1_agent_tickets__ticket_key__copilot_drafts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopilotDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotDraftResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Draft For Ticket",
+        "tags": ["analyst-copilot"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/post": {
+      "post": {
+        "operationId": "post_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__post_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopilotDraftPostRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotDraftPostResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Post Draft",
+        "tags": ["analyst-copilot"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/resolve": {
+      "post": {
+        "operationId": "resolve_with_draft_api_v1_agent_tickets__ticket_key__copilot_drafts__draft_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Draft Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopilotDraftResolveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotDraftResolveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resolve With Draft",
         "tags": ["analyst-copilot"]
       }
     },

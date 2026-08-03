@@ -19,6 +19,16 @@ class SimilarResolvedTicket:
 
 
 @dataclass(frozen=True, slots=True)
+class StoredDraft:
+    draft_id: UUID
+    conversation_id: UUID
+    ticket_id: UUID
+    kind: str
+    claims: tuple[dict[str, object], ...]
+    citation_labels: dict[str, str]
+
+
+@dataclass(frozen=True, slots=True)
 class CopilotVersionCapture:
     agent_run_id: UUID
     provider: str

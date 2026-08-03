@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 from apps.api.app.analyst_copilot.schemas import (
     CopilotAnalysisRequest,
     CopilotAnalysisResponse,
+    CopilotDraftPostRequest,
+    CopilotDraftRequest,
     CopilotVersionCaptureResponse,
     SafeTicketSummary,
 )
@@ -85,14 +87,14 @@ def _context(role: str) -> RequestContext:
     )
 
 
-def _api_app(context: RequestContext, fake: _FakeCopilot) -> FastAPI:
+def _api_app(context: RequestContext, fake: object) -> FastAPI:
     app = create_app(
         make_test_settings(),
         resource_factory=lambda _: ApplicationResources(
             FakeProbe(), FakeProbe(), FakeProbe(), FakeProbe()
         ),
     )
-    app.state.analyst_copilot_service = cast(object, fake)
+    app.state.analyst_copilot_service = fake
     app.dependency_overrides[require_authenticated_context] = lambda: context
     return app
 
@@ -127,6 +129,173 @@ def test_copilot_route_is_analyst_only_and_documents_contract() -> None:
     assert fake.calls == 1
     assert operation["tags"] == ["analyst-copilot"]
     assert set(operation["responses"]) >= {"200", "401", "403", "404", "409", "422", "503"}
+
+
+def test_draft_kinds_map_to_required_post_permissions() -> None:
+    from apps.api.app.analyst_copilot.service import KIND_PERMISSIONS
+
+    assert KIND_PERMISSIONS == {
+        "PUBLIC_RESPONSE": Permission.TICKET_COMMENT_PUBLIC,
+        "INTERNAL_NOTE": Permission.TICKET_COMMENT_INTERNAL,
+        "RESOLUTION_SUMMARY": Permission.TICKET_TRANSITION,
+    }
+
+
+def test_draft_claims_bind_only_server_supplied_citations() -> None:
+    from apps.api.app.analyst_copilot.service import parse_draft_claims
+
+    allowed = {"knowledge:11111111-1111-1111-1111-111111111111", "ticket:FHD-9"}
+    claims = parse_draft_claims(
+        '{"claims": ['
+        '{"text": "Rebuild the validation request.", '
+        '"citation_ids": ["ticket:FHD-9", "knowledge:fabricated"]},'
+        '{"text": "Reboot the production pod.", "citation_ids": []}'
+        "]}",
+        allowed,
+    )
+    assert [claim.supported for claim in claims] == [True, False]
+    assert claims[0].citation_ids == ["ticket:FHD-9"]
+    assert claims[1].citation_ids == []
+
+
+def test_malformed_model_output_becomes_single_unsupported_claim() -> None:
+    from apps.api.app.analyst_copilot.service import parse_draft_claims
+
+    claims = parse_draft_claims("Just do the fix, trust me.", {"ticket:FHD-9"})
+    assert len(claims) == 1
+    assert claims[0].supported is False
+    assert claims[0].citation_ids == []
+    assert "Just do the fix" in claims[0].text
+
+
+def test_draft_body_marks_unsupported_claims_and_reference_block_preserves_citations() -> None:
+    from apps.api.app.analyst_copilot.schemas import DraftClaim
+    from apps.api.app.analyst_copilot.service import compose_draft_body, reference_block
+
+    body = compose_draft_body(
+        [
+            DraftClaim(text="Cited step.", citation_ids=["ticket:FHD-9"], supported=True),
+            DraftClaim(text="Uncited step.", citation_ids=[], supported=False),
+        ]
+    )
+    assert "Cited step." in body
+    assert "[Unverified] Uncited step." in body
+    block = reference_block(
+        [
+            ("ticket:FHD-9", "Prior resolution FHD-9"),
+            ("knowledge:22222222-2222-2222-2222-222222222222", "https://docs.example.invalid/ap"),
+        ]
+    )
+    assert "ticket:FHD-9" in block
+    assert "https://docs.example.invalid/ap" in block
+    assert block.startswith("Sources:")
+
+
+class _FakeDraftCopilot:
+    def __init__(self) -> None:
+        self.posted: list[tuple[str, str, str]] = []
+
+    async def draft(self, context: RequestContext, ticket_key: str, command: object) -> object:
+        from apps.api.app.analyst_copilot.schemas import CopilotDraftResponse, DraftClaim
+
+        if "AGENT" not in context.roles:
+            raise AuthorizationError("Analyst copilot access is not authorized.")
+        kind = cast(CopilotDraftRequest, command).kind
+        version = uuid4()
+        return CopilotDraftResponse(
+            draft_id=uuid4(),
+            conversation_id=uuid4(),
+            ticket_key=ticket_key,
+            kind=kind,
+            body="[Unverified] Uncited step.",
+            claims=[DraftClaim(text="Uncited step.", citation_ids=[], supported=False)],
+            similar_tickets=[],
+            internal_runbooks=[],
+            oracle_documentation=[],
+            safety_notice="Draft only; nothing was posted or changed.",
+            versions=CopilotVersionCaptureResponse(
+                agent_run_id=uuid4(),
+                provider="fake",
+                model="analyst",
+                agent_configuration_version_id=version,
+                prompt_version_id=uuid4(),
+                tool_set_version_id=uuid4(),
+                model_policy_version_id=uuid4(),
+                retrieval_configuration_version_id=uuid4(),
+                knowledge_retrieval_configuration_version_id=uuid4(),
+            ),
+        )
+
+    async def post_draft(
+        self,
+        context: RequestContext,
+        ticket_key: str,
+        draft_id: UUID,
+        command: object,
+        idempotency_key: str,
+    ) -> object:
+        from apps.api.app.analyst_copilot.schemas import CopilotDraftPostResponse
+
+        body = cast(CopilotDraftPostRequest, command).body
+        self.posted.append((ticket_key, str(draft_id), idempotency_key))
+        return CopilotDraftPostResponse(
+            ticket_key=ticket_key,
+            comment_id=uuid4(),
+            visibility="PUBLIC",
+            body=body,
+            replayed=False,
+        )
+
+    async def resolve_draft(
+        self,
+        context: RequestContext,
+        ticket_key: str,
+        draft_id: UUID,
+        command: object,
+        idempotency_key: str,
+    ) -> object:
+        from apps.api.app.analyst_copilot.schemas import CopilotDraftResolveResponse
+
+        return CopilotDraftResolveResponse(ticket_key=ticket_key, status="RESOLVED", row_version=2)
+
+
+def test_draft_post_and_resolve_routes_enforce_analyst_access_and_contract() -> None:
+    fake = _FakeDraftCopilot()
+    draft_path = "/api/v1/agent/tickets/FHD-10/copilot/drafts"
+    action_path = f"{draft_path}/{uuid4()}"
+    with TestClient(_api_app(_context("CUSTOMER"), fake)) as client:
+        assert client.post(draft_path, json={"kind": "PUBLIC_RESPONSE"}).status_code == 403
+    with TestClient(_api_app(_context("AGENT"), fake)) as client:
+        drafted = client.post(draft_path, json={"kind": "PUBLIC_RESPONSE"})
+        missing_key = client.post(f"{action_path}/post", json={"body": "Edited"})
+        posted = client.post(
+            f"{action_path}/post",
+            json={"body": "Edited body"},
+            headers={"Idempotency-Key": "post-draft-1"},
+        )
+        resolved = client.post(
+            f"{action_path}/resolve",
+            json={
+                "transition_code": "RESOLVE",
+                "row_version": 1,
+                "resolution_code": "FIXED",
+                "resolution_summary": "Edited resolution",
+            },
+            headers={"Idempotency-Key": "resolve-draft-1"},
+        )
+        operations = client.get("/openapi.json").json()["paths"]
+    assert drafted.status_code == 200
+    assert drafted.json()["kind"] == "PUBLIC_RESPONSE"
+    assert drafted.json()["claims"][0]["supported"] is False
+    assert missing_key.status_code == 422
+    assert posted.status_code == 200
+    assert posted.json()["visibility"] == "PUBLIC"
+    assert resolved.status_code == 200
+    assert resolved.json()["status"] == "RESOLVED"
+    assert "/api/v1/agent/tickets/{ticket_key}/copilot/drafts" in operations
+    assert "/api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/post" in operations
+    assert "/api/v1/agent/tickets/{ticket_key}/copilot/drafts/{draft_id}/resolve" in operations
+    assert fake.posted == [("FHD-10", fake.posted[0][1], "post-draft-1")]
 
 
 def test_safe_ticket_context_redacts_personal_data_and_prompt_injection() -> None:

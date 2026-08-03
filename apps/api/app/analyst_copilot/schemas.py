@@ -81,3 +81,61 @@ class CopilotAnalysisResponse(BaseModel):
     recommendation: TechnicalRecommendation | None
     safety_notice: str
     versions: CopilotVersionCaptureResponse
+
+
+DraftKind = Literal["PUBLIC_RESPONSE", "INTERNAL_NOTE", "RESOLUTION_SUMMARY"]
+
+
+class CopilotDraftRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: DraftKind
+    focus: str | None = Field(default=None, max_length=500)
+
+
+class DraftClaim(BaseModel):
+    text: str
+    citation_ids: list[str]
+    supported: bool
+
+
+class CopilotDraftResponse(BaseModel):
+    draft_id: UUID
+    conversation_id: UUID
+    ticket_key: str
+    kind: DraftKind
+    classification: Literal["INFERENCE"] = "INFERENCE"
+    body: str
+    claims: list[DraftClaim]
+    similar_tickets: list[SimilarTicketEvidence]
+    internal_runbooks: list[KnowledgeEvidence]
+    oracle_documentation: list[KnowledgeEvidence]
+    safety_notice: str
+    versions: CopilotVersionCaptureResponse
+
+
+class CopilotDraftPostRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    body: str = Field(min_length=1, max_length=8_000)
+
+
+class CopilotDraftPostResponse(BaseModel):
+    ticket_key: str
+    comment_id: UUID
+    visibility: Literal["PUBLIC", "INTERNAL"]
+    body: str
+    replayed: bool
+
+
+class CopilotDraftResolveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    transition_code: str = Field(min_length=1, max_length=100, pattern=r"^[A-Z0-9_]+$")
+    row_version: int = Field(ge=1)
+    resolution_code: str = Field(min_length=1, max_length=100)
+    resolution_summary: str = Field(min_length=1, max_length=8_000)
+    comment: str | None = Field(default=None, max_length=8_000)
+
+
+class CopilotDraftResolveResponse(BaseModel):
+    ticket_key: str
+    status: str
+    row_version: int
