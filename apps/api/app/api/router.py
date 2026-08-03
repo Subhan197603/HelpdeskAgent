@@ -14,6 +14,7 @@ from apps.api.app.ingestion.api import router as ingestion_router
 from apps.api.app.knowledge.api import router as knowledge_router
 from apps.api.app.knowledge.document_api import router as knowledge_document_router
 from apps.api.app.notifications.api import router as notifications_router
+from apps.api.app.observability.api import router as observability_router
 from apps.api.app.queues.api import router as queues_router
 from apps.api.app.retrieval.api import router as retrieval_router
 from apps.api.app.routing.api import router as routing_router
@@ -38,3 +39,4 @@ api_router.include_router(retrieval_router)
 api_router.include_router(employee_agent_router)
 api_router.include_router(analyst_copilot_router)
 api_router.include_router(ai_oversight_router)
+api_router.include_router(observability_router)

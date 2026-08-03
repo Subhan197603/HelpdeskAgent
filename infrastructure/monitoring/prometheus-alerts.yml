@@ -1,0 +1,75 @@
+groups:
+  - name: helpdesk-api
+    rules:
+      - alert: APIHighErrorRate
+        expr: >-
+          sum(rate(http_requests_total{job="helpdesk-api",status=~"5.."}[5m]))
+          / sum(rate(http_requests_total{job="helpdesk-api"}[5m])) > 0.02
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx error rate above 2% for 5 minutes."
+          runbook_url: "docs/operations/monitoring.md#api-high-error-rate"
+      - alert: APIHighLatencyP95
+        expr: >-
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="helpdesk-api"}[5m])) by (le))
+          > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency above 500ms for 10 minutes."
+          runbook_url: "docs/operations/monitoring.md#api-high-latency"
+      - alert: DBPoolSaturation
+        expr: >-
+          max(helpdesk_db_pool_checked_out{job="helpdesk-api"})
+          >= max(helpdesk_db_pool_size{job="helpdesk-api"})
+          + max(helpdesk_db_pool_max_overflow{job="helpdesk-api"})
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool fully saturated."
+          runbook_url: "docs/operations/monitoring.md#db-pool-saturation"
+  - name: helpdesk-workers
+    rules:
+      - alert: SLAWorkerLag
+        expr: >-
+          time() - max(helpdesk_sla_worker_last_run_timestamp{job="helpdesk-worker"}) > 120
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLA worker has not completed a cycle for over 2 minutes."
+          runbook_url: "docs/operations/monitoring.md#sla-worker-lag"
+      - alert: OutboxBacklog
+        expr: >-
+          max(helpdesk_outbox_pending_events{job="helpdesk-worker"}) > 500
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Integration outbox backlog above 500 pending events."
+          runbook_url: "docs/operations/monitoring.md#outbox-backlog"
+  - name: helpdesk-ai
+    rules:
+      - alert: AIProviderFailureRate
+        expr: >-
+          rate(helpdesk_copilot_provider_failures_total{job="helpdesk-api"}[15m]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI provider failures exceed 0.1/s over 15 minutes."
+          runbook_url: "docs/operations/monitoring.md#ai-provider-failures"
+      - alert: AIBudgetNearHardStop
+        expr: >-
+          max(helpdesk_ai_budget_spent_ratio{job="helpdesk-api"}) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI spend above 90% of the configured hard budget."
+          runbook_url: "docs/operations/monitoring.md#ai-budget-hard-stop"

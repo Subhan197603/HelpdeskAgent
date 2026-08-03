@@ -1,0 +1,1 @@
+"""Prometheus-compatible observability endpoints."""

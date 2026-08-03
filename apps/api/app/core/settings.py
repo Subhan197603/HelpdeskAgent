@@ -100,6 +100,7 @@ class Settings(BaseSettings):
     clamav_retry_seconds: int = Field(default=30, ge=1, le=3600)
     log_level: str = "INFO"
     json_logs: bool = False
+    metrics_endpoint_enabled: bool = True
     otel_exporter_otlp_endpoint: str | None = None
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
     trusted_hosts: list[str] = ["localhost", "127.0.0.1", "testserver"]
