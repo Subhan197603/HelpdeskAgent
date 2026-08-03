@@ -1,5 +1,6 @@
 """Typed application configuration with production safety checks."""
 
+from decimal import Decimal
 from enum import StrEnum
 from typing import Literal, Self
 from urllib.parse import urlsplit
@@ -109,6 +110,19 @@ class Settings(BaseSettings):
     )
     developer_identity_header: str = "X-Developer-User"
     ai_globally_enabled: bool = False
+    ai_provider_timeout_seconds: float = Field(default=30, ge=1, le=120)
+    ai_provider_max_attempts: int = Field(default=3, ge=1, le=5)
+    ai_circuit_failure_threshold: int = Field(default=5, ge=1, le=100)
+    ai_circuit_recovery_seconds: float = Field(default=60, ge=1, le=3600)
+    openai_api_endpoint: str = "https://api.openai.com/v1/responses"
+    openai_api_key: SecretStr | None = None
+    openai_model_aliases: dict[str, str] = Field(default_factory=dict)
+    anthropic_api_endpoint: str = "https://api.anthropic.com/v1/messages"
+    anthropic_api_key: SecretStr | None = None
+    anthropic_model_aliases: dict[str, str] = Field(default_factory=dict)
+    ai_model_input_cost_per_million: dict[str, Decimal] = Field(default_factory=dict)
+    ai_model_output_cost_per_million: dict[str, Decimal] = Field(default_factory=dict)
+    ai_cost_currency: str = "USD"
     oracle_document_acquisition_enabled: bool = False
     retrieval_max_results: int = Field(default=20, ge=1, le=50)
     retrieval_statement_timeout_ms: int = Field(default=1500, ge=50, le=30000)
@@ -149,6 +163,22 @@ class Settings(BaseSettings):
                 retrieval_errors.append("RETRIEVAL_RERANKER_ENDPOINT is required")
             if self.retrieval_reranker_api_key is None:
                 retrieval_errors.append("RETRIEVAL_RERANKER_API_KEY is required")
+        provider_errors: list[str] = []
+        if self.ai_globally_enabled:
+            if not self.openai_model_aliases and not self.anthropic_model_aliases:
+                provider_errors.append("at least one AI model alias is required")
+            if self.openai_model_aliases and self.openai_api_key is None:
+                provider_errors.append("OPENAI_API_KEY is required for OpenAI aliases")
+            if self.openai_model_aliases and not self.openai_api_endpoint.startswith("https://"):
+                provider_errors.append("OPENAI_API_ENDPOINT must use HTTPS")
+            if self.anthropic_model_aliases and self.anthropic_api_key is None:
+                provider_errors.append("ANTHROPIC_API_KEY is required for Anthropic aliases")
+            if self.anthropic_model_aliases and not self.anthropic_api_endpoint.startswith(
+                "https://"
+            ):
+                provider_errors.append("ANTHROPIC_API_ENDPOINT must use HTTPS")
+        if provider_errors:
+            raise ValueError("Invalid AI provider configuration: " + "; ".join(provider_errors))
         if retrieval_errors:
             raise ValueError(
                 "Invalid retrieval provider configuration: " + "; ".join(retrieval_errors)
@@ -224,6 +254,11 @@ class Settings(BaseSettings):
                 errors.append("RETRIEVAL_RERANKER_ENDPOINT must use HTTPS")
             if self.retrieval_reranker_api_key is None:
                 errors.append("RETRIEVAL_RERANKER_API_KEY is required")
+        if self.ai_globally_enabled:
+            if not self.openai_api_endpoint.startswith("https://"):
+                errors.append("OPENAI_API_ENDPOINT must use HTTPS")
+            if not self.anthropic_api_endpoint.startswith("https://"):
+                errors.append("ANTHROPIC_API_ENDPOINT must use HTTPS")
         if errors:
             raise ValueError("Unsafe production configuration: " + "; ".join(errors))
         return self
@@ -255,6 +290,23 @@ class Settings(BaseSettings):
         if not all(character.isalnum() or character == "-" for character in normalized):
             raise ValueError("DEVELOPER_IDENTITY_HEADER is not a valid HTTP header name")
         return normalized
+
+    @field_validator("ai_cost_currency")
+    @classmethod
+    def validate_ai_cost_currency(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if len(normalized) != 3 or not normalized.isalpha():
+            raise ValueError("AI_COST_CURRENCY must be a three-letter currency code")
+        return normalized
+
+    @field_validator("ai_model_input_cost_per_million", "ai_model_output_cost_per_million")
+    @classmethod
+    def validate_ai_cost_rates(cls, value: dict[str, Decimal]) -> dict[str, Decimal]:
+        if any(not alias.strip() or rate < 0 for alias, rate in value.items()):
+            raise ValueError(
+                "AI model cost rates require non-empty aliases and non-negative values"
+            )
+        return value
 
     @field_validator("oidc_provider_code")
     @classmethod

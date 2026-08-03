@@ -17,7 +17,7 @@
         "release_families": ["FUSION_APPLICATIONS"],
         "release_codes": ["26C"]
       },
-      "expected_top_external_key": "retrieval-apps-26c",
+      "expected_top_document_reference": "retrieval-apps-26c",
       "forbidden_external_keys": [
         "retrieval-fdi-26r2",
         "retrieval-analyst",
@@ -35,7 +35,7 @@
         "release_families": ["FUSION_DATA_INTELLIGENCE"],
         "release_codes": ["26.R2"]
       },
-      "expected_top_external_key": "retrieval-fdi-26r2",
+      "expected_top_document_reference": "retrieval-fdi-26r2",
       "forbidden_external_keys": [
         "retrieval-apps-26c",
         "retrieval-analyst",
@@ -53,7 +53,7 @@
         "release_families": ["FUSION_APPLICATIONS"],
         "release_codes": ["26C"]
       },
-      "expected_top_external_key": "retrieval-analyst",
+      "expected_top_document_reference": "retrieval-analyst",
       "forbidden_external_keys": [
         "retrieval-fdi-26r2",
         "retrieval-denied",
@@ -70,7 +70,7 @@
         "release_families": ["FUSION_APPLICATIONS"],
         "release_codes": ["26C"]
       },
-      "expected_top_external_key": "retrieval-apps-26c",
+      "expected_top_document_reference": "retrieval-apps-26c",
       "forbidden_external_keys": [
         "retrieval-analyst",
         "retrieval-denied",

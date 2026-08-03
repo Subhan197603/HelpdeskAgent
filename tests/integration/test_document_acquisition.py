@@ -1457,7 +1457,7 @@ def test_retrieval_regression_corpus_quality_acl_evidence_and_latency(
             assert evidence.evidence == (), case["case_id"]
         if case["case_id"] == "fusion-apps-26c-ap-error":
             assert evidence.evidence[0].components.exact_identifier_boost > 0
-        expected_key = case.get("expected_top_external_key")
+        expected_key = case.get("expected_top_document_reference")
         if expected_key is not None:
             expected = external_ids[str(expected_key)]
             assert expected in document_ids, case["case_id"]
