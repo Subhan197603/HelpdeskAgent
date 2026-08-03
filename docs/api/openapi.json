@@ -579,6 +579,42 @@
         "title": "CancellationResponse",
         "type": "object"
       },
+      "ClassifiedActivity": {
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body"
+          },
+          "classification": {
+            "enum": ["PUBLIC", "INTERNAL", "SYSTEM"],
+            "title": "Classification",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": ["id", "type", "classification", "body", "created_at"],
+        "title": "ClassifiedActivity",
+        "type": "object"
+      },
       "ConditionPredicate": {
         "additionalProperties": false,
         "properties": {
@@ -743,6 +779,155 @@
         },
         "required": ["id", "state", "stream_endpoint"],
         "title": "ConversationResponse",
+        "type": "object"
+      },
+      "CopilotAnalysisRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "focus": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Focus"
+          }
+        },
+        "title": "CopilotAnalysisRequest",
+        "type": "object"
+      },
+      "CopilotAnalysisResponse": {
+        "properties": {
+          "activity": {
+            "items": {
+              "$ref": "#/components/schemas/ClassifiedActivity"
+            },
+            "title": "Activity",
+            "type": "array"
+          },
+          "conversation_id": {
+            "format": "uuid",
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "internal_runbooks": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeEvidence"
+            },
+            "title": "Internal Runbooks",
+            "type": "array"
+          },
+          "oracle_documentation": {
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeEvidence"
+            },
+            "title": "Oracle Documentation",
+            "type": "array"
+          },
+          "recommendation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TechnicalRecommendation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "safety_notice": {
+            "title": "Safety Notice",
+            "type": "string"
+          },
+          "similar_tickets": {
+            "items": {
+              "$ref": "#/components/schemas/SimilarTicketEvidence"
+            },
+            "title": "Similar Tickets",
+            "type": "array"
+          },
+          "ticket": {
+            "$ref": "#/components/schemas/SafeTicketSummary"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/CopilotVersionCaptureResponse"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "ticket",
+          "activity",
+          "similar_tickets",
+          "internal_runbooks",
+          "oracle_documentation",
+          "recommendation",
+          "safety_notice",
+          "versions"
+        ],
+        "title": "CopilotAnalysisResponse",
+        "type": "object"
+      },
+      "CopilotVersionCaptureResponse": {
+        "properties": {
+          "agent_configuration_version_id": {
+            "format": "uuid",
+            "title": "Agent Configuration Version Id",
+            "type": "string"
+          },
+          "agent_run_id": {
+            "format": "uuid",
+            "title": "Agent Run Id",
+            "type": "string"
+          },
+          "knowledge_retrieval_configuration_version_id": {
+            "format": "uuid",
+            "title": "Knowledge Retrieval Configuration Version Id",
+            "type": "string"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "model_policy_version_id": {
+            "format": "uuid",
+            "title": "Model Policy Version Id",
+            "type": "string"
+          },
+          "prompt_version_id": {
+            "format": "uuid",
+            "title": "Prompt Version Id",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "retrieval_configuration_version_id": {
+            "format": "uuid",
+            "title": "Retrieval Configuration Version Id",
+            "type": "string"
+          },
+          "tool_set_version_id": {
+            "format": "uuid",
+            "title": "Tool Set Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_run_id",
+          "provider",
+          "model",
+          "agent_configuration_version_id",
+          "prompt_version_id",
+          "tool_set_version_id",
+          "model_policy_version_id",
+          "retrieval_configuration_version_id",
+          "knowledge_retrieval_configuration_version_id"
+        ],
+        "title": "CopilotVersionCaptureResponse",
         "type": "object"
       },
       "CurrentIdentityResponse": {
@@ -1636,6 +1821,17 @@
             "title": "Document Title",
             "type": "string"
           },
+          "document_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Type"
+          },
           "document_version_id": {
             "format": "uuid",
             "title": "Document Version Id",
@@ -1783,6 +1979,7 @@
           "document_version_id",
           "source_id",
           "document_title",
+          "document_type",
           "heading_path",
           "section_title",
           "section_anchor",
@@ -2349,6 +2546,69 @@
         "type": "object"
       },
       "JsonValue": {},
+      "KnowledgeEvidence": {
+        "properties": {
+          "canonical_uri": {
+            "title": "Canonical Uri",
+            "type": "string"
+          },
+          "citation_id": {
+            "title": "Citation Id",
+            "type": "string"
+          },
+          "excerpt": {
+            "title": "Excerpt",
+            "type": "string"
+          },
+          "kind": {
+            "enum": ["INTERNAL_RUNBOOK", "ORACLE_DOCUMENTATION"],
+            "title": "Kind",
+            "type": "string"
+          },
+          "release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "section": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "citation_id",
+          "kind",
+          "title",
+          "excerpt",
+          "canonical_uri",
+          "section",
+          "release",
+          "score"
+        ],
+        "title": "KnowledgeEvidence",
+        "type": "object"
+      },
       "ManifestApprovalCommand": {
         "properties": {
           "decision": {
@@ -4233,6 +4493,80 @@
         "title": "RunResponse",
         "type": "object"
       },
+      "SafeTicketSummary": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "project": {
+            "title": "Project",
+            "type": "string"
+          },
+          "request_type": {
+            "title": "Request Type",
+            "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "description",
+          "project",
+          "request_type",
+          "service",
+          "environment",
+          "status",
+          "priority"
+        ],
+        "title": "SafeTicketSummary",
+        "type": "object"
+      },
       "ServiceNodeListResponse": {
         "properties": {
           "items": {
@@ -4329,6 +4663,58 @@
           "data_classification"
         ],
         "title": "ServiceNodeResponse",
+        "type": "object"
+      },
+      "SimilarTicketEvidence": {
+        "properties": {
+          "citation_id": {
+            "title": "Citation Id",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "resolution_summary": {
+            "title": "Resolution Summary",
+            "type": "string"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "enum": ["RESOLVED", "CLOSED"],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "summary",
+          "resolution_summary",
+          "status",
+          "resolved_at",
+          "score",
+          "citation_id"
+        ],
+        "title": "SimilarTicketEvidence",
         "type": "object"
       },
       "SourceApprovalCommand": {
@@ -4958,6 +5344,30 @@
           "expected_version"
         ],
         "title": "SourceUpdate",
+        "type": "object"
+      },
+      "TechnicalRecommendation": {
+        "properties": {
+          "citation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Citation Ids",
+            "type": "array"
+          },
+          "classification": {
+            "const": "INFERENCE",
+            "default": "INFERENCE",
+            "title": "Classification",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": ["text", "citation_ids"],
+        "title": "TechnicalRecommendation",
         "type": "object"
       },
       "TicketPage": {
@@ -7970,6 +8380,111 @@
         ],
         "summary": "Add Analyst Comment",
         "tags": ["queues"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/copilot/analysis": {
+      "post": {
+        "operationId": "analyze_ticket_api_v1_agent_tickets__ticket_key__copilot_analysis_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopilotAnalysisRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopilotAnalysisResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Analyst copilot access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authorized ticket not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Copilot analysis conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI or retrieval unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Analyze Ticket",
+        "tags": ["analyst-copilot"]
       }
     },
     "/api/v1/agent/tickets/{ticket_key}/route": {
@@ -11569,6 +12084,10 @@
     {
       "description": "Authorized retrieval-first employee helpdesk conversations.",
       "name": "employee-assistant"
+    },
+    {
+      "description": "Analyst-only ticket analysis with authorized evidence.",
+      "name": "analyst-copilot"
     }
   ]
 }

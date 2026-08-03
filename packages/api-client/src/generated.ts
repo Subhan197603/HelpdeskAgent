@@ -363,6 +363,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/copilot/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Analyze Ticket */
+    post: operations["analyze_ticket_api_v1_agent_tickets__ticket_key__copilot_analysis_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/tickets/{ticket_key}/route": {
     parameters: {
       query?: never;
@@ -1234,6 +1251,25 @@ export interface components {
        */
       turn_id: string;
     };
+    /** ClassifiedActivity */
+    ClassifiedActivity: {
+      /** Body */
+      body: string | null;
+      /**
+       * Classification
+       * @enum {string}
+       */
+      classification: "PUBLIC" | "INTERNAL" | "SYSTEM";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Id */
+      id: string;
+      /** Type */
+      type: string;
+    };
     /** ConditionPredicate */
     ConditionPredicate: {
       /** Field */
@@ -1286,6 +1322,74 @@ export interface components {
       state: string;
       /** Stream Endpoint */
       stream_endpoint: string;
+    };
+    /** CopilotAnalysisRequest */
+    CopilotAnalysisRequest: {
+      /** Focus */
+      focus?: string | null;
+    };
+    /** CopilotAnalysisResponse */
+    CopilotAnalysisResponse: {
+      /** Activity */
+      activity: components["schemas"]["ClassifiedActivity"][];
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /** Internal Runbooks */
+      internal_runbooks: components["schemas"]["KnowledgeEvidence"][];
+      /** Oracle Documentation */
+      oracle_documentation: components["schemas"]["KnowledgeEvidence"][];
+      recommendation: components["schemas"]["TechnicalRecommendation"] | null;
+      /** Safety Notice */
+      safety_notice: string;
+      /** Similar Tickets */
+      similar_tickets: components["schemas"]["SimilarTicketEvidence"][];
+      ticket: components["schemas"]["SafeTicketSummary"];
+      versions: components["schemas"]["CopilotVersionCaptureResponse"];
+    };
+    /** CopilotVersionCaptureResponse */
+    CopilotVersionCaptureResponse: {
+      /**
+       * Agent Configuration Version Id
+       * Format: uuid
+       */
+      agent_configuration_version_id: string;
+      /**
+       * Agent Run Id
+       * Format: uuid
+       */
+      agent_run_id: string;
+      /**
+       * Knowledge Retrieval Configuration Version Id
+       * Format: uuid
+       */
+      knowledge_retrieval_configuration_version_id: string;
+      /** Model */
+      model: string;
+      /**
+       * Model Policy Version Id
+       * Format: uuid
+       */
+      model_policy_version_id: string;
+      /**
+       * Prompt Version Id
+       * Format: uuid
+       */
+      prompt_version_id: string;
+      /** Provider */
+      provider: string;
+      /**
+       * Retrieval Configuration Version Id
+       * Format: uuid
+       */
+      retrieval_configuration_version_id: string;
+      /**
+       * Tool Set Version Id
+       * Format: uuid
+       */
+      tool_set_version_id: string;
     };
     /** CurrentIdentityResponse */
     CurrentIdentityResponse: {
@@ -1612,6 +1716,8 @@ export interface components {
       document_id: string;
       /** Document Title */
       document_title: string;
+      /** Document Type */
+      document_type: string | null;
       /**
        * Document Version Id
        * Format: uuid
@@ -1869,6 +1975,28 @@ export interface components {
       status: "authorized";
     };
     JsonValue: unknown;
+    /** KnowledgeEvidence */
+    KnowledgeEvidence: {
+      /** Canonical Uri */
+      canonical_uri: string;
+      /** Citation Id */
+      citation_id: string;
+      /** Excerpt */
+      excerpt: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "INTERNAL_RUNBOOK" | "ORACLE_DOCUMENTATION";
+      /** Release */
+      release: string | null;
+      /** Score */
+      score: number;
+      /** Section */
+      section: string | null;
+      /** Title */
+      title: string;
+    };
     /** ManifestApprovalCommand */
     ManifestApprovalCommand: {
       /**
@@ -2628,6 +2756,27 @@ export interface components {
       /** Total Items */
       total_items: number;
     };
+    /** SafeTicketSummary */
+    SafeTicketSummary: {
+      /** Description */
+      description: string | null;
+      /** Environment */
+      environment: string | null;
+      /** Key */
+      key: string;
+      /** Priority */
+      priority: string;
+      /** Project */
+      project: string;
+      /** Request Type */
+      request_type: string;
+      /** Service */
+      service: string | null;
+      /** Status */
+      status: string;
+      /** Summary */
+      summary: string;
+    };
     /** ServiceNodeListResponse */
     ServiceNodeListResponse: {
       /** Items */
@@ -2662,6 +2811,26 @@ export interface components {
       node_type: string;
       /** Parent Id */
       parent_id: string | null;
+    };
+    /** SimilarTicketEvidence */
+    SimilarTicketEvidence: {
+      /** Citation Id */
+      citation_id: string;
+      /** Key */
+      key: string;
+      /** Resolution Summary */
+      resolution_summary: string;
+      /** Resolved At */
+      resolved_at: string | null;
+      /** Score */
+      score: number;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "RESOLVED" | "CLOSED";
+      /** Summary */
+      summary: string;
     };
     /** SourceApprovalCommand */
     SourceApprovalCommand: {
@@ -2902,6 +3071,19 @@ export interface components {
        * @enum {string}
        */
       status: "ACTIVE" | "DISABLED" | "RETIRED";
+    };
+    /** TechnicalRecommendation */
+    TechnicalRecommendation: {
+      /** Citation Ids */
+      citation_ids: string[];
+      /**
+       * Classification
+       * @default INFERENCE
+       * @constant
+       */
+      classification: "INFERENCE";
+      /** Text */
+      text: string;
     };
     /** TicketPage */
     TicketPage: {
@@ -4827,6 +5009,86 @@ export interface operations {
       };
       /** @description Query validation failed */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  analyze_ticket_api_v1_agent_tickets__ticket_key__copilot_analysis_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["CopilotAnalysisRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CopilotAnalysisResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Analyst copilot access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authorized ticket not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Copilot analysis conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI or retrieval unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };

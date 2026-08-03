@@ -112,6 +112,7 @@ def fuse_candidates(
                     source_authority_boost=authority_boost,
                     rerank=rerank,
                 ),
+                document_type=candidate.document_type,
             )
         )
     ordered = sorted(results, key=lambda item: (-item.score, str(item.chunk_id)))[:limit]

@@ -35,7 +35,7 @@ class RetrievalPrincipal:
 _ELIGIBLE_CTE = """
 WITH RECURSIVE eligible_documents AS MATERIALIZED (
   SELECT d.document_id,d.tenant_id,d.source_id,d.product_node_id,d.release_id,
-    d.document_title,d.language_code,s.source_type,s.canonical_location,
+    d.document_title,d.document_type,d.language_code,s.source_type,s.canonical_location,
     d.canonical_url,r.release_family,r.release_code,
     pn.product_code,pn.product_name,dv.document_version_id,
     dv.published_processing_version_id
@@ -114,7 +114,8 @@ WITH RECURSIVE eligible_documents AS MATERIALIZED (
   WHERE NOT parent.product_node_id=ANY(lineage.path)
 ), eligible_chunks AS NOT MATERIALIZED (
   SELECT chunk.chunk_id,chunk.document_version_id,eligible.document_id,
-    eligible.source_id,eligible.document_title,chunk.heading_path,chunk.section_title,
+    eligible.source_id,eligible.document_title,eligible.document_type,
+    chunk.heading_path,chunk.section_title,
     chunk.section_anchor,chunk.page_number,chunk.content_text,
     chunk.search_vector,eligible.language_code,eligible.release_family,
     eligible.release_code,
@@ -152,7 +153,7 @@ WITH RECURSIVE eligible_documents AS MATERIALIZED (
 """
 
 _COLUMNS = """
-  chunk_id,document_id,document_version_id,source_id,document_title,heading_path,
+  chunk_id,document_id,document_version_id,source_id,document_title,document_type,heading_path,
   content_text,language_code,release_family,release_code,product_code,product_name,
   module_code,module_name,source_type,canonical_uri,section_title,section_anchor,page_number
 """
@@ -359,6 +360,7 @@ class RetrievalRepository:
                 section_anchor=row.section_anchor,
                 page_number=row.page_number,
                 score=float(row.score),
+                document_type=row.document_type,
             )
             for rank, row in enumerate(rows, start=1)
         )

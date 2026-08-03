@@ -167,7 +167,9 @@ for employee_knowledge_role in (
         {Permission.KNOWLEDGE_READ_EMPLOYEE, Permission.AI_EMPLOYEE_USE}
     )
 for analyst_knowledge_role in ("PLATFORM_ADMIN", "SUPPORT_MANAGER", "AGENT"):
-    ROLE_PERMISSIONS[analyst_knowledge_role] |= frozenset({Permission.KNOWLEDGE_READ_ANALYST})
+    ROLE_PERMISSIONS[analyst_knowledge_role] |= frozenset(
+        {Permission.KNOWLEDGE_READ_ANALYST, Permission.AI_ANALYST_USE}
+    )
 ROLE_PERMISSIONS["APPROVER"] |= frozenset(
     {Permission.APPROVAL_READ_ASSIGNED, Permission.APPROVAL_DECIDE}
 )

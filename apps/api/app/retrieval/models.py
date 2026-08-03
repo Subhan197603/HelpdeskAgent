@@ -56,6 +56,7 @@ class RetrievalCandidate:
     section_anchor: str | None
     page_number: int | None
     score: float
+    document_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -114,6 +115,7 @@ class RetrievalEvidence:
     page_number: int | None
     score: float
     components: ScoreComponents
+    document_type: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

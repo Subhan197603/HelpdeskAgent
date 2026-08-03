@@ -62,6 +62,7 @@ async def search_evidence(
                 document_version_id=item.document_version_id,
                 source_id=item.source_id,
                 document_title=item.document_title,
+                document_type=item.document_type,
                 heading_path=item.heading_path,
                 section_title=item.section_title,
                 section_anchor=item.section_anchor,

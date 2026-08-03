@@ -11,6 +11,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from apps.api.app.ai.registry import ProviderRegistry
 from apps.api.app.ai.resilience import CircuitBreaker, ResilientProviderExecutor
 from apps.api.app.ai.service import AIGateway
+from apps.api.app.analyst_copilot.service import AnalystCopilotService
 from apps.api.app.api.router import api_router
 from apps.api.app.approvals.service import ApprovalService
 from apps.api.app.attachments.clamav import ClamAVScanner
@@ -121,6 +122,10 @@ def create_app(
                 "name": "employee-assistant",
                 "description": "Authorized retrieval-first employee helpdesk conversations.",
             },
+            {
+                "name": "analyst-copilot",
+                "description": "Analyst-only ticket analysis with authorized evidence.",
+            },
         ],
     )
     app.state.settings = settings
@@ -213,6 +218,14 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
     )
     app.state.queue_service = QueueService(unit_of_work_factory, app.state.authorization_service)
+    app.state.analyst_copilot_service = AnalystCopilotService(
+        unit_of_work_factory,
+        app.state.authorization_service,
+        app.state.ticket_service,
+        app.state.queue_service,
+        app.state.retrieval_service,
+        app.state.ai_gateway,
+    )
     app.state.attachment_service = AttachmentService(
         unit_of_work_factory,
         app.state.authorization_service,

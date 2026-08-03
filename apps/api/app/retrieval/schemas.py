@@ -41,6 +41,7 @@ class EvidenceItem(BaseModel):
     document_version_id: UUID
     source_id: UUID
     document_title: str
+    document_type: str | None
     heading_path: str | None
     section_title: str | None
     section_anchor: str | None
