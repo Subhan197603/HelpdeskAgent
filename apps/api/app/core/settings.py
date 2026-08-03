@@ -123,6 +123,13 @@ class Settings(BaseSettings):
     ai_model_input_cost_per_million: dict[str, Decimal] = Field(default_factory=dict)
     ai_model_output_cost_per_million: dict[str, Decimal] = Field(default_factory=dict)
     ai_cost_currency: str = "USD"
+    ai_agent_turn_timeout_seconds: float = Field(default=45, ge=1, le=180)
+    ai_cancellation_poll_seconds: float = Field(default=0.5, ge=0.1, le=5)
+    ai_conversation_max_messages: int = Field(default=20, ge=2, le=100)
+    ai_conversation_max_context_characters: int = Field(default=24_000, ge=1000, le=100_000)
+    ai_employee_max_evidence: int = Field(default=5, ge=1, le=12)
+    ai_employee_minimum_evidence_score: float = Field(default=0.01, ge=0, le=10)
+    ai_stream_chunk_characters: int = Field(default=120, ge=20, le=1000)
     oracle_document_acquisition_enabled: bool = False
     retrieval_max_results: int = Field(default=20, ge=1, le=50)
     retrieval_statement_timeout_ms: int = Field(default=1500, ge=50, le=30000)

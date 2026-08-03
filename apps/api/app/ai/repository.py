@@ -24,7 +24,7 @@ _EFFECTIVE_POLICY = text(
     """
     WITH configuration AS (
       SELECT ac.agent_configuration_id, acv.agent_configuration_version_id,
-             acv.prompt_version_id, acv.tool_set_version_id,
+             acv.prompt_version_id, pv.prompt_text, acv.tool_set_version_id,
              acv.retrieval_configuration_version_id, acv.model_policy_version_id,
              mpv.provider_alias, mpv.model_alias,
              mpv.fallback_provider_alias, mpv.fallback_model_alias
@@ -33,13 +33,18 @@ _EFFECTIVE_POLICY = text(
         ON acv.agent_configuration_id = ac.agent_configuration_id
       JOIN ai.model_policy_version mpv
         ON mpv.model_policy_version_id = acv.model_policy_version_id
+      JOIN ai.prompt_version pv
+        ON pv.prompt_version_id = acv.prompt_version_id
       WHERE ac.agent_code = :agent_code
         AND ac.active_flag
         AND (ac.tenant_id IS NULL OR ac.tenant_id = :tenant_id)
         AND acv.version_status = 'PUBLISHED'
         AND mpv.version_status = 'PUBLISHED'
+        AND pv.version_status = 'PUBLISHED'
         AND COALESCE(acv.effective_from, '-infinity') <= now()
         AND COALESCE(acv.effective_to, 'infinity') > now()
+        AND COALESCE(pv.effective_from, '-infinity') <= now()
+        AND COALESCE(pv.effective_to, 'infinity') > now()
       ORDER BY (ac.tenant_id IS NOT NULL) DESC, acv.version_number DESC
       LIMIT 1
     ), applicable AS (
@@ -169,6 +174,7 @@ class AIRepository:
             agent_configuration_id=row["agent_configuration_id"],
             agent_configuration_version_id=row["agent_configuration_version_id"],
             prompt_version_id=row["prompt_version_id"],
+            prompt_text=row["prompt_text"],
             tool_set_version_id=row["tool_set_version_id"],
             retrieval_configuration_version_id=row["retrieval_configuration_version_id"],
             model_policy_version_id=row["model_policy_version_id"],

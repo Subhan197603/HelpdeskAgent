@@ -379,6 +379,7 @@ def test_gateway_records_policy_versions_and_configured_cost(
         agent_configuration_id=identifiers[1],
         agent_configuration_version_id=identifiers[2],
         prompt_version_id=identifiers[3],
+        prompt_text="Versioned employee instruction.",
         tool_set_version_id=identifiers[4],
         retrieval_configuration_version_id=identifiers[5],
         model_policy_version_id=identifiers[6],

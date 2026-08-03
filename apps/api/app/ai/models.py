@@ -43,6 +43,12 @@ class LLMResult:
 
 
 @dataclass(frozen=True, slots=True)
+class AIGeneration:
+    agent_run_id: UUID
+    result: LLMResult
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderRequest:
     instructions: str
     messages: tuple[dict[str, Any], ...]
@@ -57,6 +63,7 @@ class EffectiveAIPolicy:
     agent_configuration_id: UUID
     agent_configuration_version_id: UUID
     prompt_version_id: UUID
+    prompt_text: str
     tool_set_version_id: UUID
     retrieval_configuration_version_id: UUID
     model_policy_version_id: UUID

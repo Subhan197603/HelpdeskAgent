@@ -8,7 +8,7 @@ from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
-from apps.api.app.ai.models import LLMResult, ProviderRequest, ToolResult
+from apps.api.app.ai.models import AIGeneration, LLMResult, ProviderRequest, ToolResult
 from apps.api.app.ai.providers import ProviderError
 from apps.api.app.ai.registry import ProviderRegistry, UnknownProviderAliasError
 from apps.api.app.ai.repository import (
@@ -54,6 +54,26 @@ class AIGateway:
         request: ProviderRequest,
         environment_id: UUID | None = None,
     ) -> LLMResult:
+        generation = await self.generate_with_run(
+            context,
+            conversation_id=conversation_id,
+            agent_code=agent_code,
+            use_case_code=use_case_code,
+            request=request,
+            environment_id=environment_id,
+        )
+        return generation.result
+
+    async def generate_with_run(
+        self,
+        context: RequestContext,
+        *,
+        conversation_id: UUID,
+        agent_code: str,
+        use_case_code: str,
+        request: ProviderRequest,
+        environment_id: UUID | None = None,
+    ) -> AIGeneration:
         if not self._settings.ai_globally_enabled:
             raise AIDisabledError("AI is disabled; use the deterministic ticketing workflow.")
         try:
@@ -67,9 +87,14 @@ class AIGateway:
                 )
                 if not policy.budget_remaining:
                     raise AIPolicyDisabledError("AI budget hard stop reached")
+                governed_request = replace(
+                    request,
+                    instructions=f"{policy.prompt_text}\n\n{request.instructions}",
+                    maximum_output_tokens=policy.maximum_output_tokens,
+                )
                 if (
                     policy.maximum_input_tokens is not None
-                    and _conservative_input_units(request) > policy.maximum_input_tokens
+                    and _conservative_input_units(governed_request) > policy.maximum_input_tokens
                 ):
                     raise AIPolicyDisabledError("AI input limit exceeded")
                 if len(request.tools) > policy.maximum_tool_calls:
@@ -80,9 +105,6 @@ class AIGateway:
                     fallback = self._providers.resolve(
                         policy.fallback_provider_alias, policy.fallback_model_alias
                     )
-                bounded_request = replace(
-                    request, maximum_output_tokens=policy.maximum_output_tokens
-                )
                 run_id = await repository.start_run(context, conversation_id, policy)
                 await uow.commit()
         except (AIPolicyDisabledError, AIPolicyUnavailableError) as error:
@@ -91,7 +113,7 @@ class AIGateway:
             raise AIDisabledError("AI provider policy is not deployed.") from error
         started = time.monotonic()
         try:
-            result = await self._executor.generate(primary, bounded_request, fallback=fallback)
+            result = await self._executor.generate(primary, governed_request, fallback=fallback)
             allowed_models = {(policy.provider_alias, policy.model_alias)}
             if policy.fallback_provider_alias and policy.fallback_model_alias:
                 allowed_models.add((policy.fallback_provider_alias, policy.fallback_model_alias))
@@ -134,7 +156,7 @@ class AIGateway:
                 context, run_id, policy, result, latency_ms=latency_ms
             )
             await uow.commit()
-        return result
+        return AIGeneration(run_id, result)
 
 
 class AuthorizedToolService:

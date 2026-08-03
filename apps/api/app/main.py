@@ -8,6 +8,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from apps.api.app.ai.registry import ProviderRegistry
+from apps.api.app.ai.resilience import CircuitBreaker, ResilientProviderExecutor
+from apps.api.app.ai.service import AIGateway
 from apps.api.app.api.router import api_router
 from apps.api.app.approvals.service import ApprovalService
 from apps.api.app.attachments.clamav import ClamAVScanner
@@ -21,6 +24,7 @@ from apps.api.app.core.problem_details import install_exception_handlers
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.engine import Database
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
+from apps.api.app.employee_agent.service import EmployeeAgentService
 from apps.api.app.identity.authorization import AuthorizationService
 from apps.api.app.identity.oidc import AuthenticationMetrics, OidcProviderClient, OidcTokenValidator
 from apps.api.app.identity.oidc_service import OidcIdentityService
@@ -113,6 +117,10 @@ def create_app(
                 "name": "knowledge-evidence",
                 "description": "Authorized hybrid retrieval with canonical evidence.",
             },
+            {
+                "name": "employee-assistant",
+                "description": "Authorized retrieval-first employee helpdesk conversations.",
+            },
         ],
     )
     app.state.settings = settings
@@ -173,6 +181,26 @@ def create_app(
         settings,
         _embedding_provider(settings),
         _reranking_provider(settings),
+    )
+    app.state.ai_gateway = AIGateway(
+        unit_of_work_factory,
+        settings,
+        ProviderRegistry(settings),
+        ResilientProviderExecutor(
+            timeout_seconds=settings.ai_provider_timeout_seconds,
+            maximum_attempts=settings.ai_provider_max_attempts,
+            circuit_breaker=CircuitBreaker(
+                settings.ai_circuit_failure_threshold,
+                settings.ai_circuit_recovery_seconds,
+            ),
+        ),
+    )
+    app.state.employee_agent_service = EmployeeAgentService(
+        unit_of_work_factory,
+        app.state.authorization_service,
+        app.state.retrieval_service,
+        app.state.ai_gateway,
+        settings,
     )
     app.state.ingestion_service = IngestionService(
         unit_of_work_factory,
