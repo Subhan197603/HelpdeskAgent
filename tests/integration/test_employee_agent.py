@@ -254,6 +254,8 @@ def test_owned_turn_lifecycle_active_turn_guard_and_cross_user_isolation() -> No
 
 @pytest.mark.integration
 def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
+    _migrate("downgrade", "0019_analyst_feedback")
+    assert _psql("SELECT to_regnamespace('reporting')") == ""
     _migrate("downgrade", "0018_agent_escalation")
     assert (
         _psql(
@@ -281,7 +283,8 @@ def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
         )
         == "1"
     )
-    assert _psql("SELECT version_num FROM config.alembic_version") == "0019_analyst_feedback"
+    assert _psql("SELECT to_regnamespace('reporting')") == "reporting"
+    assert _psql("SELECT version_num FROM config.alembic_version") == "0020_reporting_views"
 
 
 def _api_settings() -> Settings:

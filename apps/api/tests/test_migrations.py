@@ -40,6 +40,7 @@ def test_alembic_configuration_and_linear_history_load() -> None:
     script = ScriptDirectory.from_config(config)
     revisions = list(script.walk_revisions())
     assert [revision.revision for revision in revisions] == [
+        "0020_reporting_views",
         "0019_analyst_feedback",
         "0018_agent_escalation",
         "0017_employee_agent",
@@ -61,7 +62,7 @@ def test_alembic_configuration_and_linear_history_load() -> None:
         "0001_migration_metadata",
         BASELINE_MARKER,
     ]
-    assert script.get_heads() == ["0019_analyst_feedback"]
+    assert script.get_heads() == ["0020_reporting_views"]
     assert config.get_main_option("sqlalchemy.url") is None
     assert VERSION_TABLE_SCHEMA == "config"
 
@@ -100,7 +101,10 @@ def test_offline_sql_contains_only_alembic_owned_changes_and_no_secret() -> None
     assert "COMMENT ON TABLE config.alembic_version" in output
     assert "CREATE TABLE itsm.ticket (" not in output
     assert "CREATE TABLE itsm.ticket_draft" in output
-    assert "CREATE SCHEMA" not in output
+    baseline_schemas = ("identity", "config", "itsm", "kb", "ai", "audit", "integration", "util")
+    for schema in baseline_schemas:
+        assert f"CREATE SCHEMA {schema}" not in output
+    assert "CREATE SCHEMA reporting" in output
     assert "offline-secret" not in output
 
 
