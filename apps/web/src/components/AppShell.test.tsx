@@ -13,7 +13,7 @@ vi.mock("../lib/api", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../lib/api")>();
   return {
     ...actual,
-    apiClient: () => ({
+    sessionApiClient: () => ({
       GET: () =>
         Promise.resolve({
           data: {

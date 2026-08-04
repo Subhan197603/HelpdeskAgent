@@ -14,9 +14,32 @@ from apps.api.app.dependencies.request_context import (
 from apps.api.app.identity.authorization import AuthorizationService, Permission
 from apps.api.app.identity.models import AuthenticatedIdentity
 from apps.api.app.identity.oidc import AuthenticationMetrics
-from apps.api.app.identity.schemas import CurrentIdentityResponse, IdentityDiagnosticResponse
+from apps.api.app.identity.schemas import (
+    AuthConfigurationResponse,
+    CurrentIdentityResponse,
+    IdentityDiagnosticResponse,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["identity"])
+
+
+@router.get("/auth/configuration", response_model=AuthConfigurationResponse)
+async def auth_configuration(request: Request) -> AuthConfigurationResponse:
+    """Public, non-secret configuration the browser needs to choose a sign-in mode."""
+    settings: Settings = request.app.state.settings
+
+    def configured(value: str | None) -> str | None:
+        return value if value else None
+
+    return AuthConfigurationResponse(
+        oidc_enabled=settings.oidc_enabled,
+        issuer_url=configured(settings.oidc_issuer_url),
+        client_id=configured(settings.oidc_public_client_id) or configured(settings.oidc_client_id),
+        audience=configured(settings.oidc_audience),
+        redirect_uri=configured(settings.oidc_redirect_uri),
+        scopes=settings.oidc_scopes,
+        developer_identity_enabled=settings.developer_identity_enabled,
+    )
 
 
 async def require_identity_diagnostics_enabled(request: Request) -> None:

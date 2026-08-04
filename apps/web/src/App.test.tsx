@@ -3,12 +3,52 @@ import type { components } from "@fusion-helpdesk/api-client";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DynamicField, LoginPage } from "./App";
 import { ErrorSummary } from "./components/States";
 import { ApiProblem } from "./lib/api";
+import type { AuthConfiguration } from "./lib/auth/oidc";
 import { SessionProvider } from "./lib/session";
+
+function stubAuthConfiguration(overrides: Partial<AuthConfiguration> = {}) {
+  const configuration: AuthConfiguration = {
+    oidc_enabled: false,
+    issuer_url: null,
+    client_id: null,
+    audience: null,
+    redirect_uri: null,
+    scopes: "openid profile email",
+    developer_identity_enabled: true,
+    ...overrides,
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(configuration), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      ),
+    ),
+  );
+}
+
+function renderLogin() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <SessionProvider>
+        <MemoryRouter>
+          <LoginPage />
+        </MemoryRouter>
+      </SessionProvider>
+    </QueryClientProvider>,
+  );
+}
 
 type FormField = components["schemas"]["FormFieldResponse"];
 
@@ -33,6 +73,10 @@ function field(overrides: Partial<FormField> = {}): FormField {
     ...overrides,
   };
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("dynamic request fields", () => {
   it("renders published labels, help text, options, and required state", async () => {
@@ -112,22 +156,12 @@ describe("portal state handling", () => {
   });
 
   it("offers both development personas and enters the employee portal", async () => {
+    stubAuthConfiguration({ developer_identity_enabled: true });
     const user = userEvent.setup();
-    const client = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
-    render(
-      <QueryClientProvider client={client}>
-        <SessionProvider>
-          <MemoryRouter>
-            <LoginPage />
-          </MemoryRouter>
-        </SessionProvider>
-      </QueryClientProvider>,
-    );
+    renderLogin();
 
     expect(
-      screen.getByRole("button", { name: /continue as analyst/i }),
+      await screen.findByRole("button", { name: /continue as analyst/i }),
     ).toBeVisible();
     await user.click(
       screen.getByRole("button", { name: /continue as employee/i }),
@@ -135,5 +169,46 @@ describe("portal state handling", () => {
     expect(localStorage.getItem("fusion-helpdesk-session")).toContain(
       "DEV/customer",
     );
+  });
+});
+
+describe("production sign-in modes", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it("shows only single sign-on when developer identity is disabled", async () => {
+    stubAuthConfiguration({
+      developer_identity_enabled: false,
+      oidc_enabled: true,
+      issuer_url: "https://idp.example.test",
+      client_id: "spa-client",
+      redirect_uri: "https://app.example.test/auth/callback",
+    });
+    renderLogin();
+
+    expect(
+      await screen.findByRole("button", { name: /sign in/i }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /continue as employee/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /continue as analyst/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/development identity mode/i)).toBeNull();
+  });
+
+  it("reports when no sign-in method is configured", async () => {
+    stubAuthConfiguration({
+      developer_identity_enabled: false,
+      oidc_enabled: false,
+    });
+    renderLogin();
+
+    expect(
+      await screen.findByText(/no sign-in method is configured/i),
+    ).toBeVisible();
   });
 });

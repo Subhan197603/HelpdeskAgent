@@ -12,6 +12,7 @@ import {
   Navigate,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -33,8 +34,9 @@ import {
   TicketMetadata,
   TicketSidePanel,
 } from "./components/Tickets";
-import { apiClient, newIdempotencyKey, unwrap } from "./lib/api";
-import { type Persona, useSession } from "./lib/session";
+import { newIdempotencyKey, sessionApiClient, unwrap } from "./lib/api";
+import { beginLogin, completeLogin, sanitizeReturnTo } from "./lib/auth/oidc";
+import { type Persona, sessionHome, useSession } from "./lib/session";
 
 type FormField = components["schemas"]["FormFieldResponse"];
 type RequestForm = components["schemas"]["RequestFormResponse"];
@@ -43,20 +45,25 @@ type FieldValue = string | string[] | boolean;
 
 function RequireSession({ children }: { children: ReactNode }) {
   const { session } = useSession();
-  return session ? children : <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (session) return children;
+  return (
+    <Navigate replace state={{ returnTo: location.pathname }} to="/login" />
+  );
 }
 
 export function LoginPage() {
-  const { session, signIn } = useSession();
+  const { session, signIn, authConfiguration, reloadAuthConfiguration } =
+    useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
-  if (session) {
-    return (
-      <Navigate
-        to={session.persona === "analyst" ? "/agent/tickets" : "/portal"}
-      />
-    );
-  }
+  const [ssoError, setSsoError] = useState(false);
+  const [ssoPending, setSsoPending] = useState(false);
+  if (session) return <Navigate to={sessionHome(session)} />;
+  const returnTo = sanitizeReturnTo(
+    (location.state as { returnTo?: string } | null)?.returnTo,
+  );
   const enter = (persona: Persona) => {
     queryClient.clear();
     signIn({
@@ -64,6 +71,15 @@ export function LoginPage() {
       identity: persona === "analyst" ? "DEV/agent" : "DEV/customer",
     });
     navigate(persona === "analyst" ? "/agent/tickets" : "/portal");
+  };
+  const startSso = () => {
+    if (!authConfiguration) return;
+    setSsoError(false);
+    setSsoPending(true);
+    beginLogin(authConfiguration, returnTo).catch(() => {
+      setSsoPending(false);
+      setSsoError(true);
+    });
   };
   return (
     <div className="login-page">
@@ -74,28 +90,116 @@ export function LoginPage() {
           Browse configured services, submit a request, or continue work in the
           analyst workspace.
         </p>
-        <div className="login-actions">
-          <button
-            className="button primary"
-            onClick={() => {
-              enter("employee");
-            }}
-            type="button"
-          >
-            Continue as employee
-          </button>
-          <button
-            className="button secondary"
-            onClick={() => {
-              enter("analyst");
-            }}
-            type="button"
-          >
-            Continue as analyst
-          </button>
-        </div>
-        <p className="development-note">Development identity mode</p>
+        {authConfiguration === undefined && (
+          <StatusPanel>Preparing sign-in…</StatusPanel>
+        )}
+        {authConfiguration === null && (
+          <div role="alert">
+            <p>The sign-in configuration could not be loaded.</p>
+            <button
+              className="button secondary"
+              onClick={reloadAuthConfiguration}
+              type="button"
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        {authConfiguration && (
+          <div className="login-actions">
+            {authConfiguration.oidc_enabled && (
+              <button
+                className="button primary"
+                disabled={ssoPending}
+                onClick={startSso}
+                type="button"
+              >
+                {ssoPending ? "Redirecting…" : "Sign in"}
+              </button>
+            )}
+            {authConfiguration.developer_identity_enabled && (
+              <>
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    enter("employee");
+                  }}
+                  type="button"
+                >
+                  Continue as employee
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => {
+                    enter("analyst");
+                  }}
+                  type="button"
+                >
+                  Continue as analyst
+                </button>
+              </>
+            )}
+            {!authConfiguration.oidc_enabled &&
+              !authConfiguration.developer_identity_enabled && (
+                <p role="alert">
+                  No sign-in method is configured. Contact your administrator.
+                </p>
+              )}
+          </div>
+        )}
+        {ssoError && (
+          <p role="alert">
+            Sign-in could not start. Check your connection and try again.
+          </p>
+        )}
+        {authConfiguration?.developer_identity_enabled && (
+          <p className="development-note">Development identity mode</p>
+        )}
       </section>
+    </div>
+  );
+}
+
+export function AuthCallbackPage() {
+  const { authConfiguration, completeOidcSession } = useSession();
+  const navigate = useNavigate();
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!authConfiguration) return;
+    const params = new URLSearchParams(window.location.search);
+    let active = true;
+    completeLogin(authConfiguration, params)
+      .then(({ returnTo }) => {
+        if (!active) return;
+        completeOidcSession();
+        navigate(returnTo, { replace: true });
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authConfiguration, completeOidcSession, navigate]);
+  if (authConfiguration === null || failed) {
+    return (
+      <div className="login-page">
+        <section className="login-panel" aria-labelledby="callback-heading">
+          <h1 id="callback-heading">Sign-in could not complete</h1>
+          <p role="alert">
+            The sign-in response was rejected. Start again from the sign-in
+            page.
+          </p>
+          <Link className="button primary" to="/login">
+            Return to sign in
+          </Link>
+        </section>
+      </div>
+    );
+  }
+  return (
+    <div className="login-page">
+      <StatusPanel>Completing sign-in…</StatusPanel>
     </div>
   );
 }
@@ -195,7 +299,7 @@ function PortalHome() {
 
 function useIdentityClient() {
   const { session } = useSession();
-  return useMemo(() => apiClient(session?.identity ?? ""), [session?.identity]);
+  return useMemo(() => sessionApiClient(session), [session]);
 }
 
 function CataloguePage() {
@@ -1109,6 +1213,7 @@ export function App() {
     <AppShell>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/" element={<Navigate to="/portal" replace />} />
         <Route
           path="/portal"

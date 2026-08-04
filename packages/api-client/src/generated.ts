@@ -687,6 +687,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/auth/configuration": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Auth Configuration
+     * @description Public, non-secret configuration the browser needs to choose a sign-in mode.
+     */
+    get: operations["auth_configuration_api_v1_auth_configuration_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/catalog/projects": {
     parameters: {
       query?: never;
@@ -1306,6 +1326,26 @@ export interface components {
       /** Routing Rule Version Id */
       routing_rule_version_id?: string | null;
       ticket: components["schemas"]["TicketResponse"];
+    };
+    /**
+     * AuthConfigurationResponse
+     * @description Non-secret authentication bootstrap configuration for browser clients.
+     */
+    AuthConfigurationResponse: {
+      /** Audience */
+      audience: string | null;
+      /** Client Id */
+      client_id: string | null;
+      /** Developer Identity Enabled */
+      developer_identity_enabled: boolean;
+      /** Issuer Url */
+      issuer_url: string | null;
+      /** Oidc Enabled */
+      oidc_enabled: boolean;
+      /** Redirect Uri */
+      redirect_uri: string | null;
+      /** Scopes */
+      scopes: string;
     };
     /** AvailableTransition */
     AvailableTransition: {
@@ -6865,6 +6905,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  auth_configuration_api_v1_auth_configuration_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuthConfigurationResponse"];
         };
       };
     };

@@ -6,6 +6,18 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class AuthConfigurationResponse(BaseModel):
+    """Non-secret authentication bootstrap configuration for browser clients."""
+
+    oidc_enabled: bool
+    issuer_url: str | None
+    client_id: str | None
+    audience: str | None
+    redirect_uri: str | None
+    scopes: str
+    developer_identity_enabled: bool
+
+
 class CurrentIdentityResponse(BaseModel):
     user_id: UUID
     tenant_id: UUID

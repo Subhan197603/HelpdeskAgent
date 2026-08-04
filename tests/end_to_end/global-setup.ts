@@ -62,4 +62,37 @@ export default function globalSetup(): void {
       `/development/${fixture}`,
     );
   }
+
+  // Bind the stub identity provider's subject to the development agent so the
+  // OIDC sign-in end-to-end test authenticates against real validation.
+  dockerCompose(
+    "exec",
+    "-T",
+    "postgres",
+    "psql",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-U",
+    "postgres",
+    "-d",
+    "helpdesk",
+    "-c",
+    `INSERT INTO identity.oidc_tenant_mapping(
+       oidc_tenant_mapping_id, tenant_id, provider_code, trusted_issuer,
+       organization_claim_value
+     ) VALUES (
+       '24000000-0000-0000-0000-0000000000e1',
+       '20000000-0000-0000-0000-000000000001',
+       'TEST_OIDC', 'http://127.0.0.1:59180', NULL
+     ) ON CONFLICT DO NOTHING;
+     INSERT INTO identity.external_identity(
+       external_identity_id, tenant_id, oidc_tenant_mapping_id,
+       user_id, external_subject
+     ) VALUES (
+       '25000000-0000-0000-0000-0000000000e1',
+       '20000000-0000-0000-0000-000000000001',
+       '24000000-0000-0000-0000-0000000000e1',
+       '22000000-0000-0000-0000-000000000004', 'oidc-agent'
+     ) ON CONFLICT DO NOTHING;`,
+  );
 }

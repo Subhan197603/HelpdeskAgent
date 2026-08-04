@@ -11,7 +11,7 @@ import {
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
-import { apiClient, unwrap } from "../lib/api";
+import { ApiProblem, sessionApiClient, unwrap } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Icon, type IconName } from "./Icon";
 import { ErrorState, LoadingSkeleton, UnauthorizedState } from "./States";
@@ -275,20 +275,31 @@ function TopBar({
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { session } = useSession();
+  const { session, signOut } = useSession();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("helpdesk-sidebar-collapsed") === "true",
   );
   const [mobileOpen, setMobileOpen] = useState(false);
-  const client = useMemo(
-    () => apiClient(session?.identity ?? ""),
-    [session?.identity],
-  );
+  const client = useMemo(() => sessionApiClient(session), [session]);
   const identity = useQuery({
     enabled: Boolean(session),
-    queryKey: ["current-identity", session?.identity],
+    queryKey: [
+      "current-identity",
+      session?.mode,
+      session?.mode === "developer" ? session.identity : "oidc",
+    ],
     queryFn: async () => unwrap(await client.GET("/api/v1/me")),
   });
+  const sessionExpired =
+    Boolean(session) &&
+    identity.error instanceof ApiProblem &&
+    identity.error.status === 401;
+  useEffect(() => {
+    if (!sessionExpired) return;
+    signOut();
+    navigate("/login", { replace: true });
+  }, [sessionExpired, signOut, navigate]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMobileOpen(false);

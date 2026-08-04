@@ -1,5 +1,8 @@
 import { createHelpdeskClient } from "@fusion-helpdesk/api-client";
 
+import { getAccessToken } from "./auth/oidc";
+import type { Session } from "./session";
+
 export const apiBaseUrl =
   import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
@@ -18,6 +21,18 @@ export class ApiProblem extends Error {
 
 export function apiClient(identity: string) {
   return createHelpdeskClient({ baseUrl: apiBaseUrl, identity });
+}
+
+export function sessionApiClient(session: Session | null) {
+  if (session?.mode === "developer")
+    return createHelpdeskClient({
+      baseUrl: apiBaseUrl,
+      identity: session.identity,
+    });
+  return createHelpdeskClient({
+    baseUrl: apiBaseUrl,
+    auth: { mode: "bearer", getToken: getAccessToken },
+  });
 }
 
 export function unwrap<T>(result: {

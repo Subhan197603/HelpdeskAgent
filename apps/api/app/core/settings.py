@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     oidc_audience: str | None = None
     oidc_client_id: str | None = None
     oidc_client_secret: SecretStr | None = None
+    oidc_public_client_id: str | None = None
+    oidc_redirect_uri: str | None = None
+    oidc_scopes: str = "openid profile email"
     oidc_allowed_algorithms: list[str] = ["RS256"]
     oidc_discovery_timeout_seconds: float = Field(default=5.0, gt=0, le=30)
     oidc_jwks_cache_seconds: int = Field(default=3600, ge=60, le=86400)

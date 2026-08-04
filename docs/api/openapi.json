@@ -497,6 +497,78 @@
         "title": "AssignmentResponse",
         "type": "object"
       },
+      "AuthConfigurationResponse": {
+        "description": "Non-secret authentication bootstrap configuration for browser clients.",
+        "properties": {
+          "audience": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audience"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "developer_identity_enabled": {
+            "title": "Developer Identity Enabled",
+            "type": "boolean"
+          },
+          "issuer_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer Url"
+          },
+          "oidc_enabled": {
+            "title": "Oidc Enabled",
+            "type": "boolean"
+          },
+          "redirect_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect Uri"
+          },
+          "scopes": {
+            "title": "Scopes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "oidc_enabled",
+          "issuer_url",
+          "client_id",
+          "audience",
+          "redirect_uri",
+          "scopes",
+          "developer_identity_enabled"
+        ],
+        "title": "AuthConfigurationResponse",
+        "type": "object"
+      },
       "AvailableTransition": {
         "properties": {
           "code": {
@@ -10980,6 +11052,26 @@
         ],
         "summary": "Finalize Upload",
         "tags": ["attachments"]
+      }
+    },
+    "/api/v1/auth/configuration": {
+      "get": {
+        "description": "Public, non-secret configuration the browser needs to choose a sign-in mode.",
+        "operationId": "auth_configuration_api_v1_auth_configuration_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthConfigurationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auth Configuration",
+        "tags": ["identity"]
       }
     },
     "/api/v1/catalog/projects": {
