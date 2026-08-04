@@ -81,6 +81,19 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const reloadAuthConfiguration = useCallback(() => {
     setConfigurationAttempt((value) => value + 1);
   }, []);
+  // A stored developer session is only valid while the server still allows
+  // developer identity; after a posture change (staging/production) the stale
+  // session would dead-end on rejected requests, so clear it from server truth.
+  useEffect(() => {
+    if (
+      authConfiguration &&
+      !authConfiguration.developer_identity_enabled &&
+      session?.mode === "developer"
+    ) {
+      localStorage.removeItem(storageKey);
+      setSession(null);
+    }
+  }, [authConfiguration, session]);
   const value = useMemo<SessionContextValue>(
     () => ({
       session,

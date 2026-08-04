@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SessionProvider } from "../lib/session";
 import { AppShell } from "./AppShell";
@@ -64,6 +64,29 @@ describe("application shell", () => {
       "TICKET_DRAFT_CREATE",
       "TICKET_READ_OWN",
     ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              oidc_enabled: false,
+              issuer_url: null,
+              client_id: null,
+              audience: null,
+              redirect_uri: null,
+              scopes: "openid profile email",
+              developer_identity_enabled: true,
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
+        ),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("renders active permission-aware navigation without analyst capabilities", async () => {
