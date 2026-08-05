@@ -11,7 +11,13 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.tickets.models import PublicComment, TicketDraft, TicketView
+from apps.api.app.tickets.models import (
+    PublicComment,
+    TicketAnalystExtras,
+    TicketDraft,
+    TicketSlaRow,
+    TicketView,
+)
 
 
 class TicketRepository:
@@ -457,6 +463,61 @@ class TicketRepository:
                 "request_id": request_id,
             },
         )
+
+    async def analyst_extras(self, ticket_id: UUID) -> TicketAnalystExtras:
+        row = (
+            await self._session.execute(
+                text("""
+                    SELECT ticket.impact_code,ticket.urgency_code,
+                      ticket.assignment_group_id,group_.group_name,
+                      ticket.assignee_user_id,assignee.display_name AS assignee_name
+                    FROM itsm.ticket AS ticket
+                    LEFT JOIN identity.support_group AS group_
+                      ON group_.support_group_id=ticket.assignment_group_id
+                    LEFT JOIN identity.app_user AS assignee
+                      ON assignee.user_id=ticket.assignee_user_id
+                    WHERE ticket.ticket_id=:ticket_id
+                """),
+                {"ticket_id": ticket_id},
+            )
+        ).one()
+        return TicketAnalystExtras(
+            impact_code=row.impact_code,
+            urgency_code=row.urgency_code,
+            assignment_group_id=row.assignment_group_id,
+            assignment_group_name=row.group_name,
+            assignee_user_id=row.assignee_user_id,
+            assignee_name=row.assignee_name,
+        )
+
+    async def ticket_slas(self, ticket_id: UUID) -> list[TicketSlaRow]:
+        rows = (
+            await self._session.execute(
+                text("""
+                    SELECT definition.sla_code,sla.state_code,sla.target_at,
+                      sla.remaining_working_seconds,sla.paused_at,sla.breached_at,
+                      sla.completed_at
+                    FROM itsm.ticket_sla AS sla
+                    JOIN config.sla_definition AS definition
+                      ON definition.sla_definition_id=sla.sla_definition_id
+                    WHERE sla.ticket_id=:ticket_id
+                    ORDER BY sla.target_at NULLS LAST,definition.sla_code
+                """),
+                {"ticket_id": ticket_id},
+            )
+        ).all()
+        return [
+            TicketSlaRow(
+                definition_code=row.sla_code,
+                state_code=row.state_code,
+                target_at=row.target_at,
+                remaining_working_seconds=row.remaining_working_seconds,
+                paused_at=row.paused_at,
+                breached_at=row.breached_at,
+                completed_at=row.completed_at,
+            )
+            for row in rows
+        ]
 
     async def analyst_ticket(
         self,

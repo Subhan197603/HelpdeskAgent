@@ -397,6 +397,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/attachments": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Attachments */
+    get: operations["list_attachments_api_v1_agent_tickets__ticket_key__attachments_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/tickets/{ticket_key}/comments": {
     parameters: {
       query?: never;
@@ -1249,6 +1266,104 @@ export interface components {
       /** Type */
       type: string;
     };
+    /**
+     * AgentTicketResponse
+     * @description Analyst-only detail contract; the customer contract stays unchanged.
+     */
+    AgentTicketResponse: {
+      /** Assignee Name */
+      assignee_name: string | null;
+      /** Assignee User Id */
+      assignee_user_id: string | null;
+      /** Assignment Group Id */
+      assignment_group_id: string | null;
+      /** Assignment Group Name */
+      assignment_group_name: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Creation Event At */
+      creation_event_at: string | null;
+      /** Description */
+      description: string | null;
+      /** Environment Name */
+      environment_name: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Impact Code */
+      impact_code: string;
+      /** Key */
+      key: string;
+      /** Priority */
+      priority: string;
+      /** Project Code */
+      project_code: string;
+      /** Project Name */
+      project_name: string;
+      /** Public Comments */
+      public_comments?: components["schemas"]["PublicCommentResponse"][];
+      /** Reporter Name */
+      reporter_name: string;
+      /**
+       * Reporter User Id
+       * Format: uuid
+       */
+      reporter_user_id: string;
+      /** Request Type Code */
+      request_type_code: string;
+      /** Request Type Name */
+      request_type_name: string;
+      /** Requested For Name */
+      requested_for_name: string | null;
+      /** Requested For User Id */
+      requested_for_user_id: string | null;
+      /** Row Version */
+      row_version: number;
+      /** Service Name */
+      service_name: string | null;
+      /** Slas */
+      slas?: components["schemas"]["AgentTicketSlaSummary"][];
+      /** Status */
+      status: string;
+      /** Status Name */
+      status_name: string;
+      /** Summary */
+      summary: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Urgency Code */
+      urgency_code: string;
+      /** Work Type */
+      work_type: string;
+    };
+    /**
+     * AgentTicketSlaSummary
+     * @description One SLA objective on a ticket, for analyst presentation only.
+     */
+    AgentTicketSlaSummary: {
+      /** Breached At */
+      breached_at: string | null;
+      /** Completed At */
+      completed_at: string | null;
+      /** Definition Code */
+      definition_code: string;
+      /** Paused At */
+      paused_at: string | null;
+      /** Remaining Working Seconds */
+      remaining_working_seconds: number | null;
+      /** State Code */
+      state_code: string;
+      /** Target At */
+      target_at: string | null;
+    };
     /** AnalystCommentCreateRequest */
     AnalystCommentCreateRequest: {
       /** Body */
@@ -1358,6 +1473,41 @@ export interface components {
       /** Routing Rule Version Id */
       routing_rule_version_id?: string | null;
       ticket: components["schemas"]["TicketResponse"];
+    };
+    /** AttachmentListResponse */
+    AttachmentListResponse: {
+      /** Items */
+      items: components["schemas"]["AttachmentSummaryResponse"][];
+      /** Ticket Key */
+      ticket_key: string;
+    };
+    /**
+     * AttachmentSummaryResponse
+     * @description Metadata only — downloads always go through the presign endpoint.
+     */
+    AttachmentSummaryResponse: {
+      /** Content Type */
+      content_type: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Filename */
+      filename: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Scan Status */
+      scan_status: string;
+      /** Size Bytes */
+      size_bytes: number;
+      /** Uploaded By Name */
+      uploaded_by_name: string | null;
+      /** Visibility */
+      visibility: string;
     };
     /**
      * AuthConfigurationResponse
@@ -5430,7 +5580,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["TicketResponse"];
+          "application/json": components["schemas"]["AgentTicketResponse"];
         };
       };
       /** @description Authentication required */
@@ -5545,6 +5695,91 @@ export interface operations {
       };
       /** @description Assignment validation failed */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  list_attachments_api_v1_agent_tickets__ticket_key__attachments_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AttachmentListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Lifecycle or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Unsupported or mismatched file */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Malware detected */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Scanner or object storage unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };

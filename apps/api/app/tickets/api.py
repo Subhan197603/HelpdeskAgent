@@ -11,6 +11,7 @@ from apps.api.app.core.exceptions import ValidationError
 from apps.api.app.dependencies.request_context import require_permission
 from apps.api.app.identity.authorization import Permission
 from apps.api.app.tickets.schemas import (
+    AgentTicketResponse,
     DraftCreateRequest,
     DraftPatchRequest,
     DraftResponse,
@@ -185,12 +186,16 @@ async def analyst_tickets(
     return TicketPage(items=items, limit=limit, next_cursor=next_cursor)
 
 
-@router.get("/api/v1/agent/tickets/{ticket_key}", response_model=TicketResponse, responses=ERRORS)
+@router.get(
+    "/api/v1/agent/tickets/{ticket_key}",
+    response_model=AgentTicketResponse,
+    responses=ERRORS,
+)
 async def analyst_ticket(
     request: Request,
     ticket_key: str,
     context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
-) -> TicketResponse:
+) -> AgentTicketResponse:
     return await _service(request).analyst_ticket(context, ticket_key)
 
 

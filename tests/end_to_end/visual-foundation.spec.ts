@@ -124,11 +124,50 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expect(
     page.getByRole("heading", { name: "Oracle Fusion invoice error" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Comment visibility")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Overview" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByText("Assignment group")).toBeVisible();
   await expectAccessible(page);
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot(
     "analyst-ticket-detail.png",
     screenshotOptions,
   );
+
+  await page.getByRole("tab", { name: "Activity" }).click();
+  await expect(page.getByLabel("Comment visibility")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "analyst-ticket-activity.png",
+    screenshotOptions,
+  );
+
+  await page.getByRole("tab", { name: "Attachments" }).click();
+  await expect(page.getByText("No attachments yet.")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Attachments", exact: true }),
+  ).toBeVisible();
+  await expectNoHorizontalScroll(page);
+
+  await page.getByRole("tab", { name: "Participants" }).click();
+  await expect(
+    page.getByText("Participant management is not yet available"),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Work Log" }).click();
+  await expect(
+    page.getByText("Work log tracking arrives with a future milestone."),
+  ).toBeVisible();
+  await expectAccessible(page);
+
+  // Server-truth actions: execute a real status transition last so earlier
+  // screenshots stay deterministic.
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await page.getByRole("button", { name: "Change status" }).click();
+  await page.getByRole("menuitem", { name: /In Progress|Start/ }).click();
+  await expect(
+    page.locator(".detail-header__badges").getByText(/in progress/i),
+  ).toBeVisible();
 });

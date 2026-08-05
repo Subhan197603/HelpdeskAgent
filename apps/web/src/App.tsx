@@ -15,16 +15,29 @@ import {
   useLocation,
   useNavigate,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 
-import { AppShell, RequirePermission } from "./components/AppShell";
+import {
+  AppShell,
+  RequirePermission,
+  useCurrentIdentity,
+} from "./components/AppShell";
 import { AttachmentUploader } from "./components/AttachmentUploader";
-import { PriorityBadge, StatusBadge } from "./components/Badges";
+import { PriorityBadge, SlaBadge, StatusBadge } from "./components/Badges";
 import { Button } from "./components/Button";
 import { ActivityFeed, DonutChart, formatDelta } from "./components/Dashboard";
 import { SearchField } from "./components/SearchField";
 import { Tabs } from "./components/Tabs";
 import {
+  AttachmentList,
+  headlineSla,
+  slaPresentation,
+  TransitionMenu,
+} from "./components/TicketDetail";
+import {
+  Breadcrumbs,
+  MetadataGrid,
   PageHeader,
   Panel,
   SectionHeader,
@@ -37,13 +50,19 @@ import {
   StatusPanel,
 } from "./components/States";
 import {
+  ParticipantCard,
   QueueRow,
   TicketHeader,
   TicketListItem,
   TicketMetadata,
   TicketSidePanel,
 } from "./components/Tickets";
-import { newIdempotencyKey, sessionApiClient, unwrap } from "./lib/api";
+import {
+  ApiProblem,
+  newIdempotencyKey,
+  sessionApiClient,
+  unwrap,
+} from "./lib/api";
 import { beginLogin, completeLogin, sanitizeReturnTo } from "./lib/auth/oidc";
 import { type Persona, sessionHome, useSession } from "./lib/session";
 
@@ -1121,6 +1140,528 @@ function AgentQueuePage() {
   );
 }
 
+const DETAIL_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "activity", label: "Activity" },
+  { id: "attachments", label: "Attachments" },
+  { id: "participants", label: "Participants" },
+  { id: "worklog", label: "Work Log" },
+] as const;
+type DetailTab = (typeof DETAIL_TABS)[number]["id"];
+
+function AnalystTicketDetailPage() {
+  const { ticketKey = "" } = useParams();
+  const client = useIdentityClient();
+  const queryClient = useQueryClient();
+  const identity = useCurrentIdentity();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("tab") ?? "overview";
+  const tab: DetailTab = DETAIL_TABS.some((item) => item.id === requested)
+    ? (requested as DetailTab)
+    : "overview";
+  const canTransition =
+    identity?.permission_codes.includes("TICKET_TRANSITION") ?? false;
+  const canAssign =
+    identity?.permission_codes.includes("TICKET_ASSIGN_MANUAL") ?? false;
+  const ticketQueryKey = ["agent-ticket", ticketKey];
+  const ticket = useQuery({
+    queryKey: ticketQueryKey,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/agent/tickets/{ticket_key}", {
+          params: { path: { ticket_key: ticketKey } },
+        }),
+      ),
+  });
+  const timelineKey = ["agent-timeline", ticketKey];
+  const timeline = useQuery({
+    queryKey: timelineKey,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/agent/tickets/{ticket_key}/timeline", {
+          params: { path: { ticket_key: ticketKey } },
+        }),
+      ),
+  });
+  const transitionsKey = ["agent-transitions", ticketKey];
+  const transitions = useQuery({
+    enabled: canTransition,
+    queryKey: transitionsKey,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/agent/tickets/{ticket_key}/transitions", {
+          params: { path: { ticket_key: ticketKey } },
+        }),
+      ),
+  });
+  const attachmentsKey = ["agent-attachments", ticketKey];
+  const attachments = useQuery({
+    enabled: tab === "attachments",
+    queryKey: attachmentsKey,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/agent/tickets/{ticket_key}/attachments", {
+          params: { path: { ticket_key: ticketKey } },
+        }),
+      ),
+  });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ticketQueryKey });
+    void queryClient.invalidateQueries({ queryKey: timelineKey });
+    void queryClient.invalidateQueries({ queryKey: transitionsKey });
+  };
+  const transition = useMutation({
+    mutationFn: async (transitionCode: string) => {
+      const rowVersion = transitions.data?.row_version;
+      if (rowVersion === undefined)
+        throw new ApiProblem(409, "Transition state is stale. Reload first.");
+      return unwrap(
+        await client.POST("/api/v1/agent/tickets/{ticket_key}/transitions", {
+          params: {
+            path: { ticket_key: ticketKey },
+            header: { "Idempotency-Key": newIdempotencyKey("transition") },
+          },
+          body: { transition_code: transitionCode, row_version: rowVersion },
+        }),
+      );
+    },
+    onSuccess: invalidate,
+    onError: invalidate,
+  });
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignGroup, setAssignGroup] = useState("");
+  const [assignToMe, setAssignToMe] = useState(false);
+  const [assignReason, setAssignReason] = useState("");
+  const assign = useMutation({
+    mutationFn: async () => {
+      const rowVersion = ticket.data?.row_version;
+      if (rowVersion === undefined)
+        throw new ApiProblem(409, "Ticket state is stale. Reload first.");
+      return unwrap(
+        await client.POST("/api/v1/agent/tickets/{ticket_key}/assignment", {
+          params: {
+            path: { ticket_key: ticketKey },
+            header: { "Idempotency-Key": newIdempotencyKey("assignment") },
+          },
+          body: {
+            assignment_group_id: assignGroup,
+            assignee_user_id:
+              assignToMe && identity ? identity.user_id : undefined,
+            reason: assignReason,
+            row_version: rowVersion,
+          },
+        }),
+      );
+    },
+    onSuccess: () => {
+      setAssignOpen(false);
+      setAssignReason("");
+      invalidate();
+    },
+  });
+  const download = useMutation({
+    mutationFn: async (attachmentId: string) =>
+      unwrap(
+        await client.POST("/api/v1/attachments/{attachment_id}/download", {
+          params: { path: { attachment_id: attachmentId } },
+        }),
+      ),
+    onSuccess: (result) => {
+      window.open(result.download_url, "_blank", "noopener");
+    },
+  });
+  const [comment, setComment] = useState("");
+  const [visibility, setVisibility] = useState<"PUBLIC" | "INTERNAL">("PUBLIC");
+  const addComment = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.POST("/api/v1/agent/tickets/{ticket_key}/comments", {
+          params: {
+            path: { ticket_key: ticketKey },
+            header: { "Idempotency-Key": newIdempotencyKey("analyst-comment") },
+          },
+          body: { body: comment, visibility },
+        }),
+      ),
+    onSuccess: () => {
+      setComment("");
+      invalidate();
+    },
+  });
+  if (ticket.isPending)
+    return (
+      <div className="page">
+        <LoadingSkeleton label="Loading ticket" lines={6} />
+      </div>
+    );
+  if (ticket.error)
+    return (
+      <div className="page">
+        <ErrorSummary error={ticket.error} />
+      </div>
+    );
+  const data = ticket.data;
+  const slas = data.slas ?? [];
+  const chipSla = headlineSla(slas);
+  const statusHistory =
+    timeline.data?.items
+      .filter((item) => item.type === "STATUS_CHANGED")
+      .slice(0, 5) ?? [];
+  const supportGroups = identity?.support_group_ids ?? [];
+  return (
+    <div className="page ticket-page">
+      <Breadcrumbs
+        items={[
+          { label: "Tickets", to: "/agent/tickets" },
+          { label: data.key },
+        ]}
+      />
+      <header className="detail-header">
+        <div className="detail-header__badges">
+          <span className="ticket-key">{data.key}</span>
+          <StatusBadge status={data.status_name} />
+          <PriorityBadge priority={data.priority} />
+          {chipSla && (
+            <SlaBadge
+              label={`SLA ${slaPresentation(chipSla).label}`}
+              state={
+                slaPresentation(chipSla).label.toLowerCase() as
+                  "breached" | "met" | "paused" | "running"
+              }
+            />
+          )}
+        </div>
+        <div className="detail-header__title">
+          <h1>{data.summary}</h1>
+          <div className="detail-header__actions">
+            {canAssign && (
+              <Button
+                onClick={() => {
+                  setAssignOpen(true);
+                }}
+                variant="secondary"
+              >
+                Assign
+              </Button>
+            )}
+            {canTransition && (
+              <TransitionMenu
+                onSelect={(code) => {
+                  transition.mutate(code);
+                }}
+                pending={transition.isPending}
+                transitions={transitions.data?.transitions ?? []}
+              />
+            )}
+          </div>
+        </div>
+      </header>
+      {(transition.error ?? assign.error ?? addComment.error) && (
+        <ErrorSummary
+          error={transition.error ?? assign.error ?? addComment.error}
+        />
+      )}
+      {assignOpen && (
+        <section aria-label="Assign ticket" className="assign-panel panel">
+          <h2>Assign ticket</h2>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              assign.mutate();
+            }}
+          >
+            <div className="form-field">
+              <label htmlFor="assign-group">Support group</label>
+              <select
+                id="assign-group"
+                onChange={(event) => {
+                  setAssignGroup(event.target.value);
+                }}
+                required
+                value={assignGroup}
+              >
+                <option value="">Select a group…</option>
+                {supportGroups.map((groupId) => (
+                  <option key={groupId} value={groupId}>
+                    {data.assignment_group_id === groupId &&
+                    data.assignment_group_name
+                      ? data.assignment_group_name
+                      : `Group ${groupId.slice(0, 8)}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="checkbox-option">
+              <input
+                checked={assignToMe}
+                id="assign-me"
+                onChange={(event) => {
+                  setAssignToMe(event.target.checked);
+                }}
+                type="checkbox"
+              />
+              <label htmlFor="assign-me">Assign to me</label>
+            </div>
+            <div className="form-field">
+              <label htmlFor="assign-reason">Reason</label>
+              <input
+                id="assign-reason"
+                maxLength={64}
+                minLength={3}
+                onChange={(event) => {
+                  setAssignReason(event.target.value);
+                }}
+                required
+                value={assignReason}
+              />
+            </div>
+            <Button disabled={assign.isPending} type="submit">
+              {assign.isPending ? "Assigning…" : "Confirm assignment"}
+            </Button>
+            <Button
+              onClick={() => {
+                setAssignOpen(false);
+              }}
+              variant="secondary"
+            >
+              Cancel
+            </Button>
+          </form>
+        </section>
+      )}
+      <Tabs
+        activeId={tab}
+        items={DETAIL_TABS.map((item) => ({ id: item.id, label: item.label }))}
+        label="Ticket sections"
+        onChange={(id) => {
+          setSearchParams(id === "overview" ? {} : { tab: id }, {
+            replace: true,
+          });
+        }}
+      />
+      <div className="ticket-workspace">
+        <div className="ticket-workspace__main">
+          {tab === "overview" && (
+            <Panel title="Details">
+              <p className="ticket-description">
+                {data.description ?? "No description provided."}
+              </p>
+              <MetadataGrid
+                items={[
+                  { label: "Project", value: data.project_name },
+                  { label: "Request type", value: data.request_type_name },
+                  { label: "Work type", value: data.work_type },
+                  { label: "Service", value: data.service_name ?? "—" },
+                  { label: "Environment", value: data.environment_name ?? "—" },
+                  { label: "Reporter", value: data.reporter_name },
+                  {
+                    label: "Requested for",
+                    value: data.requested_for_name ?? "—",
+                  },
+                  {
+                    label: "Created",
+                    value: new Date(data.created_at).toLocaleString(),
+                  },
+                  {
+                    label: "Updated",
+                    value: new Date(data.updated_at).toLocaleString(),
+                  },
+                ]}
+              />
+              {statusHistory.length > 0 && (
+                <>
+                  <h3>Recent status changes</h3>
+                  <ol className="status-history">
+                    {statusHistory.map((item) => (
+                      <li key={item.id}>
+                        <span>{item.actor_name ?? "System"}</span>
+                        <time dateTime={item.created_at}>
+                          {new Date(item.created_at).toLocaleString()}
+                        </time>
+                      </li>
+                    ))}
+                  </ol>
+                </>
+              )}
+            </Panel>
+          )}
+          {tab === "activity" && (
+            <section aria-labelledby="activity-heading" className="activity">
+              <h2 id="activity-heading">Activity timeline</h2>
+              {timeline.isPending && (
+                <StatusPanel>Loading activity…</StatusPanel>
+              )}
+              {timeline.error && <ErrorSummary error={timeline.error} />}
+              {timeline.data?.items.length === 0 ? (
+                <StatusPanel>No activity yet.</StatusPanel>
+              ) : (
+                <ol>
+                  {timeline.data?.items.map((item) => (
+                    <li key={item.id}>
+                      <div>
+                        <strong>{item.actor_name ?? item.type}</strong>
+                        <span
+                          className={`visibility ${item.classification.toLowerCase()}`}
+                        >
+                          {item.classification}
+                        </span>
+                        <time dateTime={item.created_at}>
+                          {new Date(item.created_at).toLocaleString()}
+                        </time>
+                      </div>
+                      <p>{item.body ?? item.type.replaceAll("_", " ")}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  addComment.mutate();
+                }}
+              >
+                <div className="form-field">
+                  <label htmlFor="analyst-comment">Add an update</label>
+                  <p id="analyst-comment-help">
+                    {visibility === "PUBLIC"
+                      ? "This comment is visible to the employee and support analysts."
+                      : "This internal note is visible only to authorized analysts."}
+                  </p>
+                  <select
+                    aria-label="Comment visibility"
+                    onChange={(event) => {
+                      setVisibility(
+                        event.target.value as "PUBLIC" | "INTERNAL",
+                      );
+                    }}
+                    value={visibility}
+                  >
+                    <option value="PUBLIC">Public comment</option>
+                    <option value="INTERNAL">Internal note</option>
+                  </select>
+                  <textarea
+                    aria-describedby="analyst-comment-help"
+                    id="analyst-comment"
+                    onChange={(event) => {
+                      setComment(event.target.value);
+                    }}
+                    required
+                    rows={4}
+                    value={comment}
+                  />
+                </div>
+                <Button disabled={addComment.isPending} type="submit">
+                  {addComment.isPending
+                    ? "Posting…"
+                    : visibility === "INTERNAL"
+                      ? "Post internal note"
+                      : "Post public comment"}
+                </Button>
+              </form>
+            </section>
+          )}
+          {tab === "attachments" && (
+            <Panel>
+              {attachments.isPending && (
+                <StatusPanel>Loading attachments…</StatusPanel>
+              )}
+              {attachments.error && <ErrorSummary error={attachments.error} />}
+              {download.error && <ErrorSummary error={download.error} />}
+              {attachments.data && (
+                <AttachmentList
+                  items={attachments.data.items}
+                  onDownload={(id) => {
+                    download.mutate(id);
+                  }}
+                />
+              )}
+              <AttachmentUploader
+                analyst
+                client={client}
+                ticketKey={ticketKey}
+              />
+            </Panel>
+          )}
+          {tab === "participants" && (
+            <Panel title="Participants">
+              <ul className="participant-list">
+                {data.assignee_name && (
+                  <li>
+                    <ParticipantCard
+                      name={data.assignee_name}
+                      role="Assignee"
+                    />
+                  </li>
+                )}
+                <li>
+                  <ParticipantCard name={data.reporter_name} role="Reporter" />
+                </li>
+                {data.requested_for_name && (
+                  <li>
+                    <ParticipantCard
+                      name={data.requested_for_name}
+                      role="Requested for"
+                    />
+                  </li>
+                )}
+              </ul>
+              <EmptyState
+                description="Adding and removing participants arrives with a future milestone."
+                title="Participant management is not yet available"
+              />
+            </Panel>
+          )}
+          {tab === "worklog" && (
+            <Panel title="Work Log">
+              <EmptyState
+                description="Work log tracking arrives with a future milestone."
+                title="Not available yet"
+              />
+            </Panel>
+          )}
+        </div>
+        <TicketSidePanel>
+          <TicketMetadata
+            items={[
+              {
+                label: "Status",
+                value: <StatusBadge status={data.status_name} />,
+              },
+              {
+                label: "Priority",
+                value: <PriorityBadge priority={data.priority} />,
+              },
+              { label: "Impact", value: data.impact_code },
+              { label: "Urgency", value: data.urgency_code },
+              {
+                label: "Assignment group",
+                value: data.assignment_group_name ?? "Unassigned",
+              },
+              { label: "Assignee", value: data.assignee_name ?? "Unassigned" },
+              ...slas.map((sla) => ({
+                label: `SLA ${sla.definition_code}`,
+                value: `${slaPresentation(sla).label} — ${slaPresentation(sla).detail}`,
+              })),
+              ...(slas.length === 0
+                ? [{ label: "SLA", value: "No SLA applied" }]
+                : []),
+              { label: "Reporter", value: data.reporter_name },
+              {
+                label: "Created",
+                value: new Date(data.created_at).toLocaleString(),
+              },
+              {
+                label: "Updated",
+                value: new Date(data.updated_at).toLocaleString(),
+              },
+            ]}
+          />
+        </TicketSidePanel>
+      </div>
+    </div>
+  );
+}
+
 function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
   const { ticketKey = "" } = useParams();
   const client = useIdentityClient();
@@ -1406,7 +1947,7 @@ export function App() {
           element={
             <RequireSession>
               <RequirePermission permission="TICKET_ANALYST_READ">
-                <TicketDetailPage analyst />
+                <AnalystTicketDetailPage />
               </RequirePermission>
             </RequireSession>
           }

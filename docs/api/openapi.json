@@ -250,6 +250,330 @@
         "title": "ActivityItemResponse",
         "type": "object"
       },
+      "AgentTicketResponse": {
+        "description": "Analyst-only detail contract; the customer contract stays unchanged.",
+        "properties": {
+          "assignee_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee Name"
+          },
+          "assignee_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignee User Id"
+          },
+          "assignment_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Group Id"
+          },
+          "assignment_group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignment Group Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "creation_event_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Creation Event At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "environment_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "impact_code": {
+            "title": "Impact Code",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "priority": {
+            "title": "Priority",
+            "type": "string"
+          },
+          "project_code": {
+            "title": "Project Code",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "public_comments": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCommentResponse"
+            },
+            "title": "Public Comments",
+            "type": "array"
+          },
+          "reporter_name": {
+            "title": "Reporter Name",
+            "type": "string"
+          },
+          "reporter_user_id": {
+            "format": "uuid",
+            "title": "Reporter User Id",
+            "type": "string"
+          },
+          "request_type_code": {
+            "title": "Request Type Code",
+            "type": "string"
+          },
+          "request_type_name": {
+            "title": "Request Type Name",
+            "type": "string"
+          },
+          "requested_for_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested For Name"
+          },
+          "requested_for_user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested For User Id"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "service_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service Name"
+          },
+          "slas": {
+            "items": {
+              "$ref": "#/components/schemas/AgentTicketSlaSummary"
+            },
+            "title": "Slas",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_name": {
+            "title": "Status Name",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "urgency_code": {
+            "title": "Urgency Code",
+            "type": "string"
+          },
+          "work_type": {
+            "title": "Work Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "summary",
+          "description",
+          "project_code",
+          "project_name",
+          "request_type_code",
+          "request_type_name",
+          "service_name",
+          "environment_name",
+          "work_type",
+          "status",
+          "status_name",
+          "priority",
+          "reporter_user_id",
+          "reporter_name",
+          "requested_for_user_id",
+          "requested_for_name",
+          "created_at",
+          "updated_at",
+          "creation_event_at",
+          "row_version",
+          "impact_code",
+          "urgency_code",
+          "assignment_group_id",
+          "assignment_group_name",
+          "assignee_user_id",
+          "assignee_name"
+        ],
+        "title": "AgentTicketResponse",
+        "type": "object"
+      },
+      "AgentTicketSlaSummary": {
+        "description": "One SLA objective on a ticket, for analyst presentation only.",
+        "properties": {
+          "breached_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breached At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "definition_code": {
+            "title": "Definition Code",
+            "type": "string"
+          },
+          "paused_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused At"
+          },
+          "remaining_working_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining Working Seconds"
+          },
+          "state_code": {
+            "title": "State Code",
+            "type": "string"
+          },
+          "target_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target At"
+          }
+        },
+        "required": [
+          "definition_code",
+          "state_code",
+          "target_at",
+          "remaining_working_seconds",
+          "paused_at",
+          "breached_at",
+          "completed_at"
+        ],
+        "title": "AgentTicketSlaSummary",
+        "type": "object"
+      },
       "AnalystCommentCreateRequest": {
         "additionalProperties": false,
         "properties": {
@@ -544,6 +868,82 @@
         },
         "required": ["ticket", "assignment_group_code", "assignee_user_id"],
         "title": "AssignmentResponse",
+        "type": "object"
+      },
+      "AttachmentListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AttachmentSummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          }
+        },
+        "required": ["ticket_key", "items"],
+        "title": "AttachmentListResponse",
+        "type": "object"
+      },
+      "AttachmentSummaryResponse": {
+        "description": "Metadata only \u2014 downloads always go through the presign endpoint.",
+        "properties": {
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "scan_status": {
+            "title": "Scan Status",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "uploaded_by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uploaded By Name"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "filename",
+          "content_type",
+          "size_bytes",
+          "scan_status",
+          "visibility",
+          "uploaded_by_name",
+          "created_at"
+        ],
+        "title": "AttachmentSummaryResponse",
         "type": "object"
       },
       "AuthConfigurationResponse": {
@@ -9013,7 +9413,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TicketResponse"
+                  "$ref": "#/components/schemas/AgentTicketResponse"
                 }
               }
             },
@@ -9200,6 +9600,111 @@
         ],
         "summary": "Assign Ticket",
         "tags": ["routing"]
+      }
+    },
+    "/api/v1/agent/tickets/{ticket_key}/attachments": {
+      "get": {
+        "operationId": "list_attachments_api_v1_agent_tickets__ticket_key__attachments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ticket_key",
+            "required": true,
+            "schema": {
+              "title": "Ticket Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttachmentListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Lifecycle or idempotency conflict"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Unsupported or mismatched file"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Malware detected"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Scanner or object storage unavailable"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Attachments",
+        "tags": ["attachments"]
       }
     },
     "/api/v1/agent/tickets/{ticket_key}/comments": {

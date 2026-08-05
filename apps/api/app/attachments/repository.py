@@ -27,6 +27,26 @@ class AttachmentRepository:
         ).one_or_none()
         return TicketScope(*tuple(row)) if row else None
 
+    async def list_for_ticket(self, ticket_id: UUID) -> list[Any]:
+        return list(
+            (
+                await self._session.execute(
+                    text("""
+                      SELECT attachment.attachment_id,attachment.original_filename,
+                        attachment.client_declared_content_type,attachment.file_size_bytes,
+                        attachment.malware_scan_status,attachment.visibility_code,
+                        uploader.display_name AS uploaded_by_name,attachment.created_at
+                      FROM itsm.ticket_attachment AS attachment
+                      LEFT JOIN identity.app_user AS uploader
+                        ON uploader.user_id=attachment.uploaded_by
+                      WHERE attachment.ticket_id=:ticket_id
+                      ORDER BY attachment.created_at DESC,attachment.attachment_id DESC
+                    """),
+                    {"ticket_id": ticket_id},
+                )
+            ).all()
+        )
+
     async def is_participant(self, ticket_id: UUID, user_id: UUID) -> bool:
         return bool(
             await self._session.scalar(

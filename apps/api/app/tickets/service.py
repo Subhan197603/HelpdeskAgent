@@ -29,6 +29,8 @@ from apps.api.app.identity.authorization import (
 from apps.api.app.tickets.models import PublicComment, TicketDraft, TicketView
 from apps.api.app.tickets.repository import TicketRepository
 from apps.api.app.tickets.schemas import (
+    AgentTicketResponse,
+    AgentTicketSlaSummary,
     CustomFieldInput,
     DraftCreateRequest,
     DraftPatchRequest,
@@ -497,7 +499,7 @@ class TicketService:
         next_cursor = _encode_cursor(rows[-1]) if more and rows else None
         return responses, next_cursor
 
-    async def analyst_ticket(self, context: RequestContext, ticket_key: str) -> TicketResponse:
+    async def analyst_ticket(self, context: RequestContext, ticket_key: str) -> AgentTicketResponse:
         tenant_id, _ = _identity(context)
         self._authorize(context, Permission.TICKET_ANALYST_READ)
         include_all = self._authorization.is_allowed(context, Permission.TICKET_READ_ALL)
@@ -512,7 +514,30 @@ class TicketService:
             if ticket is None:
                 raise NotFoundError("Ticket was not found.")
             comments = await repo.public_comments(ticket.ticket_id)
-            return _ticket_response(ticket, comments)
+            extras = await repo.analyst_extras(ticket.ticket_id)
+            slas = await repo.ticket_slas(ticket.ticket_id)
+            base = _ticket_response(ticket, comments)
+            return AgentTicketResponse(
+                **base.model_dump(),
+                impact_code=extras.impact_code,
+                urgency_code=extras.urgency_code,
+                assignment_group_id=extras.assignment_group_id,
+                assignment_group_name=extras.assignment_group_name,
+                assignee_user_id=extras.assignee_user_id,
+                assignee_name=extras.assignee_name,
+                slas=[
+                    AgentTicketSlaSummary(
+                        definition_code=row.definition_code,
+                        state_code=row.state_code,
+                        target_at=row.target_at,
+                        remaining_working_seconds=row.remaining_working_seconds,
+                        paused_at=row.paused_at,
+                        breached_at=row.breached_at,
+                        completed_at=row.completed_at,
+                    )
+                    for row in slas
+                ],
+            )
 
     async def analyst_tickets(
         self, context: RequestContext, limit: int, cursor: str | None

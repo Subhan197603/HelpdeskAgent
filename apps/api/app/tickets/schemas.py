@@ -122,3 +122,27 @@ class TicketPage(BaseModel):
     items: list[TicketResponse]
     limit: int
     next_cursor: Annotated[str | None, Field(description="Opaque keyset cursor")] = None
+
+
+class AgentTicketSlaSummary(BaseModel):
+    """One SLA objective on a ticket, for analyst presentation only."""
+
+    definition_code: str
+    state_code: str
+    target_at: datetime | None
+    remaining_working_seconds: int | None
+    paused_at: datetime | None
+    breached_at: datetime | None
+    completed_at: datetime | None
+
+
+class AgentTicketResponse(TicketResponse):
+    """Analyst-only detail contract; the customer contract stays unchanged."""
+
+    impact_code: str
+    urgency_code: str
+    assignment_group_id: UUID | None
+    assignment_group_name: str | None
+    assignee_user_id: UUID | None
+    assignee_name: str | None
+    slas: list[AgentTicketSlaSummary] = Field(default_factory=list)

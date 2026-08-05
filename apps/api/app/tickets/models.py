@@ -61,6 +61,27 @@ class TicketView:
 
 
 @dataclass(frozen=True, slots=True)
+class TicketAnalystExtras:
+    impact_code: str
+    urgency_code: str
+    assignment_group_id: UUID | None
+    assignment_group_name: str | None
+    assignee_user_id: UUID | None
+    assignee_name: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class TicketSlaRow:
+    definition_code: str
+    state_code: str
+    target_at: datetime | None
+    remaining_working_seconds: int | None
+    paused_at: datetime | None
+    breached_at: datetime | None
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class PublicComment:
     comment_id: UUID
     author_user_id: UUID

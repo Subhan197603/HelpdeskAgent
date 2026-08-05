@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Request, Response, status
 
 from apps.api.app.attachments.schemas import (
+    AttachmentListResponse,
     DownloadResponse,
     FinalizeResponse,
     UploadAuthorizationResponse,
@@ -31,6 +32,19 @@ router = APIRouter(tags=["attachments"])
 
 def _service(request: Request) -> AttachmentService:
     return cast("AttachmentService", request.app.state.attachment_service)
+
+
+@router.get(
+    "/api/v1/agent/tickets/{ticket_key}/attachments",
+    response_model=AttachmentListResponse,
+    responses=ERRORS,
+)
+async def list_attachments(
+    request: Request,
+    ticket_key: str,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> AttachmentListResponse:
+    return await _service(request).list_for_analyst(context, ticket_key)
 
 
 @router.post(

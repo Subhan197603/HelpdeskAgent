@@ -53,3 +53,21 @@ class DownloadResponse(BaseModel):
     attachment_id: UUID
     download_url: str
     expires_at: datetime
+
+
+class AttachmentSummaryResponse(BaseModel):
+    """Metadata only — downloads always go through the presign endpoint."""
+
+    id: UUID
+    filename: str
+    content_type: str
+    size_bytes: int
+    scan_status: str
+    visibility: str
+    uploaded_by_name: str | None
+    created_at: datetime
+
+
+class AttachmentListResponse(BaseModel):
+    ticket_key: str
+    items: list[AttachmentSummaryResponse]

@@ -10,6 +10,8 @@ from apps.api.app.attachments.clamav import MalwareScanner, ScannerError
 from apps.api.app.attachments.models import Attachment, TicketScope
 from apps.api.app.attachments.repository import AttachmentRepository
 from apps.api.app.attachments.schemas import (
+    AttachmentListResponse,
+    AttachmentSummaryResponse,
     DownloadResponse,
     FinalizeResponse,
     UploadAuthorizationResponse,
@@ -341,6 +343,41 @@ class AttachmentService:
         if not allowed:
             raise NotFoundError("Ticket was not found.")
         return ticket
+
+    async def list_for_analyst(
+        self, context: RequestContext, ticket_key: str
+    ) -> AttachmentListResponse:
+        tenant_id, _ = _identity(context)
+        self._require(context, Permission.TICKET_ANALYST_READ)
+        include_all = self._authorization.is_allowed(context, Permission.TICKET_READ_ALL)
+        async with self._factory(context) as uow:
+            repo = AttachmentRepository(uow.session)
+            ticket = await repo.ticket(tenant_id, ticket_key)
+            if ticket is None:
+                raise NotFoundError("Ticket was not found.")
+            if not (
+                include_all
+                or ticket.assignment_group_id is None
+                or ticket.assignment_group_id in context.support_group_ids
+            ):
+                raise NotFoundError("Ticket was not found.")
+            rows = await repo.list_for_ticket(ticket.ticket_id)
+        return AttachmentListResponse(
+            ticket_key=ticket_key,
+            items=[
+                AttachmentSummaryResponse(
+                    id=row.attachment_id,
+                    filename=row.original_filename,
+                    content_type=row.client_declared_content_type,
+                    size_bytes=row.file_size_bytes,
+                    scan_status=row.malware_scan_status,
+                    visibility=row.visibility_code,
+                    uploaded_by_name=row.uploaded_by_name,
+                    created_at=row.created_at,
+                )
+                for row in rows
+            ],
+        )
 
     def _require(self, context: RequestContext, permission: Permission) -> None:
         if not self._authorization.is_allowed(context, permission):

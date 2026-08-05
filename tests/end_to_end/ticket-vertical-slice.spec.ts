@@ -40,6 +40,7 @@ test("employee submits an Oracle Fusion issue and exchanges a public comment", a
   ).toBeVisible();
   await expect(page.getByRole("link", { name: /ERP-1/ })).toBeVisible();
   await page.getByRole("link", { name: /ERP-1/ }).click();
+  await page.getByRole("tab", { name: "Activity" }).click();
   await expect(page.getByLabel("Comment visibility")).toBeVisible();
   await page
     .getByLabel("Add an update")
