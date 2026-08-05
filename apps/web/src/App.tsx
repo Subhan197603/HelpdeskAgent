@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { components } from "@fusion-helpdesk/api-client";
+import type { components, paths } from "@fusion-helpdesk/api-client";
 import {
   type ReactNode,
   type SyntheticEvent,
@@ -29,6 +29,12 @@ import { Button } from "./components/Button";
 import { ActivityFeed, DonutChart, formatDelta } from "./components/Dashboard";
 import { SearchField } from "./components/SearchField";
 import { Tabs } from "./components/Tabs";
+import {
+  ArticleCard,
+  documentTypeLabel,
+  groupEvidenceByDocument,
+  highlightMatches,
+} from "./components/Knowledge";
 import {
   AttachmentList,
   headlineSla,
@@ -1861,6 +1867,373 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
   );
 }
 
+type KnowledgeArticlesQuery = NonNullable<
+  paths["/api/v1/knowledge/articles"]["get"]["parameters"]["query"]
+>;
+
+function KnowledgeLandingPage({ analyst }: { analyst: boolean }) {
+  const client = useIdentityClient();
+  const basePath = analyst ? "/agent/knowledge" : "/portal/knowledge";
+  const persona = analyst ? ("ANALYST" as const) : ("EMPLOYEE" as const);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = searchParams.get("q") ?? "";
+  const documentType = searchParams.get("type");
+  const [searchInput, setSearchInput] = useState(query);
+  useEffect(() => {
+    setSearchInput(query);
+  }, [query]);
+  const articles = useQuery({
+    queryKey: ["knowledge-articles", persona, documentType],
+    enabled: query.length === 0,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/knowledge/articles", {
+          params: {
+            query: {
+              persona,
+              limit: 20,
+              ...(documentType === null
+                ? {}
+                : {
+                    document_type:
+                      documentType as KnowledgeArticlesQuery["document_type"],
+                  }),
+            },
+          },
+        }),
+      ),
+  });
+  const search = useQuery({
+    queryKey: ["knowledge-search", persona, query],
+    enabled: query.length > 0,
+    queryFn: async () =>
+      unwrap(
+        await client.POST("/api/v1/knowledge/evidence/search", {
+          body: { query, persona, limit: 20 },
+        }),
+      ),
+  });
+  const submitSearch = (event: SyntheticEvent) => {
+    event.preventDefault();
+    const trimmed = searchInput.trim();
+    setSearchParams(trimmed ? { q: trimmed } : {});
+  };
+  const groups = search.data
+    ? groupEvidenceByDocument(search.data.evidence)
+    : [];
+  return (
+    <div className="page knowledge-page">
+      <PageHeader
+        description="Search approved articles or browse by type."
+        title="Knowledge Base"
+      />
+      <form className="knowledge-search" onSubmit={submitSearch} role="search">
+        <SearchField
+          className="knowledge-search__field"
+          label="Search knowledge articles"
+          onChange={setSearchInput}
+          placeholder="Search knowledge articles…"
+          value={searchInput}
+        />
+        <Button type="submit">Search</Button>
+      </form>
+      {query.length > 0 && (
+        <section aria-label="Search results">
+          <SectionHeader
+            action={
+              <Button
+                onClick={() => {
+                  setSearchParams({});
+                }}
+                variant="secondary"
+              >
+                Clear search
+              </Button>
+            }
+            title={`Results for “${query}”`}
+          />
+          {search.isPending && <LoadingSkeleton label="Searching articles" />}
+          {search.error && <ErrorSummary error={search.error} />}
+          {search.data && groups.length === 0 && (
+            <EmptyState
+              description="No articles match your search. Try different words or remove filters."
+              title="No results"
+            />
+          )}
+          {groups.length > 0 && (
+            <ul className="search-result-list">
+              {groups.map((group) => (
+                <li className="search-result" key={group.top.document_id}>
+                  <h3>
+                    <Link
+                      state={{ fromSearch: `?q=${encodeURIComponent(query)}` }}
+                      to={`${basePath}/articles/${group.top.document_id}`}
+                    >
+                      {group.top.document_title}
+                    </Link>
+                  </h3>
+                  <p className="search-result__type">
+                    {group.top.document_type
+                      ? documentTypeLabel(group.top.document_type)
+                      : "Article"}
+                    {group.top.section_title
+                      ? ` · ${group.top.section_title}`
+                      : ""}
+                  </p>
+                  <p className="search-result__excerpt">
+                    {highlightMatches(group.top.content.slice(0, 300), query)}
+                  </p>
+                  {group.matchCount > 1 && (
+                    <p className="search-result__count">
+                      {group.matchCount} matching sections
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+      {query.length === 0 && (
+        <>
+          {articles.isPending && (
+            <LoadingSkeleton label="Loading knowledge articles" />
+          )}
+          {articles.error && <ErrorSummary error={articles.error} />}
+          {articles.data && (
+            <>
+              {articles.data.facets.length > 0 && (
+                <section aria-label="Browse by type">
+                  <SectionHeader
+                    action={
+                      documentType === null ? undefined : (
+                        <Button
+                          onClick={() => {
+                            setSearchParams({});
+                          }}
+                          variant="secondary"
+                        >
+                          All types
+                        </Button>
+                      )
+                    }
+                    title="Browse by type"
+                  />
+                  <ul className="knowledge-facets">
+                    {articles.data.facets.map((facet) => (
+                      <li key={facet.document_type}>
+                        <Link
+                          aria-current={
+                            documentType === facet.document_type
+                              ? "true"
+                              : undefined
+                          }
+                          className={`knowledge-facet${
+                            documentType === facet.document_type
+                              ? " knowledge-facet--active"
+                              : ""
+                          }`}
+                          to={`${basePath}?type=${facet.document_type}`}
+                        >
+                          <strong>
+                            {documentTypeLabel(facet.document_type)}
+                          </strong>
+                          <span>
+                            {facet.count}{" "}
+                            {facet.count === 1 ? "article" : "articles"}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+              <section aria-label="Articles">
+                <SectionHeader
+                  title={
+                    documentType === null
+                      ? "Recently updated"
+                      : `${documentTypeLabel(documentType)} articles`
+                  }
+                />
+                {articles.data.items.length === 0 && (
+                  <EmptyState description="No published articles yet." />
+                )}
+                {articles.data.items.length > 0 && (
+                  <div className="article-grid">
+                    {articles.data.items.map((item) => (
+                      <ArticleCard
+                        documentType={item.document_type}
+                        excerpt={item.excerpt}
+                        href={`${basePath}/articles/${item.id}`}
+                        key={item.id}
+                        meta={`${item.source_name} · Updated ${new Date(item.updated_at).toLocaleDateString()}`}
+                        title={item.title}
+                      />
+                    ))}
+                  </div>
+                )}
+                {articles.data.has_more && (
+                  <p className="knowledge-more">
+                    Showing the 20 most recently updated articles. Refine by
+                    type or search to narrow results.
+                  </p>
+                )}
+              </section>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function KnowledgeArticlePage({ analyst }: { analyst: boolean }) {
+  const client = useIdentityClient();
+  const { documentId = "" } = useParams();
+  const location = useLocation();
+  const basePath = analyst ? "/agent/knowledge" : "/portal/knowledge";
+  const persona = analyst ? ("ANALYST" as const) : ("EMPLOYEE" as const);
+  const [copied, setCopied] = useState(false);
+  const article = useQuery({
+    queryKey: ["knowledge-article", persona, documentId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/knowledge/articles/{document_id}", {
+          params: { path: { document_id: documentId }, query: { persona } },
+        }),
+      ),
+  });
+  const fromSearch =
+    (location.state as { fromSearch?: string } | null)?.fromSearch ?? "";
+  if (article.isPending) {
+    return (
+      <div className="page">
+        <LoadingSkeleton label="Loading article" lines={6} />
+      </div>
+    );
+  }
+  if (article.error) {
+    const notFound =
+      article.error instanceof ApiProblem && article.error.status === 404;
+    return (
+      <div className="page">
+        <Breadcrumbs
+          items={[
+            { label: "Knowledge Base", to: `${basePath}${fromSearch}` },
+            { label: "Article" },
+          ]}
+        />
+        {notFound ? (
+          <EmptyState
+            description="It may have been retired, or you may not have access to it."
+            title="Article unavailable"
+          />
+        ) : (
+          <ErrorSummary error={article.error} />
+        )}
+      </div>
+    );
+  }
+  const data = article.data;
+  const sections = data.sections ?? [];
+  const copyLink = () => {
+    void navigator.clipboard.writeText(window.location.href).then(() => {
+      setCopied(true);
+    });
+  };
+  const metadata: { label: string; value: ReactNode }[] = [
+    { label: "Type", value: documentTypeLabel(data.document_type) },
+    { label: "Source", value: data.source_name },
+  ];
+  if (data.product_name)
+    metadata.push({ label: "Product", value: data.product_name });
+  if (data.release_code)
+    metadata.push({ label: "Release", value: data.release_code });
+  metadata.push({ label: "Language", value: data.language_code });
+  metadata.push({ label: "Version", value: String(data.version_number) });
+  if (data.published_at)
+    metadata.push({
+      label: "Published",
+      value: new Date(data.published_at).toLocaleString(),
+    });
+  metadata.push({
+    label: "Updated",
+    value: new Date(data.updated_at).toLocaleString(),
+  });
+  if (analyst) {
+    metadata.push({ label: "Audience", value: data.audience_code });
+    metadata.push({
+      label: "Classification",
+      value: data.security_classification,
+    });
+  }
+  if (data.owner_group_name)
+    metadata.push({ label: "Owner group", value: data.owner_group_name });
+  if (data.policy_owner)
+    metadata.push({ label: "Policy owner", value: data.policy_owner });
+  if (data.process_owner)
+    metadata.push({ label: "Process owner", value: data.process_owner });
+  return (
+    <div className="page article-page">
+      <Breadcrumbs
+        items={[
+          { label: "Knowledge Base", to: `${basePath}${fromSearch}` },
+          { label: data.title },
+        ]}
+      />
+      <PageHeader
+        actions={
+          <>
+            {copied && <span role="status">Link copied</span>}
+            <Button onClick={copyLink} variant="secondary">
+              Copy link
+            </Button>
+          </>
+        }
+        eyebrow={documentTypeLabel(data.document_type)}
+        title={data.title}
+      />
+      <div className="article-layout">
+        <div className="article-body">
+          {sections.length === 0 && (
+            <EmptyState
+              description="This article has no readable content in your workspace."
+              title="Content unavailable"
+            />
+          )}
+          {sections.map((section, index) => (
+            <section
+              className="article-section"
+              id={section.section_anchor ?? undefined}
+              key={section.section_anchor ?? `section-${String(index)}`}
+            >
+              {(section.section_title ?? section.heading_path) && (
+                <h2>{section.section_title ?? section.heading_path}</h2>
+              )}
+              <p className="article-section__content">{section.content}</p>
+            </section>
+          ))}
+        </div>
+        <TicketSidePanel title="Article information">
+          <MetadataGrid items={metadata} />
+          {data.canonical_url && (
+            <p className="article-source">
+              <a
+                href={data.canonical_url}
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                View original source
+              </a>
+            </p>
+          )}
+        </TicketSidePanel>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   return (
     <AppShell>
@@ -1919,6 +2292,46 @@ export function App() {
           element={
             <RequireSession>
               <TicketDetailPage />
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/portal/knowledge"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_READ_EMPLOYEE">
+                <KnowledgeLandingPage analyst={false} />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/portal/knowledge/articles/:documentId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_READ_EMPLOYEE">
+                <KnowledgeArticlePage analyst={false} />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/agent/knowledge"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_READ_ANALYST">
+                <KnowledgeLandingPage analyst />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/agent/knowledge/articles/:documentId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_READ_ANALYST">
+                <KnowledgeArticlePage analyst />
+              </RequirePermission>
             </RequireSession>
           }
         />

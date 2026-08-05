@@ -167,43 +167,50 @@ class RetrievalService:
         )
 
     def _principal(self, context: RequestContext, persona: str) -> RetrievalPrincipal:
-        if context.tenant_id is None or context.user_id is None:
-            raise AuthorizationError("Authenticated retrieval identity is required.")
-        normalized_persona = persona.strip().upper()
-        if normalized_persona not in {"EMPLOYEE", "ANALYST"}:
-            raise RetrievalRequestError("Retrieval persona is invalid.")
-        permission = (
-            Permission.KNOWLEDGE_READ_ANALYST
-            if normalized_persona == "ANALYST"
-            else Permission.KNOWLEDGE_READ_EMPLOYEE
-        )
-        if not self._authorization.is_allowed(context, permission):
-            raise AuthorizationError("Knowledge retrieval is not authorized.")
-        audiences = (
-            ("ALL", "EMPLOYEE", "ANALYST", "TECHNICAL_SPECIALIST")
-            if normalized_persona == "ANALYST"
-            else ("ALL", "EMPLOYEE")
-        )
-        levels = (
-            ("PUBLIC", "INTERNAL", "CONFIDENTIAL")
-            if normalized_persona == "ANALYST"
-            else ("PUBLIC", "INTERNAL")
-        )
-        if "PLATFORM_ADMIN" in context.roles:
-            audiences = (*audiences, "ADMIN")
-            levels = (*levels, "RESTRICTED")
-        return RetrievalPrincipal(
-            tenant_id=context.tenant_id,
-            user_id=context.user_id,
-            role_codes=tuple(sorted(context.roles)),
-            support_group_codes=tuple(sorted(str(value) for value in context.support_group_ids)),
-            business_unit_code=(
-                str(context.business_unit_id) if context.business_unit_id is not None else None
-            ),
-            audience_codes=audiences,
-            security_levels=levels,
-            persona=normalized_persona,
-        )
+        return resolve_knowledge_principal(self._authorization, context, persona)
+
+
+def resolve_knowledge_principal(
+    authorization: AuthorizationService, context: RequestContext, persona: str
+) -> RetrievalPrincipal:
+    """Shared persona-to-visibility resolution for retrieval and article reading."""
+    if context.tenant_id is None or context.user_id is None:
+        raise AuthorizationError("Authenticated retrieval identity is required.")
+    normalized_persona = persona.strip().upper()
+    if normalized_persona not in {"EMPLOYEE", "ANALYST"}:
+        raise RetrievalRequestError("Retrieval persona is invalid.")
+    permission = (
+        Permission.KNOWLEDGE_READ_ANALYST
+        if normalized_persona == "ANALYST"
+        else Permission.KNOWLEDGE_READ_EMPLOYEE
+    )
+    if not authorization.is_allowed(context, permission):
+        raise AuthorizationError("Knowledge retrieval is not authorized.")
+    audiences = (
+        ("ALL", "EMPLOYEE", "ANALYST", "TECHNICAL_SPECIALIST")
+        if normalized_persona == "ANALYST"
+        else ("ALL", "EMPLOYEE")
+    )
+    levels = (
+        ("PUBLIC", "INTERNAL", "CONFIDENTIAL")
+        if normalized_persona == "ANALYST"
+        else ("PUBLIC", "INTERNAL")
+    )
+    if "PLATFORM_ADMIN" in context.roles:
+        audiences = (*audiences, "ADMIN")
+        levels = (*levels, "RESTRICTED")
+    return RetrievalPrincipal(
+        tenant_id=context.tenant_id,
+        user_id=context.user_id,
+        role_codes=tuple(sorted(context.roles)),
+        support_group_codes=tuple(sorted(str(value) for value in context.support_group_ids)),
+        business_unit_code=(
+            str(context.business_unit_id) if context.business_unit_id is not None else None
+        ),
+        audience_codes=audiences,
+        security_levels=levels,
+        persona=normalized_persona,
+    )
 
 
 def _query(value: str) -> str:

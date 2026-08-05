@@ -22,6 +22,8 @@ import { ErrorState, LoadingSkeleton, UnauthorizedState } from "./States";
 type Identity = components["schemas"]["CurrentIdentityResponse"];
 type PermissionCode =
   | "CATALOG_PROJECT_LIST"
+  | "KNOWLEDGE_READ_ANALYST"
+  | "KNOWLEDGE_READ_EMPLOYEE"
   | "TICKET_ANALYST_READ"
   | "TICKET_DRAFT_CREATE"
   | "TICKET_READ_OWN";
@@ -49,6 +51,12 @@ const employeeNavigation: readonly NavigationItem[] = [
     permission: "TICKET_READ_OWN",
     to: "/portal/requests",
   },
+  {
+    icon: "book",
+    label: "Knowledge base",
+    permission: "KNOWLEDGE_READ_EMPLOYEE",
+    to: "/portal/knowledge",
+  },
 ];
 
 const analystNavigation: readonly NavigationItem[] = [
@@ -63,6 +71,12 @@ const analystNavigation: readonly NavigationItem[] = [
     label: "My queues",
     permission: "TICKET_ANALYST_READ",
     to: "/agent/tickets",
+  },
+  {
+    icon: "book",
+    label: "Knowledge",
+    permission: "KNOWLEDGE_READ_ANALYST",
+    to: "/agent/knowledge",
   },
 ];
 

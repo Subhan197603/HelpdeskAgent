@@ -28,6 +28,10 @@ async function expectNoHorizontalScroll(page: Page) {
 test("approved employee and analyst screens remain visually stable", async ({
   page,
 }) => {
+  const openNavigation = async () => {
+    const menu = page.getByRole("button", { name: "Open navigation" });
+    if (await menu.isVisible()) await menu.click();
+  };
   await page.clock.install({ time: new Date("2026-08-02T10:30:00Z") });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/login");
@@ -87,6 +91,61 @@ test("approved employee and analyst screens remain visually stable", async ({
     screenshotOptions,
   );
 
+  // Knowledge base: landing, search, and article detail against seeded corpus.
+  await openNavigation();
+  await page.getByRole("link", { name: "Knowledge base" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Knowledge Base" }),
+  ).toBeVisible();
+  await expect(page.getByText("Browse by type")).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Oracle Fusion login issues" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Invoice validation runbook" }),
+  ).toHaveCount(0);
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "knowledge-landing.png",
+    screenshotOptions,
+  );
+
+  await page.getByLabel("Search knowledge articles").fill("password");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText(/Results for/)).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Oracle Fusion login issues" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Password reset guide" }),
+  ).toBeVisible();
+  await expect(page.locator("mark").first()).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "knowledge-search.png",
+    screenshotOptions,
+  );
+
+  await page.getByRole("link", { name: "Oracle Fusion login issues" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Oracle Fusion login issues", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Article information" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "View original source" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "knowledge-article.png",
+    screenshotOptions,
+  );
+
   await page.getByRole("button", { name: /Sign out/ }).click();
   await page.getByRole("button", { name: "Continue as analyst" }).click();
   await expect(page.getByRole("heading", { name: "My queues" })).toBeVisible();
@@ -94,10 +153,6 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("analyst-queue.png", screenshotOptions);
 
-  const openNavigation = async () => {
-    const menu = page.getByRole("button", { name: "Open navigation" });
-    if (await menu.isVisible()) await menu.click();
-  };
   await openNavigation();
   await page.getByRole("link", { name: "Dashboard" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
@@ -113,6 +168,19 @@ test("approved employee and analyst screens remain visually stable", async ({
     "analyst-dashboard.png",
     screenshotOptions,
   );
+
+  // Analyst knowledge: the confidential runbook is visible only here.
+  await openNavigation();
+  await page.getByRole("link", { name: "Knowledge", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Knowledge Base" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Invoice validation runbook" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+
   await openNavigation();
   await page.getByRole("link", { name: "My queues" }).click();
   await expect(page.getByRole("heading", { name: "My queues" })).toBeVisible();

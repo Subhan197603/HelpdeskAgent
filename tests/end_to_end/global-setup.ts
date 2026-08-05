@@ -46,7 +46,11 @@ export default function globalSetup(): void {
     "head",
   ]);
 
-  for (const fixture of ["identity_personas.sql", "catalogue.sql"]) {
+  for (const fixture of [
+    "identity_personas.sql",
+    "catalogue.sql",
+    "knowledge_articles.sql",
+  ]) {
     dockerCompose(
       "exec",
       "-T",

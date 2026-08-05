@@ -1677,6 +1677,226 @@ h3 {
   }
 }
 
+.knowledge-page mark,
+.search-result mark {
+  background: var(--color-warning-soft);
+  border-radius: var(--radius-sm);
+  color: inherit;
+  padding: 0 2px;
+}
+
+.knowledge-search {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.knowledge-search__field {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  max-width: 640px;
+  padding: var(--space-2) var(--space-3);
+}
+
+.knowledge-search__field svg {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.knowledge-search__field input {
+  background: transparent;
+  border: 0;
+  color: var(--color-text);
+  flex: 1;
+  font: inherit;
+  min-width: 0;
+  outline: none;
+}
+
+.knowledge-facets {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(3, 1fr);
+  list-style: none;
+  margin: 0 0 var(--space-6);
+  padding: 0;
+}
+
+.knowledge-facet {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: inherit;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  text-decoration: none;
+}
+
+.knowledge-facet:hover {
+  border-color: var(--color-border-strong);
+}
+
+.knowledge-facet--active {
+  border-color: var(--color-primary);
+}
+
+.knowledge-facet span {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+}
+
+.article-grid {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.article-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+
+.article-card__heading {
+  align-items: baseline;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+
+.article-card__heading h3 {
+  font-size: var(--font-body);
+  margin: 0;
+}
+
+.article-card__heading a {
+  color: inherit;
+}
+
+.article-card__type,
+.search-result__type {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  white-space: nowrap;
+}
+
+.article-card__excerpt {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.article-card__meta,
+.search-result__count {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin: 0;
+}
+
+.knowledge-more {
+  color: var(--color-text-muted);
+  font-size: var(--font-sm);
+  margin-top: var(--space-4);
+}
+
+.search-result-list {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.search-result {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+}
+
+.search-result h3 {
+  font-size: var(--font-body);
+  margin: 0;
+}
+
+.search-result__type {
+  margin: 0;
+}
+
+.search-result__excerpt {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.article-layout {
+  align-items: start;
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.article-body {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.article-section h2 {
+  font-size: var(--font-section);
+  margin: 0 0 var(--space-2);
+}
+
+.article-section__content {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.article-source {
+  margin: var(--space-3) 0 0;
+}
+
+@media (max-width: 1023px) {
+  .article-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 767px) {
+  .knowledge-search {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .knowledge-facets {
+    grid-template-columns: 1fr;
+  }
+  .article-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .app-sidebar,
+  .app-topbar,
+  .knowledge-search,
+  .breadcrumbs,
+  .page-header__actions {
+    display: none !important;
+  }
+  .article-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

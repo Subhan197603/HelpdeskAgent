@@ -13,6 +13,7 @@ from apps.api.app.identity.api import router as identity_router
 from apps.api.app.ingestion.api import router as ingestion_router
 from apps.api.app.knowledge.api import router as knowledge_router
 from apps.api.app.knowledge.document_api import router as knowledge_document_router
+from apps.api.app.knowledge.reader_api import router as knowledge_reader_router
 from apps.api.app.notifications.api import router as notifications_router
 from apps.api.app.observability.api import router as observability_router
 from apps.api.app.queues.api import router as queues_router
@@ -36,6 +37,7 @@ api_router.include_router(approvals_router)
 api_router.include_router(notifications_router)
 api_router.include_router(knowledge_router)
 api_router.include_router(knowledge_document_router)
+api_router.include_router(knowledge_reader_router)
 api_router.include_router(ingestion_router)
 api_router.include_router(retrieval_router)
 api_router.include_router(employee_agent_router)

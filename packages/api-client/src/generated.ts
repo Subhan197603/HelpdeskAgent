@@ -877,6 +877,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/knowledge/articles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Articles */
+    get: operations["list_articles_api_v1_knowledge_articles_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/knowledge/articles/{document_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Article */
+    get: operations["get_article_api_v1_knowledge_articles__document_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/knowledge/evidence/search": {
     parameters: {
       query?: never;
@@ -2522,6 +2556,115 @@ export interface components {
       status: "authorized";
     };
     JsonValue: unknown;
+    /** KnowledgeArticleDetailResponse */
+    KnowledgeArticleDetailResponse: {
+      /** Audience Code */
+      audience_code: string;
+      /** Canonical Url */
+      canonical_url: string | null;
+      /** Document Type */
+      document_type: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Language Code */
+      language_code: string;
+      /** Next Review Date */
+      next_review_date: string | null;
+      /** Owner Group Name */
+      owner_group_name: string | null;
+      /** Policy Owner */
+      policy_owner: string | null;
+      /** Process Owner */
+      process_owner: string | null;
+      /** Product Name */
+      product_name: string | null;
+      /** Published At */
+      published_at: string | null;
+      /** Release Code */
+      release_code: string | null;
+      /** Sections */
+      sections?: components["schemas"]["KnowledgeArticleSection"][];
+      /** Security Classification */
+      security_classification: string;
+      /** Source Name */
+      source_name: string;
+      /** Source Type */
+      source_type: string;
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Version Number */
+      version_number: number;
+    };
+    /** KnowledgeArticleFacet */
+    KnowledgeArticleFacet: {
+      /** Count */
+      count: number;
+      /** Document Type */
+      document_type: string;
+    };
+    /** KnowledgeArticleListResponse */
+    KnowledgeArticleListResponse: {
+      /** Facets */
+      facets: components["schemas"]["KnowledgeArticleFacet"][];
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["KnowledgeArticleSummary"][];
+    };
+    /** KnowledgeArticleSection */
+    KnowledgeArticleSection: {
+      /** Content */
+      content: string;
+      /** Heading Path */
+      heading_path: string | null;
+      /** Page Number */
+      page_number: number | null;
+      /** Section Anchor */
+      section_anchor: string | null;
+      /** Section Title */
+      section_title: string | null;
+    };
+    /** KnowledgeArticleSummary */
+    KnowledgeArticleSummary: {
+      /** Audience Code */
+      audience_code: string;
+      /** Document Type */
+      document_type: string;
+      /** Excerpt */
+      excerpt: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Language Code */
+      language_code: string;
+      /** Product Name */
+      product_name: string | null;
+      /** Published At */
+      published_at: string | null;
+      /** Release Code */
+      release_code: string | null;
+      /** Source Name */
+      source_name: string;
+      /** Source Type */
+      source_type: string;
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** KnowledgeEvidence */
     KnowledgeEvidence: {
       /** Canonical Uri */
@@ -7743,6 +7886,147 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["IdentityDiagnosticResponse"];
+        };
+      };
+    };
+  };
+  list_articles_api_v1_knowledge_articles_get: {
+    parameters: {
+      query?: {
+        persona?: "EMPLOYEE" | "ANALYST";
+        document_type?:
+          | (
+              | "USER_GUIDE"
+              | "IMPLEMENTATION_GUIDE"
+              | "ADMINISTRATION_GUIDE"
+              | "SECURITY_GUIDE"
+              | "API_REFERENCE"
+              | "TABLES_AND_VIEWS"
+              | "WHATS_NEW"
+              | "READINESS"
+              | "FAQ"
+              | "POLICY"
+              | "PROCEDURE"
+              | "RUNBOOK"
+              | "KNOWN_ERROR"
+              | "HISTORICAL_FIX"
+              | "ROOT_CAUSE_ANALYSIS"
+              | "KNOWLEDGE_ARTICLE"
+              | "OTHER"
+            )
+          | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["KnowledgeArticleListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge article not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Article request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  get_article_api_v1_knowledge_articles__document_id__get: {
+    parameters: {
+      query?: {
+        persona?: "EMPLOYEE" | "ANALYST";
+      };
+      header?: never;
+      path: {
+        document_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["KnowledgeArticleDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge article not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Article request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
         };
       };
     };
