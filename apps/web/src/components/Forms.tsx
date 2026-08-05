@@ -8,6 +8,8 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 
+import { Button } from "./Button";
+
 interface FieldProps {
   children: ReactNode;
   description?: string;
@@ -241,12 +243,10 @@ export function ConfirmationDialog({
       <h2 id={titleId}>{title}</h2>
       {children}
       <div className="dialog-actions">
-        <button className="button secondary" onClick={onCancel} type="button">
+        <Button onClick={onCancel} variant="secondary">
           {cancelLabel}
-        </button>
-        <button className="button primary" onClick={onConfirm} type="button">
-          {confirmLabel}
-        </button>
+        </Button>
+        <Button onClick={onConfirm}>{confirmLabel}</Button>
       </div>
     </dialog>
   );

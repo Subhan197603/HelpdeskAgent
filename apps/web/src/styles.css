@@ -1,62 +1,9 @@
+@import "./styles/tokens.css";
+
 :root {
-  --color-background: #f6f8fc;
-  --color-surface: #ffffff;
-  --color-surface-subtle: #f8fafc;
-  --color-sidebar: #0f1b2d;
-  --color-sidebar-hover: #17263d;
-  --color-sidebar-muted: #9aacbf;
-  --color-primary: #2563eb;
-  --color-primary-hover: #1d4ed8;
-  --color-primary-soft: #eff6ff;
-  --color-secondary: #7c3aed;
-  --color-success: #15803d;
-  --color-success-soft: #ecfdf3;
-  --color-warning: #b45309;
-  --color-warning-soft: #fffbeb;
-  --color-danger: #dc2626;
-  --color-danger-soft: #fef2f2;
-  --color-info: #0369a1;
-  --color-info-soft: #eff6ff;
-  --color-text: #111827;
-  --color-text-secondary: #4b5563;
-  --color-text-muted: #6b7280;
-  --color-border: #e5e7eb;
-  --color-border-strong: #cbd5e1;
-  --shadow-card: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 14px rgb(15 23 42 / 4%);
-  --shadow-overlay: 0 24px 64px rgb(15 23 42 / 22%);
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-pill: 999px;
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --font-xs: 0.75rem;
-  --font-sm: 0.8125rem;
-  --font-body: 0.875rem;
-  --font-section: 1.0625rem;
-  --font-title: clamp(1.5rem, 2.4vw, 1.75rem);
-  --font-kpi: clamp(1.5rem, 3vw, 2rem);
-  --sidebar-width: 240px;
-  --sidebar-collapsed-width: 72px;
-  --topbar-height: 64px;
-  --content-max-width: 1440px;
-  --page-padding: 24px;
-  --motion-fast: 120ms;
-  --motion-normal: 200ms;
-  --focus-ring: 0 0 0 3px rgb(37 99 235 / 32%);
-  --layer-base: 0;
-  --layer-sticky: 20;
-  --layer-drawer: 40;
-  --layer-modal: 60;
   color: var(--color-text);
   background: var(--color-background);
-  font-family: Inter, Arial, "Segoe UI", sans-serif;
+  font-family: "Inter Variable", Inter, "Segoe UI", Arial, sans-serif;
   font-synthesis: none;
   line-height: 1.5;
 }
@@ -132,7 +79,11 @@ h3 {
 }
 
 .app-sidebar {
-  background: linear-gradient(180deg, #0c192a, var(--color-sidebar));
+  background: linear-gradient(
+    180deg,
+    var(--color-sidebar-deep),
+    var(--color-sidebar)
+  );
   bottom: 0;
   color: #fff;
   display: flex;
@@ -176,9 +127,11 @@ h3 {
 }
 .sidebar-user {
   align-items: center;
+  border-top: 1px solid rgb(255 255 255 / 8%);
   display: flex;
   gap: var(--space-3);
-  padding: var(--space-5);
+  margin-top: auto;
+  padding: var(--space-4) var(--space-5);
   white-space: nowrap;
 }
 .sidebar-user div,
@@ -201,13 +154,58 @@ h3 {
   color: #1e40af;
   display: inline-flex;
   flex: 0 0 36px;
+  font-size: var(--font-sm);
   font-weight: 700;
   height: 36px;
   justify-content: center;
+  letter-spacing: 0.02em;
+  width: 36px;
+}
+.avatar--sm {
+  flex-basis: 28px;
+  font-size: var(--font-xs);
+  height: 28px;
+  width: 28px;
+}
+.avatar--tone-0 {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.avatar--tone-1 {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.avatar--tone-2 {
+  background: #dcfce7;
+  color: #166534;
+}
+.avatar--tone-3 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+.avatar--tone-4 {
+  background: #ffedd5;
+  color: #9a3412;
+}
+.avatar--tone-5 {
+  background: #cffafe;
+  color: #155e75;
+}
+.avatar--tone-6 {
+  background: #fce7f3;
+  color: #9d174d;
+}
+.avatar--tone-7 {
+  background: #e2e8f0;
+  color: #334155;
 }
 .sidebar-nav {
   flex: 1;
+  overflow-y: auto;
   padding: var(--space-2) var(--space-3);
+}
+.sidebar-section + .sidebar-section {
+  margin-top: var(--space-4);
 }
 .sidebar-nav p {
   color: var(--color-sidebar-muted);
@@ -222,7 +220,7 @@ h3 {
   align-items: center;
   border: 0;
   border-radius: var(--radius-sm);
-  color: #dbe4ee;
+  color: var(--color-sidebar-text);
   display: flex;
   gap: var(--space-3);
   min-height: 44px;
@@ -237,8 +235,10 @@ h3 {
   color: #fff;
 }
 .sidebar-nav a.active {
-  background: var(--color-primary);
+  background: rgb(37 99 235 / 24%);
+  box-shadow: inset 3px 0 0 var(--color-primary);
   color: #fff;
+  font-weight: 600;
 }
 .sidebar-nav svg,
 .sidebar-collapse svg {
@@ -296,7 +296,18 @@ h3 {
   left: var(--sidebar-collapsed-width);
 }
 .topbar-context {
-  display: none;
+  display: grid;
+  white-space: nowrap;
+}
+.topbar-context span {
+  color: var(--color-text-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.topbar-context strong {
+  font-size: var(--font-sm);
 }
 .global-search {
   align-items: center;
@@ -317,6 +328,16 @@ h3 {
   height: 38px;
   outline: 0;
   width: 100%;
+}
+.global-search kbd {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-xs);
+  padding: 1px 6px;
+  white-space: nowrap;
 }
 .topbar-actions {
   align-items: center;
@@ -444,6 +465,7 @@ h3 {
   padding: var(--space-5);
 }
 .stat-card {
+  border-top: 3px solid var(--color-primary);
   padding: var(--space-4);
 }
 .stat-card > span {
@@ -545,11 +567,13 @@ h3 {
   text-decoration: none;
   transition:
     border-color var(--motion-fast),
-    box-shadow var(--motion-fast);
+    box-shadow var(--motion-fast),
+    transform var(--motion-fast);
 }
 .service-card:hover {
   border-color: #93c5fd;
-  box-shadow: var(--shadow-card);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 .service-card > span {
   align-items: center;
@@ -679,8 +703,14 @@ h3 {
   padding: var(--space-5);
   text-decoration: none;
 }
+.request-card {
+  transition:
+    border-color var(--motion-fast),
+    box-shadow var(--motion-fast);
+}
 .request-card:hover {
   border-color: #93c5fd;
+  box-shadow: var(--shadow-card-hover);
 }
 .card-code,
 .ticket-key {
@@ -958,6 +988,10 @@ h3 {
   padding: 3px 8px;
   white-space: nowrap;
 }
+.badge--sm {
+  font-size: 0.6875rem;
+  padding: 2px 6px;
+}
 .badge__dot {
   background: currentcolor;
   border-radius: 50%;
@@ -1114,13 +1148,16 @@ h3 {
   font-size: var(--font-sm);
   font-weight: 600;
   gap: var(--space-1);
+  min-width: 0;
 }
 .attachment-uploader input,
 .attachment-uploader select {
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   min-height: 44px;
+  min-width: 0;
   padding: var(--space-2);
+  width: 100%;
 }
 .attachment-result {
   align-items: center;
@@ -1134,15 +1171,6 @@ h3 {
   align-items: center;
   display: flex;
   gap: var(--space-3);
-}
-.participant-card > span {
-  align-items: center;
-  background: var(--color-primary-soft);
-  border-radius: 50%;
-  display: flex;
-  height: 36px;
-  justify-content: center;
-  width: 36px;
 }
 .participant-card small {
   color: var(--color-text-muted);

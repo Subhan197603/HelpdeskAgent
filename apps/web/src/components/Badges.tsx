@@ -1,18 +1,21 @@
 type Tone = "danger" | "info" | "neutral" | "success" | "warning";
+type BadgeSize = "md" | "sm";
 
 function Badge({
   children,
   label,
+  size = "md",
   tone,
 }: {
   children: string;
   label: string;
+  size?: BadgeSize;
   tone: Tone;
 }) {
   return (
     <span
       aria-label={`${label}: ${children}`}
-      className={`badge badge--${tone}`}
+      className={`badge badge--${tone}${size === "sm" ? " badge--sm" : ""}`}
     >
       <span aria-hidden="true" className="badge__dot" />
       {children}
@@ -36,9 +39,15 @@ function statusTone(status: string): Tone {
   return "neutral";
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({
+  size,
+  status,
+}: {
+  size?: BadgeSize;
+  status: string;
+}) {
   return (
-    <Badge label="Status" tone={statusTone(status)}>
+    <Badge label="Status" size={size} tone={statusTone(status)}>
       {status.replaceAll("_", " ")}
     </Badge>
   );

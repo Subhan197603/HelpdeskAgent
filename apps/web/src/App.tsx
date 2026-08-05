@@ -20,6 +20,9 @@ import {
 import { AppShell, RequirePermission } from "./components/AppShell";
 import { AttachmentUploader } from "./components/AttachmentUploader";
 import { PriorityBadge, StatusBadge } from "./components/Badges";
+import { Button } from "./components/Button";
+import { SearchField } from "./components/SearchField";
+import { Tabs } from "./components/Tabs";
 import { PageHeader, Panel, SectionHeader } from "./components/Layout";
 import {
   EmptyState,
@@ -96,47 +99,35 @@ export function LoginPage() {
         {authConfiguration === null && (
           <div role="alert">
             <p>The sign-in configuration could not be loaded.</p>
-            <button
-              className="button secondary"
-              onClick={reloadAuthConfiguration}
-              type="button"
-            >
+            <Button onClick={reloadAuthConfiguration} variant="secondary">
               Try again
-            </button>
+            </Button>
           </div>
         )}
         {authConfiguration && (
           <div className="login-actions">
             {authConfiguration.oidc_enabled && (
-              <button
-                className="button primary"
-                disabled={ssoPending}
-                onClick={startSso}
-                type="button"
-              >
+              <Button disabled={ssoPending} onClick={startSso}>
                 {ssoPending ? "Redirecting…" : "Sign in"}
-              </button>
+              </Button>
             )}
             {authConfiguration.developer_identity_enabled && (
               <>
-                <button
-                  className="button primary"
+                <Button
                   onClick={() => {
                     enter("employee");
                   }}
-                  type="button"
                 >
                   Continue as employee
-                </button>
-                <button
-                  className="button secondary"
+                </Button>
+                <Button
                   onClick={() => {
                     enter("analyst");
                   }}
-                  type="button"
+                  variant="secondary"
                 >
                   Continue as analyst
-                </button>
+                </Button>
               </>
             )}
             {!authConfiguration.oidc_enabled &&
@@ -190,9 +181,7 @@ export function AuthCallbackPage() {
             The sign-in response was rejected. Start again from the sign-in
             page.
           </p>
-          <Link className="button primary" to="/login">
-            Return to sign in
-          </Link>
+          <Button to="/login">Return to sign in</Button>
         </section>
       </div>
     );
@@ -220,24 +209,19 @@ function PortalHome() {
         <p className="eyebrow">Employee portal</p>
         <h1 id="portal-title">How can we help you?</h1>
         <p>Find the right service or track an existing support request.</p>
-        <label className="portal-search">
-          <span className="sr-only">Search help services</span>
-          <input
-            disabled
-            placeholder="Search for services or support…"
-            title="Search will be enabled in a future milestone"
-          />
-        </label>
+        <SearchField
+          className="portal-search"
+          disabled
+          label="Search help services"
+          placeholder="Search for services or support…"
+          title="Search will be enabled in a future milestone"
+          withIcon={false}
+        />
         <div className="hero-actions">
-          <Link className="button primary" to="/portal/catalog">
-            Browse services
-          </Link>
-          <Link
-            className="button secondary button--inverse"
-            to="/portal/requests"
-          >
+          <Button to="/portal/catalog">Browse services</Button>
+          <Button to="/portal/requests" variant="inverse">
             My tickets
-          </Link>
+          </Button>
         </div>
       </section>
       <section aria-labelledby="popular-services">
@@ -344,27 +328,16 @@ function CataloguePage() {
       )}
       {projects.data && projects.data.items.length > 0 && (
         <>
-          <div
-            className="project-tabs"
-            role="tablist"
-            aria-label="Service projects"
-          >
-            {projects.data.items.map((project) => (
-              <button
-                aria-selected={project.id === projectId}
-                className={project.id === projectId ? "active" : ""}
-                key={project.id}
-                onClick={() => {
-                  setProjectId(project.id);
-                }}
-                role="tab"
-                type="button"
-              >
-                <span>{project.code}</span>
-                {project.name}
-              </button>
-            ))}
-          </div>
+          <Tabs
+            activeId={projectId ?? ""}
+            items={projects.data.items.map((project) => ({
+              badge: project.code,
+              id: project.id,
+              label: project.name,
+            }))}
+            label="Service projects"
+            onChange={setProjectId}
+          />
           {requestTypes.isPending && (
             <StatusPanel>Loading request types…</StatusPanel>
           )}
@@ -656,13 +629,9 @@ function RequestFormPage() {
               </select>
             </div>
           </div>
-          <button
-            className="button primary"
-            disabled={createDraft.isPending}
-            type="submit"
-          >
+          <Button disabled={createDraft.isPending} type="submit">
             {createDraft.isPending ? "Validating…" : "Review request"}
-          </button>
+          </Button>
         </form>
       )}
     </div>
@@ -763,18 +732,15 @@ function DraftReviewPage() {
                   required
                 />
               </div>
-              <button className="button primary" type="submit">
-                Save and revalidate
-              </button>
-              <button
-                className="button secondary"
+              <Button type="submit">Save and revalidate</Button>
+              <Button
                 onClick={() => {
                   setEditing(false);
                 }}
-                type="button"
+                variant="secondary"
               >
                 Cancel
-              </button>
+              </Button>
             </form>
           ) : (
             <>
@@ -798,25 +764,22 @@ function DraftReviewPage() {
                   <dd>{draft.data.priority}</dd>
                 </div>
               </dl>
-              <button
-                className="button secondary"
+              <Button
                 onClick={() => {
                   setEditing(true);
                 }}
-                type="button"
+                variant="secondary"
               >
                 Edit summary
-              </button>
-              <button
-                className="button primary"
+              </Button>
+              <Button
                 disabled={confirm.isPending}
                 onClick={() => {
                   confirm.mutate(draft.data);
                 }}
-                type="button"
               >
                 {confirm.isPending ? "Submitting…" : "Confirm and submit"}
-              </button>
+              </Button>
             </>
           )}
         </section>
@@ -962,9 +925,9 @@ function AgentQueuePage() {
                   }}
                   value={searchInput}
                 />
-                <button className="button secondary" type="submit">
+                <Button type="submit" variant="secondary">
                   Search
-                </button>
+                </Button>
               </div>
             </form>
             {tickets.isPending && (
@@ -988,15 +951,14 @@ function AgentQueuePage() {
               ))}
             </div>
             {tickets.data?.next_cursor && (
-              <button
-                className="button secondary"
+              <Button
                 onClick={() => {
                   setCursor(tickets.data.next_cursor ?? null);
                 }}
-                type="button"
+                variant="secondary"
               >
                 Next page
-              </button>
+              </Button>
             )}
           </section>
         </div>
@@ -1159,17 +1121,13 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
                       rows={4}
                     />
                   </div>
-                  <button
-                    className="button primary"
-                    disabled={addComment.isPending}
-                    type="submit"
-                  >
+                  <Button disabled={addComment.isPending} type="submit">
                     {addComment.isPending
                       ? "Posting…"
                       : visibility === "INTERNAL"
                         ? "Post internal note"
                         : "Post public comment"}
-                  </button>
+                  </Button>
                 </form>
               </section>
               <AttachmentUploader

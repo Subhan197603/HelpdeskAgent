@@ -1,0 +1,105 @@
+/* Design tokens — single source of truth for the HelpdeskAgent UI.
+   Layer 1: raw palette. Layer 2: semantic aliases consumed by components.
+   Change semantics, not call sites. */
+
+:root {
+  /* Layer 1 — raw palette */
+  --navy-900: #0c192a;
+  --navy-800: #0f1b2d;
+  --navy-700: #17263d;
+  --navy-300: #9aacbf;
+  --navy-200: #dbe4ee;
+  --blue-700: #1d4ed8;
+  --blue-600: #2563eb;
+  --blue-100: #dbeafe;
+  --blue-50: #eff6ff;
+  --violet-600: #7c3aed;
+  --green-700: #15803d;
+  --green-50: #ecfdf3;
+  --amber-700: #b45309;
+  --amber-50: #fffbeb;
+  --red-600: #dc2626;
+  --red-50: #fef2f2;
+  --cyan-700: #0369a1;
+  --neutral-0: #ffffff;
+  --neutral-50: #f8fafc;
+  --neutral-100: #f6f8fc;
+  --neutral-200: #e5e7eb;
+  --neutral-300: #cbd5e1;
+  --neutral-500: #6b7280;
+  --neutral-600: #4b5563;
+  --neutral-900: #111827;
+
+  /* Layer 2 — semantic aliases */
+  --color-background: var(--neutral-100);
+  --color-surface: var(--neutral-0);
+  --color-surface-subtle: var(--neutral-50);
+  --color-sidebar: var(--navy-800);
+  --color-sidebar-deep: var(--navy-900);
+  --color-sidebar-hover: var(--navy-700);
+  --color-sidebar-muted: var(--navy-300);
+  --color-sidebar-text: var(--navy-200);
+  --color-primary: var(--blue-600);
+  --color-primary-hover: var(--blue-700);
+  --color-primary-soft: var(--blue-50);
+  --color-secondary: var(--violet-600);
+  --color-success: var(--green-700);
+  --color-success-soft: var(--green-50);
+  --color-warning: var(--amber-700);
+  --color-warning-soft: var(--amber-50);
+  --color-danger: var(--red-600);
+  --color-danger-soft: var(--red-50);
+  --color-info: var(--cyan-700);
+  --color-info-soft: var(--blue-50);
+  --color-text: var(--neutral-900);
+  --color-text-secondary: var(--neutral-600);
+  --color-text-muted: var(--neutral-500);
+  --color-border: var(--neutral-200);
+  --color-border-strong: var(--neutral-300);
+
+  /* Elevation */
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 5%), 0 4px 14px rgb(15 23 42 / 4%);
+  --shadow-card-hover:
+    0 2px 4px rgb(15 23 42 / 6%), 0 12px 28px rgb(15 23 42 / 9%);
+  --shadow-overlay: 0 24px 64px rgb(15 23 42 / 22%);
+
+  /* Radii */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* Spacing (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  /* Typography scale */
+  --font-xs: 0.75rem;
+  --font-sm: 0.8125rem;
+  --font-body: 0.875rem;
+  --font-section: 1.0625rem;
+  --font-title: clamp(1.5rem, 2.4vw, 1.75rem);
+  --font-kpi: clamp(1.5rem, 3vw, 2rem);
+
+  /* Layout dimensions */
+  --sidebar-width: 240px;
+  --sidebar-collapsed-width: 72px;
+  --topbar-height: 64px;
+  --content-max-width: 1440px;
+  --page-padding: 24px;
+
+  /* Motion, focus, layers */
+  --motion-fast: 120ms;
+  --motion-normal: 200ms;
+  --focus-ring: 0 0 0 3px rgb(37 99 235 / 32%);
+  --layer-base: 0;
+  --layer-sticky: 20;
+  --layer-drawer: 40;
+  --layer-modal: 60;
+}

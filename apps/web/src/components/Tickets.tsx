@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { Avatar } from "./Avatar";
 import { PriorityBadge, StatusBadge } from "./Badges";
+import { Button } from "./Button";
 import { MetadataGrid } from "./Layout";
 
 export function TicketListItem({
@@ -170,13 +172,13 @@ export function CommentComposer({
         rows={4}
         value={body}
       />
-      <button className="button primary" disabled={disabled} type="submit">
+      <Button disabled={disabled} type="submit">
         {disabled
           ? "Posting…"
           : visibility === "INTERNAL"
             ? "Post internal note"
             : "Post public comment"}
-      </button>
+      </Button>
     </form>
   );
 }
@@ -205,7 +207,7 @@ export function ParticipantCard({
 }) {
   return (
     <article className="participant-card">
-      <span aria-hidden="true">{name.slice(0, 1)}</span>
+      <Avatar name={name} />
       <div>
         <strong>{name}</strong>
         <small>{role}</small>

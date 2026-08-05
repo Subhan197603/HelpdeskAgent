@@ -107,6 +107,41 @@ describe("application shell", () => {
     );
   });
 
+  it("marks the active navigation item for assistive technology", async () => {
+    renderShell("/portal/catalog");
+    expect(
+      await screen.findByRole("link", { name: "Browse services" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
+  it("keeps accessible names and tooltips on collapsed navigation", async () => {
+    localStorage.setItem("helpdesk-sidebar-collapsed", "true");
+    renderShell("/portal");
+    const home = await screen.findByRole("link", { name: "Home" });
+    expect(home).toHaveAttribute("title", "Home");
+    expect(home).toHaveAttribute("aria-label", "Home");
+    expect(screen.getByRole("link", { name: "My tickets" })).toHaveAttribute(
+      "title",
+      "My tickets",
+    );
+  });
+
+  it("shows the analyst navigation section only when permission is granted", async () => {
+    renderShell("/portal");
+    await screen.findByRole("link", { name: "Home" });
+    expect(screen.queryByText("Analyst tools")).not.toBeInTheDocument();
+  });
+
+  it("groups analyst navigation without duplicate queue routes", async () => {
+    permissions.push("TICKET_ANALYST_READ");
+    renderShell("/agent/tickets");
+    await screen.findByRole("link", { name: "My queues" });
+    expect(screen.getByText("Analyst tools")).toBeVisible();
+    expect(
+      screen.queryByRole("link", { name: "All tickets" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("persists sidebar collapse and supports the mobile drawer", async () => {
     const user = userEvent.setup();
     renderShell();

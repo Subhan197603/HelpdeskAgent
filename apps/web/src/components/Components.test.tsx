@@ -4,7 +4,11 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import { Avatar } from "./Avatar";
 import { PriorityBadge, StatusBadge } from "./Badges";
+import { Button, IconButton } from "./Button";
+import { SearchField } from "./SearchField";
+import { Tabs } from "./Tabs";
 import { AttachmentStatus } from "./AttachmentUploader";
 import { DataTable, Pagination } from "./DataTable";
 import { ConfirmationDialog, FormErrorSummary, TextInput } from "./Forms";
@@ -51,6 +55,26 @@ describe("shared UI states", () => {
     ).toBeVisible();
   });
 
+  it("renders two-letter initials with a deterministic tone", () => {
+    const { container: first } = render(<Avatar name="UAT Customer" />);
+    const { container: second } = render(<Avatar name="UAT Customer" />);
+    const { container: single } = render(<Avatar name="Admin" size="sm" />);
+    const one = first.querySelector(".avatar");
+    const two = second.querySelector(".avatar");
+    expect(one).toHaveTextContent("UC");
+    expect(one?.className).toMatch(/avatar--tone-\d/);
+    expect(one?.className).toBe(two?.className);
+    expect(single.querySelector(".avatar")).toHaveTextContent("A");
+    expect(single.querySelector(".avatar")?.className).toContain("avatar--sm");
+  });
+
+  it("supports a small badge size variant", () => {
+    render(<StatusBadge size="sm" status="NEW" />);
+    expect(screen.getByLabelText("Status: NEW").className).toContain(
+      "badge--sm",
+    );
+  });
+
   it("renders text labels for status and priority variants", () => {
     render(
       <>
@@ -64,6 +88,78 @@ describe("shared UI states", () => {
     expect(screen.getByLabelText("Status: RESOLVED")).toBeVisible();
     expect(screen.getByLabelText("Priority: P1")).toBeVisible();
     expect(screen.getByLabelText("Priority: P4")).toBeVisible();
+  });
+});
+
+describe("shared design-system components", () => {
+  it("renders button variants as buttons or router links", async () => {
+    const onClick = vi.fn();
+    const user = userEvent.setup();
+    renderWithQuery(
+      <>
+        <Button onClick={onClick}>Save</Button>
+        <Button to="/portal" variant="inverse">
+          Portal
+        </Button>
+        <Button disabled variant="secondary">
+          Waiting
+        </Button>
+      </>,
+    );
+    const save = screen.getByRole("button", { name: "Save" });
+    expect(save.className).toContain("button primary");
+    await user.click(save);
+    expect(onClick).toHaveBeenCalledOnce();
+    const link = screen.getByRole("link", { name: "Portal" });
+    expect(link).toHaveAttribute("href", "/portal");
+    expect(link.className).toContain("button--inverse");
+    expect(screen.getByRole("button", { name: "Waiting" })).toBeDisabled();
+  });
+
+  it("requires an accessible label on icon buttons", () => {
+    render(<IconButton icon="bell" label="Notifications" disabled />);
+    const button = screen.getByRole("button", { name: "Notifications" });
+    expect(button.className).toContain("icon-button");
+    expect(button).toBeDisabled();
+  });
+
+  it("moves tab selection with arrow keys and marks selection", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Tabs
+        activeId="a"
+        items={[
+          { badge: "ERP", id: "a", label: "Oracle ERP" },
+          { badge: "HCM", id: "b", label: "Oracle HCM" },
+        ]}
+        label="Service projects"
+        onChange={onChange}
+      />,
+    );
+    const first = screen.getByRole("tab", { name: /Oracle ERP/ });
+    expect(first).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /Oracle HCM/ })).toHaveAttribute(
+      "tabindex",
+      "-1",
+    );
+    first.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(onChange).toHaveBeenCalledWith("b");
+  });
+
+  it("renders a labelled disabled search field with a shortcut hint", () => {
+    render(
+      <SearchField
+        disabled
+        hint="Ctrl K"
+        label="Search tickets and services"
+        placeholder="Search tickets and services…"
+      />,
+    );
+    const input = screen.getByLabelText("Search tickets and services");
+    expect(input).toBeDisabled();
+    expect(screen.getByText("Ctrl K")).toBeInTheDocument();
   });
 });
 

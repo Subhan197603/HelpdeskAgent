@@ -13,7 +13,10 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { ApiProblem, sessionApiClient, unwrap } from "../lib/api";
 import { useSession } from "../lib/session";
+import { Avatar } from "./Avatar";
+import { IconButton } from "./Button";
 import { Icon, type IconName } from "./Icon";
+import { SearchField } from "./SearchField";
 import { ErrorState, LoadingSkeleton, UnauthorizedState } from "./States";
 
 type Identity = components["schemas"]["CurrentIdentityResponse"];
@@ -55,12 +58,16 @@ const analystNavigation: readonly NavigationItem[] = [
     permission: "TICKET_ANALYST_READ",
     to: "/agent/tickets",
   },
-  {
-    icon: "ticket",
-    label: "All tickets",
-    permission: "TICKET_ANALYST_READ",
-    to: "/agent/tickets",
-  },
+];
+
+interface NavigationSection {
+  items: readonly NavigationItem[];
+  title: string;
+}
+
+const navigationSections: readonly NavigationSection[] = [
+  { items: employeeNavigation, title: "Workspace" },
+  { items: analystNavigation, title: "Analyst tools" },
 ];
 
 function can(identity: Identity, permission: PermissionCode): boolean {
@@ -111,14 +118,12 @@ function Sidebar({
   onCollapse: () => void;
 }) {
   const firstLink = useRef<HTMLAnchorElement>(null);
-  const navigation = [...employeeNavigation, ...analystNavigation].filter(
-    (item, index, all) =>
-      can(identity, item.permission) &&
-      all.findIndex(
-        (candidate) =>
-          candidate.to === item.to && candidate.label === item.label,
-      ) === index,
-  );
+  const sections = navigationSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => can(identity, item.permission)),
+    }))
+    .filter((section) => section.items.length > 0);
   useEffect(() => {
     if (mobileOpen) firstLink.current?.focus();
   }, [mobileOpen]);
@@ -137,6 +142,7 @@ function Sidebar({
         className={`app-sidebar${collapsed ? " app-sidebar--collapsed" : ""}${mobileOpen ? " app-sidebar--open" : ""}`}
       >
         <Link
+          aria-label="HelpdeskAgent"
           className="sidebar-brand"
           onClick={onClose}
           to={
@@ -146,10 +152,36 @@ function Sidebar({
           <ProductMark />
           <span>HelpdeskAgent</span>
         </Link>
+        <nav aria-label="Primary navigation" className="sidebar-nav">
+          {sections.map((section, sectionIndex) => (
+            <div className="sidebar-section" key={section.title}>
+              <p>{section.title}</p>
+              {section.items.map((item, itemIndex) => (
+                <NavLink
+                  aria-label={item.label}
+                  className={({ isActive }) =>
+                    isActive ? "active" : undefined
+                  }
+                  end={item.to === "/portal"}
+                  key={`${item.label}-${item.to}`}
+                  onClick={onClose}
+                  ref={
+                    sectionIndex === 0 && itemIndex === 0
+                      ? firstLink
+                      : undefined
+                  }
+                  title={collapsed ? item.label : undefined}
+                  to={item.to}
+                >
+                  <Icon name={item.icon} />
+                  <span>{item.label}</span>
+                </NavLink>
+              ))}
+            </div>
+          ))}
+        </nav>
         <div className="sidebar-user">
-          <span className="avatar" aria-hidden="true">
-            {identity.display_name.slice(0, 1)}
-          </span>
+          <Avatar name={identity.display_name} seed={identity.user_id} />
           <div>
             <strong>{identity.display_name}</strong>
             <small>
@@ -159,22 +191,6 @@ function Sidebar({
             </small>
           </div>
         </div>
-        <nav aria-label="Primary navigation" className="sidebar-nav">
-          <p>Workspace</p>
-          {navigation.map((item, index) => (
-            <NavLink
-              className={({ isActive }) => (isActive ? "active" : undefined)}
-              end={item.to === "/portal"}
-              key={`${item.label}-${item.to}`}
-              onClick={onClose}
-              ref={index === 0 ? firstLink : undefined}
-              to={item.to}
-            >
-              <Icon name={item.icon} />
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
-        </nav>
         <button
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           className="sidebar-collapse"
@@ -203,54 +219,43 @@ function TopBar({
   const queryClient = useQueryClient();
   const location = useLocation();
   const currentLabel =
-    [...employeeNavigation, ...analystNavigation].find((item) =>
-      location.pathname.startsWith(item.to),
-    )?.label ?? "Workspace";
+    navigationSections
+      .flatMap((section) => section.items)
+      .find((item) => location.pathname.startsWith(item.to))?.label ??
+    "Workspace";
   return (
     <header
       className={`app-topbar${collapsed ? " app-topbar--collapsed" : ""}`}
     >
-      <button
-        aria-label="Open navigation"
-        className="icon-button mobile-menu"
+      <IconButton
+        className="mobile-menu"
+        icon="menu"
+        label="Open navigation"
         onClick={onMenu}
-        type="button"
-      >
-        <Icon name="menu" />
-      </button>
+      />
       <div className="topbar-context">
         <span>Workspace</span>
         <strong>{currentLabel}</strong>
       </div>
-      <label className="global-search">
-        <span className="sr-only">Search tickets and services</span>
-        <Icon name="search" />
-        <input
-          disabled
-          placeholder="Search tickets and services…"
-          title="Global search will be enabled in a future milestone"
-        />
-      </label>
+      <SearchField
+        disabled
+        hint="Ctrl K"
+        label="Search tickets and services"
+        placeholder="Search tickets and services…"
+        title="Global search will be enabled in a future milestone"
+      />
       <div className="topbar-actions">
-        <button
-          aria-label="Notifications are not yet available"
-          className="icon-button"
+        <IconButton
           disabled
-          type="button"
-        >
-          <Icon name="bell" />
-        </button>
-        <button aria-label="Help" className="icon-button" type="button">
-          <Icon name="help" />
-        </button>
-        <button
-          aria-label="Settings are not yet available"
-          className="icon-button"
+          icon="bell"
+          label="Notifications are not yet available"
+        />
+        <IconButton icon="help" label="Help" />
+        <IconButton
           disabled
-          type="button"
-        >
-          <Icon name="settings" />
-        </button>
+          icon="settings"
+          label="Settings are not yet available"
+        />
         <button
           aria-label={`Sign out ${identity.display_name}`}
           className="user-menu"
@@ -261,9 +266,7 @@ function TopBar({
           }}
           type="button"
         >
-          <span className="avatar" aria-hidden="true">
-            {identity.display_name.slice(0, 1)}
-          </span>
+          <Avatar name={identity.display_name} seed={identity.user_id} />
           <span>
             <strong>{identity.display_name}</strong>
             <small>Sign out</small>

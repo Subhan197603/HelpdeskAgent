@@ -3,6 +3,7 @@ import { useState, type SyntheticEvent } from "react";
 import { apiClient } from "../lib/api";
 import { uploadTicketAttachment } from "../lib/attachments";
 import { StatusBadge } from "./Badges";
+import { Button } from "./Button";
 import { ErrorState } from "./States";
 
 export function AttachmentStatus({
@@ -102,15 +103,15 @@ export function AttachmentUploader({
             </select>
           </label>
         )}
-        <button
-          className="button secondary"
+        <Button
           disabled={!file || state === "uploading"}
           type="submit"
+          variant="secondary"
         >
           {state === "uploading"
             ? "Uploading and scanning…"
             : "Upload attachment"}
-        </button>
+        </Button>
       </form>
     </section>
   );
