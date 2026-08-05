@@ -21,9 +21,15 @@ import { AppShell, RequirePermission } from "./components/AppShell";
 import { AttachmentUploader } from "./components/AttachmentUploader";
 import { PriorityBadge, StatusBadge } from "./components/Badges";
 import { Button } from "./components/Button";
+import { ActivityFeed, DonutChart, formatDelta } from "./components/Dashboard";
 import { SearchField } from "./components/SearchField";
 import { Tabs } from "./components/Tabs";
-import { PageHeader, Panel, SectionHeader } from "./components/Layout";
+import {
+  PageHeader,
+  Panel,
+  SectionHeader,
+  StatCard,
+} from "./components/Layout";
 import {
   EmptyState,
   ErrorSummary,
@@ -840,6 +846,154 @@ function TicketListPage({ analyst = false }: { analyst?: boolean }) {
   );
 }
 
+function AnalystDashboardPage() {
+  const client = useIdentityClient();
+  const dashboard = useQuery({
+    queryKey: ["agent-dashboard"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/agent/dashboard")),
+    staleTime: 30_000,
+  });
+  const primaryQueueId = dashboard.data?.primary_queue?.id;
+  const queueTickets = useQuery({
+    enabled: Boolean(primaryQueueId),
+    queryKey: ["agent-dashboard-queue", primaryQueueId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/agent/queues/{queue_id}/tickets", {
+          params: {
+            path: { queue_id: primaryQueueId ?? "" },
+            query: { limit: 5 },
+          },
+        }),
+      ),
+    staleTime: 30_000,
+  });
+  if (dashboard.isPending)
+    return (
+      <div className="page">
+        <LoadingSkeleton label="Loading dashboard" lines={6} />
+      </div>
+    );
+  if (dashboard.error)
+    return (
+      <div className="page">
+        <ErrorSummary error={dashboard.error} />
+      </div>
+    );
+  const data = dashboard.data;
+  const counts = data.counts;
+  const compliance =
+    data.sla_compliance_week.met + data.sla_compliance_week.breached > 0
+      ? Math.round(
+          (data.sla_compliance_week.met /
+            (data.sla_compliance_week.met +
+              data.sla_compliance_week.breached)) *
+            100,
+        )
+      : null;
+  return (
+    <div className="page dashboard-page">
+      <PageHeader
+        description="Overview of helpdesk activity"
+        title="Dashboard"
+      />
+      <div className="stat-grid">
+        <StatCard label="Open Tickets" value={counts.open_now} />
+        <StatCard
+          detail={formatDelta(
+            counts.new_today,
+            counts.new_yesterday_same_elapsed_window,
+          )}
+          label="New Today"
+          value={counts.new_today}
+        />
+        <StatCard label="SLA Breached" value={counts.sla_breached_open} />
+        <StatCard label="Due Today" value={counts.due_today} />
+        <StatCard
+          detail={formatDelta(
+            counts.resolved_today,
+            counts.resolved_yesterday_same_elapsed_window,
+          )}
+          label="Resolved Today"
+          value={counts.resolved_today}
+        />
+      </div>
+      <div className="dashboard-panels">
+        <Panel title="Tickets by Status">
+          <DonutChart
+            label="Open tickets by status"
+            slices={data.status_distribution.map((slice) => ({
+              label: slice.status_name,
+              value: slice.count,
+            }))}
+          />
+        </Panel>
+        <Panel title="SLA Compliance (This Week)">
+          <DonutChart
+            centerText={
+              compliance === null ? undefined : `${String(compliance)}%`
+            }
+            label="SLA compliance this week"
+            slices={[
+              { label: "Met", value: data.sla_compliance_week.met },
+              { label: "Breached", value: data.sla_compliance_week.breached },
+            ]}
+          />
+        </Panel>
+        <Panel title="Recent Activity">
+          <ActivityFeed items={data.recent_activity} />
+        </Panel>
+      </div>
+      <div className="dashboard-lower">
+        <Panel
+          title={
+            data.primary_queue
+              ? `My Queue — ${data.primary_queue.name}`
+              : "My Queue"
+          }
+        >
+          {!data.primary_queue && (
+            <EmptyState description="No queues are available for your groups." />
+          )}
+          {data.primary_queue && queueTickets.isPending && (
+            <LoadingSkeleton label="Loading queue tickets" />
+          )}
+          {data.primary_queue && queueTickets.error && (
+            <ErrorSummary error={queueTickets.error} />
+          )}
+          {queueTickets.data?.items.length === 0 && (
+            <EmptyState description="No tickets in this queue right now." />
+          )}
+          {queueTickets.data && queueTickets.data.items.length > 0 && (
+            <div className="ticket-list">
+              {queueTickets.data.items.map((ticket) => (
+                <QueueRow
+                  href={`/agent/tickets/${ticket.key}`}
+                  key={ticket.id}
+                  metadata={ticket.reporter_name}
+                  priority={ticket.priority}
+                  status={ticket.status_name}
+                  summary={ticket.summary}
+                  ticketKey={ticket.key}
+                />
+              ))}
+            </div>
+          )}
+          <p className="dashboard-link">
+            <Link to="/agent/tickets">View full queue →</Link>
+          </p>
+        </Panel>
+        <Panel title="Knowledge Usage">
+          <EmptyState
+            description="Article usage metrics arrive with the knowledge milestone."
+            title="Not available yet"
+          />
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
 function AgentQueuePage() {
   const client = useIdentityClient();
   const [queueId, setQueueId] = useState<string | null>(null);
@@ -1224,6 +1378,16 @@ export function App() {
           element={
             <RequireSession>
               <TicketDetailPage />
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/agent/dashboard"
+          element={
+            <RequireSession>
+              <RequirePermission permission="TICKET_ANALYST_READ">
+                <AnalystDashboardPage />
+              </RequirePermission>
             </RequireSession>
           }
         />

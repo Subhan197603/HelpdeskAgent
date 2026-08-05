@@ -1,6 +1,7 @@
 // Test-only OIDC identity provider for Playwright end-to-end sign-in.
 // Implements discovery, JWKS, authorization-code issuance with PKCE (S256)
 // verification, and RS256 token minting. Never use outside local testing.
+/* global Buffer, URL, URLSearchParams, console */
 import {
   createHash,
   createSign,

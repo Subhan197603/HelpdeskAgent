@@ -295,6 +295,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/dashboard": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Agent Dashboard */
+    get: operations["agent_dashboard_api_v1_agent_dashboard_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/agent/queues": {
     parameters: {
       query?: never;
@@ -1242,6 +1259,21 @@ export interface components {
        */
       visibility: "PUBLIC" | "INTERNAL";
     };
+    /** AnalystDashboardResponse */
+    AnalystDashboardResponse: {
+      counts: components["schemas"]["DashboardCountsResponse"];
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      primary_queue: components["schemas"]["PrimaryQueueResponse"] | null;
+      /** Recent Activity */
+      recent_activity: components["schemas"]["DashboardActivityResponse"][];
+      sla_compliance_week: components["schemas"]["SlaComplianceWeekResponse"];
+      /** Status Distribution */
+      status_distribution: components["schemas"]["StatusSliceResponse"][];
+    };
     /** ApprovalDecisionCommand */
     ApprovalDecisionCommand: {
       /** Comment */
@@ -1718,6 +1750,45 @@ export interface components {
       field_code: string;
       /** Value */
       value: unknown;
+    };
+    /** DashboardActivityResponse */
+    DashboardActivityResponse: {
+      /** Actor Name */
+      actor_name: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Event Type */
+      event_type: string;
+      /** Id */
+      id: string;
+      /** Ticket Key */
+      ticket_key: string;
+    };
+    /** DashboardCountsResponse */
+    DashboardCountsResponse: {
+      /**
+       * Due Today
+       * @description Distinct open tickets with at least one running, unpaused, unbreached SLA row targeting the current UTC day.
+       */
+      due_today: number;
+      /** New Today */
+      new_today: number;
+      /** New Yesterday Same Elapsed Window */
+      new_yesterday_same_elapsed_window: number;
+      /** Open Now */
+      open_now: number;
+      /** Resolved Today */
+      resolved_today: number;
+      /** Resolved Yesterday Same Elapsed Window */
+      resolved_yesterday_same_elapsed_window: number;
+      /**
+       * Sla Breached Open
+       * @description Distinct open tickets with at least one breached SLA row.
+       */
+      sla_breached_open: number;
     };
     /** DependencyHealth */
     DependencyHealth: {
@@ -2650,6 +2721,16 @@ export interface components {
       /** Returned */
       returned: number;
     };
+    /** PrimaryQueueResponse */
+    PrimaryQueueResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+    };
     /** ProblemResponse */
     ProblemResponse: {
       /** Correlation Id */
@@ -3158,6 +3239,13 @@ export interface components {
       /** Summary */
       summary: string;
     };
+    /** SlaComplianceWeekResponse */
+    SlaComplianceWeekResponse: {
+      /** Breached */
+      breached: number;
+      /** Met */
+      met: number;
+    };
     /** SourceApprovalCommand */
     SourceApprovalCommand: {
       /**
@@ -3397,6 +3485,13 @@ export interface components {
        * @enum {string}
        */
       status: "ACTIVE" | "DISABLED" | "RETIRED";
+    };
+    /** StatusSliceResponse */
+    StatusSliceResponse: {
+      /** Count */
+      count: number;
+      /** Status Name */
+      status_name: string;
     };
     /** TechnicalRecommendation */
     TechnicalRecommendation: {
@@ -5063,6 +5158,44 @@ export interface operations {
       };
       /** @description Knowledge source validation failed */
       422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  agent_dashboard_api_v1_agent_dashboard_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalystDashboardResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
         headers: {
           [name: string]: unknown;
         };

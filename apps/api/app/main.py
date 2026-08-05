@@ -39,6 +39,7 @@ from apps.api.app.knowledge.document_service import KnowledgeDocumentService
 from apps.api.app.knowledge.service import KnowledgeSourceService
 from apps.api.app.notifications.service import NotificationService
 from apps.api.app.queues.service import QueueService
+from apps.api.app.reporting.service import DashboardService
 from apps.api.app.retrieval.providers import (
     DeterministicQueryEmbeddingProvider,
     HttpQueryEmbeddingProvider,
@@ -222,6 +223,9 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, app.state.ticket_service
     )
     app.state.queue_service = QueueService(unit_of_work_factory, app.state.authorization_service)
+    app.state.dashboard_service = DashboardService(
+        unit_of_work_factory, app.state.authorization_service, app.state.queue_service
+    )
     app.state.copilot_metrics = CopilotMetrics()
     app.state.analyst_copilot_service = AnalystCopilotService(
         unit_of_work_factory,

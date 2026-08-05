@@ -29,10 +29,12 @@ test("signs in through the identity provider with PKCE and loads the workspace",
   await expect(page.getByLabel("Application navigation")).toBeVisible();
 
   const storedTokens = await page.evaluate(() => {
-    const values = [
-      ...Object.values({ ...localStorage }),
-      ...Object.values({ ...sessionStorage }),
-    ].join(" ");
+    const dump = (storage: Storage): string[] =>
+      Array.from({ length: storage.length }, (_, index) => {
+        const key = storage.key(index);
+        return key === null ? "" : (storage.getItem(key) ?? "");
+      });
+    const values = [...dump(localStorage), ...dump(sessionStorage)].join(" ");
     return /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\./.test(values);
   });
   expect(storedTokens).toBe(false);

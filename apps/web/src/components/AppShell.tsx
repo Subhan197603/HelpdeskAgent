@@ -53,6 +53,12 @@ const employeeNavigation: readonly NavigationItem[] = [
 
 const analystNavigation: readonly NavigationItem[] = [
   {
+    icon: "activity",
+    label: "Dashboard",
+    permission: "TICKET_ANALYST_READ",
+    to: "/agent/dashboard",
+  },
+  {
     icon: "queue",
     label: "My queues",
     permission: "TICKET_ANALYST_READ",

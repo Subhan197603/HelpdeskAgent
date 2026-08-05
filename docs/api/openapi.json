@@ -269,6 +269,55 @@
         "title": "AnalystCommentCreateRequest",
         "type": "object"
       },
+      "AnalystDashboardResponse": {
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/DashboardCountsResponse"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "primary_queue": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrimaryQueueResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "recent_activity": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardActivityResponse"
+            },
+            "title": "Recent Activity",
+            "type": "array"
+          },
+          "sla_compliance_week": {
+            "$ref": "#/components/schemas/SlaComplianceWeekResponse"
+          },
+          "status_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/StatusSliceResponse"
+            },
+            "title": "Status Distribution",
+            "type": "array"
+          }
+        },
+        "required": [
+          "counts",
+          "status_distribution",
+          "sla_compliance_week",
+          "recent_activity",
+          "primary_queue",
+          "generated_at"
+        ],
+        "title": "AnalystDashboardResponse",
+        "type": "object"
+      },
       "ApprovalDecisionCommand": {
         "additionalProperties": false,
         "properties": {
@@ -1451,6 +1500,92 @@
         },
         "required": ["field_code", "value"],
         "title": "CustomFieldInput",
+        "type": "object"
+      },
+      "DashboardActivityResponse": {
+        "properties": {
+          "actor_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ticket_key": {
+            "title": "Ticket Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ticket_key",
+          "event_type",
+          "actor_name",
+          "created_at"
+        ],
+        "title": "DashboardActivityResponse",
+        "type": "object"
+      },
+      "DashboardCountsResponse": {
+        "properties": {
+          "due_today": {
+            "description": "Distinct open tickets with at least one running, unpaused, unbreached SLA row targeting the current UTC day.",
+            "title": "Due Today",
+            "type": "integer"
+          },
+          "new_today": {
+            "title": "New Today",
+            "type": "integer"
+          },
+          "new_yesterday_same_elapsed_window": {
+            "title": "New Yesterday Same Elapsed Window",
+            "type": "integer"
+          },
+          "open_now": {
+            "title": "Open Now",
+            "type": "integer"
+          },
+          "resolved_today": {
+            "title": "Resolved Today",
+            "type": "integer"
+          },
+          "resolved_yesterday_same_elapsed_window": {
+            "title": "Resolved Yesterday Same Elapsed Window",
+            "type": "integer"
+          },
+          "sla_breached_open": {
+            "description": "Distinct open tickets with at least one breached SLA row.",
+            "title": "Sla Breached Open",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open_now",
+          "new_today",
+          "new_yesterday_same_elapsed_window",
+          "resolved_today",
+          "resolved_yesterday_same_elapsed_window",
+          "sla_breached_open",
+          "due_today"
+        ],
+        "title": "DashboardCountsResponse",
         "type": "object"
       },
       "DependencyHealth": {
@@ -3891,6 +4026,22 @@
         "title": "PageMetadata",
         "type": "object"
       },
+      "PrimaryQueueResponse": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": ["id", "name"],
+        "title": "PrimaryQueueResponse",
+        "type": "object"
+      },
       "ProblemResponse": {
         "properties": {
           "correlation_id": {
@@ -5237,6 +5388,21 @@
         "title": "SimilarTicketEvidence",
         "type": "object"
       },
+      "SlaComplianceWeekResponse": {
+        "properties": {
+          "breached": {
+            "title": "Breached",
+            "type": "integer"
+          },
+          "met": {
+            "title": "Met",
+            "type": "integer"
+          }
+        },
+        "required": ["met", "breached"],
+        "title": "SlaComplianceWeekResponse",
+        "type": "object"
+      },
       "SourceApprovalCommand": {
         "properties": {
           "decision": {
@@ -5864,6 +6030,21 @@
           "expected_version"
         ],
         "title": "SourceUpdate",
+        "type": "object"
+      },
+      "StatusSliceResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "status_name": {
+            "title": "Status Name",
+            "type": "string"
+          }
+        },
+        "required": ["status_name", "count"],
+        "title": "StatusSliceResponse",
         "type": "object"
       },
       "TechnicalRecommendation": {
@@ -8388,6 +8569,50 @@
         ],
         "summary": "Decide Source Approval",
         "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/agent/dashboard": {
+      "get": {
+        "operationId": "agent_dashboard_api_v1_agent_dashboard_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalystDashboardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Agent Dashboard",
+        "tags": ["reporting"]
       }
     },
     "/api/v1/agent/queues": {

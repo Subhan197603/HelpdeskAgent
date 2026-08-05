@@ -142,6 +142,19 @@ describe("application shell", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the dashboard link first for analysts and never for employees", async () => {
+    renderShell("/portal");
+    await screen.findByRole("link", { name: "Home" });
+    expect(
+      screen.queryByRole("link", { name: "Dashboard" }),
+    ).not.toBeInTheDocument();
+    permissions.push("TICKET_ANALYST_READ");
+    renderShell("/agent/dashboard");
+    const dashboard = await screen.findByRole("link", { name: "Dashboard" });
+    expect(dashboard).toHaveAttribute("href", "/agent/dashboard");
+    expect(dashboard).toHaveAttribute("aria-current", "page");
+  });
+
   it("persists sidebar collapse and supports the mobile drawer", async () => {
     const user = userEvent.setup();
     renderShell();

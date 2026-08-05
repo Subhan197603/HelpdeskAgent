@@ -94,6 +94,29 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("analyst-queue.png", screenshotOptions);
 
+  const openNavigation = async () => {
+    const menu = page.getByRole("button", { name: "Open navigation" });
+    if (await menu.isVisible()) await menu.click();
+  };
+  await openNavigation();
+  await page.getByRole("link", { name: "Dashboard" }).click();
+  await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByText("Open Tickets", { exact: true })).toBeVisible();
+  await expect(page.getByText("SLA Compliance (This Week)")).toBeVisible();
+  await expect(page.getByText("Recent Activity")).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /Open tickets by status/ }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "analyst-dashboard.png",
+    screenshotOptions,
+  );
+  await openNavigation();
+  await page.getByRole("link", { name: "My queues" }).click();
+  await expect(page.getByRole("heading", { name: "My queues" })).toBeVisible();
+
   await page
     .getByRole("link", { name: /Oracle Fusion invoice error/ })
     .first()
