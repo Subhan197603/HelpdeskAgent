@@ -21,9 +21,12 @@ import { ErrorState, LoadingSkeleton, UnauthorizedState } from "./States";
 
 type Identity = components["schemas"]["CurrentIdentityResponse"];
 type PermissionCode =
+  | "ADMIN_IDENTITY_READ"
+  | "AUDIT_EVENT_READ"
   | "CATALOG_PROJECT_LIST"
   | "KNOWLEDGE_READ_ANALYST"
   | "KNOWLEDGE_READ_EMPLOYEE"
+  | "SYSTEM_HEALTH_READ"
   | "TICKET_ANALYST_READ"
   | "TICKET_DRAFT_CREATE"
   | "TICKET_READ_OWN";
@@ -80,6 +83,27 @@ const analystNavigation: readonly NavigationItem[] = [
   },
 ];
 
+const administrationNavigation: readonly NavigationItem[] = [
+  {
+    icon: "settings",
+    label: "Overview",
+    permission: "ADMIN_IDENTITY_READ",
+    to: "/admin",
+  },
+  {
+    icon: "shield",
+    label: "Audit logs",
+    permission: "AUDIT_EVENT_READ",
+    to: "/admin/audit",
+  },
+  {
+    icon: "activity",
+    label: "System status",
+    permission: "SYSTEM_HEALTH_READ",
+    to: "/admin/system",
+  },
+];
+
 interface NavigationSection {
   items: readonly NavigationItem[];
   title: string;
@@ -88,6 +112,7 @@ interface NavigationSection {
 const navigationSections: readonly NavigationSection[] = [
   { items: employeeNavigation, title: "Workspace" },
   { items: analystNavigation, title: "Analyst tools" },
+  { items: administrationNavigation, title: "Administration" },
 ];
 
 function can(identity: Identity, permission: PermissionCode): boolean {

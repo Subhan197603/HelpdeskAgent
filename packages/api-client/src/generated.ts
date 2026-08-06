@@ -38,6 +38,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/audit/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Audit Events */
+    get: operations["audit_events_api_v1_admin_audit_events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/audit/security-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Security Events */
+    get: operations["security_events_api_v1_admin_audit_security_events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/ingestion/runs": {
     parameters: {
       query?: never;
@@ -289,6 +323,40 @@ export interface paths {
     put?: never;
     /** Decide Source Approval */
     post: operations["decide_source_approval_api_v1_admin_knowledge_sources__source_id__approval_decisions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Overview */
+    get: operations["overview_api_v1_admin_overview_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/system-status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** System Status */
+    get: operations["system_status_api_v1_admin_system_status_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1300,6 +1368,17 @@ export interface components {
       /** Type */
       type: string;
     };
+    /** AdminOverviewResponse */
+    AdminOverviewResponse: {
+      /** Active Users */
+      active_users: number;
+      /** Open Tickets */
+      open_tickets: number;
+      /** Published Knowledge Documents */
+      published_knowledge_documents: number;
+      /** Support Groups */
+      support_groups: number;
+    };
     /**
      * AgentTicketResponse
      * @description Analyst-only detail contract; the customer contract stays unchanged.
@@ -1542,6 +1621,45 @@ export interface components {
       uploaded_by_name: string | null;
       /** Visibility */
       visibility: string;
+    };
+    /** AuditEventListResponse */
+    AuditEventListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AuditEventSummary"][];
+    };
+    /** AuditEventSummary */
+    AuditEventSummary: {
+      /** Action Code */
+      action_code: string;
+      /** Actor Id */
+      actor_id: string | null;
+      /** Actor Type */
+      actor_type: string;
+      /** Change Summary */
+      change_summary: {
+        [key: string]: unknown;
+      };
+      /** Correlation Id */
+      correlation_id: string | null;
+      /** Failure Reason */
+      failure_reason: string | null;
+      /** Id */
+      id: number;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+      /** Outcome Code */
+      outcome_code: string;
+      /** Request Id */
+      request_id: string | null;
+      /** Resource Id */
+      resource_id: string | null;
+      /** Resource Type */
+      resource_type: string;
     };
     /**
      * AuthConfigurationResponse
@@ -1978,6 +2096,18 @@ export interface components {
     DependencyHealth: {
       /** Duration Ms */
       duration_ms: number;
+      /** Required */
+      required: boolean;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "healthy" | "unhealthy" | "disabled";
+    };
+    /** DependencyStatusItem */
+    DependencyStatusItem: {
+      /** Name */
+      name: string;
       /** Required */
       required: boolean;
       /**
@@ -3477,6 +3607,37 @@ export interface components {
       /** Summary */
       summary: string;
     };
+    /** SecurityEventListResponse */
+    SecurityEventListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["SecurityEventSummary"][];
+    };
+    /** SecurityEventSummary */
+    SecurityEventSummary: {
+      /** Decision Code */
+      decision_code: string;
+      /** Details */
+      details: {
+        [key: string]: unknown;
+      };
+      /** Event Type */
+      event_type: string;
+      /** Id */
+      id: number;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+      /** Resource Id */
+      resource_id: string | null;
+      /** Resource Type */
+      resource_type: string | null;
+      /** User Id */
+      user_id: string | null;
+    };
     /** ServiceNodeListResponse */
     ServiceNodeListResponse: {
       /** Items */
@@ -3785,6 +3946,33 @@ export interface components {
       count: number;
       /** Status Name */
       status_name: string;
+    };
+    /** SystemStatusResponse */
+    SystemStatusResponse: {
+      /** Ai Globally Enabled */
+      ai_globally_enabled: boolean;
+      /** App Version */
+      app_version: string;
+      /** Clamav Required */
+      clamav_required: boolean;
+      /** Dependencies */
+      dependencies: components["schemas"]["DependencyStatusItem"][];
+      /** Developer Identity Enabled */
+      developer_identity_enabled: boolean;
+      /** Environment */
+      environment: string;
+      /** Metrics Endpoint Enabled */
+      metrics_endpoint_enabled: boolean;
+      /** Migration Head */
+      migration_head: string | null;
+      /** Object Storage Enabled */
+      object_storage_enabled: boolean;
+      /** Oidc Enabled */
+      oidc_enabled: boolean;
+      /** Retrieval Embedding Provider */
+      retrieval_embedding_provider: string;
+      /** Rls Enabled */
+      rls_enabled: boolean;
     };
     /** TechnicalRecommendation */
     TechnicalRecommendation: {
@@ -4129,6 +4317,115 @@ export interface operations {
       };
       /** @description AI or retrieval unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  audit_events_api_v1_admin_audit_events_get: {
+    parameters: {
+      query?: {
+        resource_type?: string | null;
+        action_code?: string | null;
+        outcome_code?: ("SUCCESS" | "DENIED" | "FAILED" | "PARTIAL") | null;
+        occurred_from?: string | null;
+        occurred_to?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AuditEventListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  security_events_api_v1_admin_audit_security_events_get: {
+    parameters: {
+      query?: {
+        event_type?: string | null;
+        decision_code?: ("ALLOWED" | "DENIED") | null;
+        occurred_from?: string | null;
+        occurred_to?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SecurityEventListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
         headers: {
           [name: string]: unknown;
         };
@@ -5450,6 +5747,100 @@ export interface operations {
         };
       };
       /** @description Knowledge source validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  overview_api_v1_admin_overview_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminOverviewResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  system_status_api_v1_admin_system_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SystemStatusResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
       422: {
         headers: {
           [name: string]: unknown;

@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from apps.api.app.admin.service import AdminService
 from apps.api.app.ai.registry import ProviderRegistry
 from apps.api.app.ai.resilience import CircuitBreaker, ResilientProviderExecutor
 from apps.api.app.ai.service import AIGateway
@@ -136,6 +137,10 @@ def create_app(
                 "name": "ai-oversight",
                 "description": "Administrator AI usage metrics and evaluation datasets.",
             },
+            {
+                "name": "administration",
+                "description": "Read-only administration overview, status, and audit history.",
+            },
         ],
     )
     app.state.settings = settings
@@ -193,6 +198,7 @@ def create_app(
     app.state.knowledge_reader_service = KnowledgeReaderService(
         unit_of_work_factory, app.state.authorization_service, settings
     )
+    app.state.admin_service = AdminService(unit_of_work_factory, settings, resources)
     app.state.retrieval_service = RetrievalService(
         unit_of_work_factory,
         app.state.authorization_service,

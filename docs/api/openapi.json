@@ -250,6 +250,34 @@
         "title": "ActivityItemResponse",
         "type": "object"
       },
+      "AdminOverviewResponse": {
+        "properties": {
+          "active_users": {
+            "title": "Active Users",
+            "type": "integer"
+          },
+          "open_tickets": {
+            "title": "Open Tickets",
+            "type": "integer"
+          },
+          "published_knowledge_documents": {
+            "title": "Published Knowledge Documents",
+            "type": "integer"
+          },
+          "support_groups": {
+            "title": "Support Groups",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "active_users",
+          "support_groups",
+          "open_tickets",
+          "published_knowledge_documents"
+        ],
+        "title": "AdminOverviewResponse",
+        "type": "object"
+      },
       "AgentTicketResponse": {
         "description": "Analyst-only detail contract; the customer contract stays unchanged.",
         "properties": {
@@ -944,6 +972,130 @@
           "created_at"
         ],
         "title": "AttachmentSummaryResponse",
+        "type": "object"
+      },
+      "AuditEventListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEventSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AuditEventListResponse",
+        "type": "object"
+      },
+      "AuditEventSummary": {
+        "properties": {
+          "action_code": {
+            "title": "Action Code",
+            "type": "string"
+          },
+          "actor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor Id"
+          },
+          "actor_type": {
+            "title": "Actor Type",
+            "type": "string"
+          },
+          "change_summary": {
+            "additionalProperties": true,
+            "title": "Change Summary",
+            "type": "object"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Reason"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome_code": {
+            "title": "Outcome Code",
+            "type": "string"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "resource_type": {
+            "title": "Resource Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "actor_id",
+          "actor_type",
+          "action_code",
+          "resource_type",
+          "resource_id",
+          "outcome_code",
+          "failure_reason",
+          "change_summary",
+          "correlation_id",
+          "request_id",
+          "occurred_at"
+        ],
+        "title": "AuditEventSummary",
         "type": "object"
       },
       "AuthConfigurationResponse": {
@@ -2006,6 +2158,26 @@
         },
         "required": ["status", "required", "duration_ms"],
         "title": "DependencyHealth",
+        "type": "object"
+      },
+      "DependencyStatusItem": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "required": {
+            "title": "Required",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": ["healthy", "unhealthy", "disabled"],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": ["name", "status", "required"],
+        "title": "DependencyStatusItem",
         "type": "object"
       },
       "DocumentAdminResponse": {
@@ -6003,6 +6175,96 @@
         "title": "SafeTicketSummary",
         "type": "object"
       },
+      "SecurityEventListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityEventSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "SecurityEventListResponse",
+        "type": "object"
+      },
+      "SecurityEventSummary": {
+        "properties": {
+          "decision_code": {
+            "title": "Decision Code",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "resource_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Id"
+          },
+          "resource_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Type"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "event_type",
+          "decision_code",
+          "user_id",
+          "resource_type",
+          "resource_id",
+          "details",
+          "occurred_at"
+        ],
+        "title": "SecurityEventSummary",
+        "type": "object"
+      },
       "ServiceNodeListResponse": {
         "properties": {
           "items": {
@@ -6812,6 +7074,84 @@
         "title": "StatusSliceResponse",
         "type": "object"
       },
+      "SystemStatusResponse": {
+        "properties": {
+          "ai_globally_enabled": {
+            "title": "Ai Globally Enabled",
+            "type": "boolean"
+          },
+          "app_version": {
+            "title": "App Version",
+            "type": "string"
+          },
+          "clamav_required": {
+            "title": "Clamav Required",
+            "type": "boolean"
+          },
+          "dependencies": {
+            "items": {
+              "$ref": "#/components/schemas/DependencyStatusItem"
+            },
+            "title": "Dependencies",
+            "type": "array"
+          },
+          "developer_identity_enabled": {
+            "title": "Developer Identity Enabled",
+            "type": "boolean"
+          },
+          "environment": {
+            "title": "Environment",
+            "type": "string"
+          },
+          "metrics_endpoint_enabled": {
+            "title": "Metrics Endpoint Enabled",
+            "type": "boolean"
+          },
+          "migration_head": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Migration Head"
+          },
+          "object_storage_enabled": {
+            "title": "Object Storage Enabled",
+            "type": "boolean"
+          },
+          "oidc_enabled": {
+            "title": "Oidc Enabled",
+            "type": "boolean"
+          },
+          "retrieval_embedding_provider": {
+            "title": "Retrieval Embedding Provider",
+            "type": "string"
+          },
+          "rls_enabled": {
+            "title": "Rls Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "app_version",
+          "environment",
+          "migration_head",
+          "oidc_enabled",
+          "developer_identity_enabled",
+          "ai_globally_enabled",
+          "object_storage_enabled",
+          "clamav_required",
+          "metrics_endpoint_enabled",
+          "rls_enabled",
+          "retrieval_embedding_provider",
+          "dependencies"
+        ],
+        "title": "SystemStatusResponse",
+        "type": "object"
+      },
       "TechnicalRecommendation": {
         "properties": {
           "citation_ids": {
@@ -7460,6 +7800,322 @@
         ],
         "summary": "Copilot Usage Metrics",
         "tags": ["ai-oversight"]
+      }
+    },
+    "/api/v1/admin/audit/events": {
+      "get": {
+        "operationId": "audit_events_api_v1_admin_audit_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "resource_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Resource Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "action_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Action Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outcome_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["SUCCESS", "DENIED", "FAILED", "PARTIAL"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occurred From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occurred To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Audit Events",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/audit/security-events": {
+      "get": {
+        "operationId": "security_events_api_v1_admin_audit_security_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "event_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Event Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "decision_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["ALLOWED", "DENIED"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Decision Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occurred From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occurred To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SecurityEventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Security Events",
+        "tags": ["administration"]
       }
     },
     "/api/v1/admin/ingestion/runs": {
@@ -9334,6 +9990,114 @@
         ],
         "summary": "Decide Source Approval",
         "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/admin/overview": {
+      "get": {
+        "operationId": "overview_api_v1_admin_overview_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Overview",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/system-status": {
+      "get": {
+        "operationId": "system_status_api_v1_admin_system_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "System Status",
+        "tags": ["administration"]
       }
     },
     "/api/v1/agent/dashboard": {
@@ -14610,6 +15374,10 @@
     {
       "description": "Administrator AI usage metrics and evaluation datasets.",
       "name": "ai-oversight"
+    },
+    {
+      "description": "Read-only administration overview, status, and audit history.",
+      "name": "administration"
     }
   ]
 }

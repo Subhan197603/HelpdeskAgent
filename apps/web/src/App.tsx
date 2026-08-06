@@ -18,13 +18,20 @@ import {
   useSearchParams,
 } from "react-router-dom";
 
+import { humanizeCode, OutcomeBadge } from "./components/Admin";
 import {
   AppShell,
   RequirePermission,
   useCurrentIdentity,
 } from "./components/AppShell";
+import { Pagination } from "./components/DataTable";
 import { AttachmentUploader } from "./components/AttachmentUploader";
-import { PriorityBadge, SlaBadge, StatusBadge } from "./components/Badges";
+import {
+  HealthIndicator,
+  PriorityBadge,
+  SlaBadge,
+  StatusBadge,
+} from "./components/Badges";
 import { Button } from "./components/Button";
 import { ActivityFeed, DonutChart, formatDelta } from "./components/Dashboard";
 import { SearchField } from "./components/SearchField";
@@ -106,6 +113,11 @@ export function LoginPage() {
     });
     navigate(persona === "analyst" ? "/agent/tickets" : "/portal");
   };
+  const enterAdministrator = () => {
+    queryClient.clear();
+    signIn({ persona: "analyst", identity: "DEV/platform-admin" });
+    navigate("/agent/tickets");
+  };
   const startSso = () => {
     if (!authConfiguration) return;
     setSsoError(false);
@@ -158,6 +170,9 @@ export function LoginPage() {
                   variant="secondary"
                 >
                   Continue as analyst
+                </Button>
+                <Button onClick={enterAdministrator} variant="secondary">
+                  Continue as administrator
                 </Button>
               </>
             )}
@@ -2234,6 +2249,340 @@ function KnowledgeArticlePage({ analyst }: { analyst: boolean }) {
   );
 }
 
+function AdminLandingPage() {
+  const client = useIdentityClient();
+  const overview = useQuery({
+    queryKey: ["admin-overview"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/admin/overview")),
+  });
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Tenant activity at a glance, with audit history and system status."
+        title="Administration"
+      />
+      {overview.isPending && <LoadingSkeleton label="Loading overview" />}
+      {overview.error && <ErrorSummary error={overview.error} />}
+      {overview.data && (
+        <div className="admin-stats">
+          <StatCard label="Active users" value={overview.data.active_users} />
+          <StatCard
+            label="Support groups"
+            value={overview.data.support_groups}
+          />
+          <StatCard label="Open tickets" value={overview.data.open_tickets} />
+          <StatCard
+            label="Knowledge articles"
+            value={overview.data.published_knowledge_documents}
+          />
+        </div>
+      )}
+      <SectionHeader title="Administration areas" />
+      <div className="admin-cards">
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/audit">Audit logs</Link>
+          </h3>
+          <p>
+            Review recorded activity and security decisions for this tenant.
+          </p>
+        </article>
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/system">System status</Link>
+          </h3>
+          <p>Application version, migration head, and dependency health.</p>
+        </article>
+      </div>
+      <p className="admin-note">
+        User, role, queue, workflow, SLA, and catalogue management arrive with
+        later milestones.
+      </p>
+    </div>
+  );
+}
+
+const AUDIT_VIEWS = [
+  { id: "activity", label: "Activity" },
+  { id: "security", label: "Security" },
+] as const;
+
+function AdminAuditPage() {
+  const client = useIdentityClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view =
+    searchParams.get("view") === "security" ? "security" : "activity";
+  const [page, setPage] = useState(0);
+  const [outcome, setOutcome] = useState("");
+  const [decision, setDecision] = useState("");
+  const limit = 25;
+  const activity = useQuery({
+    queryKey: ["admin-audit-events", page, outcome],
+    enabled: view === "activity",
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/audit/events", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(outcome === ""
+                ? {}
+                : {
+                    outcome_code: outcome as
+                      "DENIED" | "FAILED" | "PARTIAL" | "SUCCESS",
+                  }),
+            },
+          },
+        }),
+      ),
+  });
+  const security = useQuery({
+    queryKey: ["admin-security-events", page, decision],
+    enabled: view === "security",
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/audit/security-events", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(decision === ""
+                ? {}
+                : { decision_code: decision as "ALLOWED" | "DENIED" }),
+            },
+          },
+        }),
+      ),
+  });
+  const active = view === "activity" ? activity : security;
+  const hasMore =
+    view === "activity"
+      ? (activity.data?.has_more ?? false)
+      : (security.data?.has_more ?? false);
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Read-only, tenant-scoped audit history. Events are append-only."
+        title="Audit logs"
+      />
+      <Tabs
+        activeId={view}
+        items={AUDIT_VIEWS}
+        label="Audit event views"
+        onChange={(id) => {
+          setPage(0);
+          setSearchParams(id === "activity" ? {} : { view: id });
+        }}
+      />
+      <div className="admin-filter">
+        {view === "activity" ? (
+          <label>
+            Outcome
+            <select
+              onChange={(event) => {
+                setPage(0);
+                setOutcome(event.target.value);
+              }}
+              value={outcome}
+            >
+              <option value="">All outcomes</option>
+              <option value="SUCCESS">Success</option>
+              <option value="DENIED">Denied</option>
+              <option value="FAILED">Failed</option>
+              <option value="PARTIAL">Partial</option>
+            </select>
+          </label>
+        ) : (
+          <label>
+            Decision
+            <select
+              onChange={(event) => {
+                setPage(0);
+                setDecision(event.target.value);
+              }}
+              value={decision}
+            >
+              <option value="">All decisions</option>
+              <option value="ALLOWED">Allowed</option>
+              <option value="DENIED">Denied</option>
+            </select>
+          </label>
+        )}
+      </div>
+      {active.isPending && <LoadingSkeleton label="Loading audit events" />}
+      {active.error && <ErrorSummary error={active.error} />}
+      {view === "activity" && activity.data && (
+        <>
+          {activity.data.items.length === 0 && (
+            <EmptyState description="No audit events match the current filters." />
+          )}
+          {activity.data.items.length > 0 && (
+            <ul className="audit-list">
+              {activity.data.items.map((item) => (
+                <li className="audit-row" key={item.id}>
+                  <div className="audit-row__main">
+                    <strong>{humanizeCode(item.action_code)}</strong>
+                    <span>
+                      {humanizeCode(item.resource_type)}
+                      {item.resource_id ? ` · ${item.resource_id}` : ""}
+                    </span>
+                  </div>
+                  <div className="audit-row__meta">
+                    <OutcomeBadge code={item.outcome_code} />
+                    <span>{item.actor_type}</span>
+                    <time dateTime={item.occurred_at}>
+                      {new Date(item.occurred_at).toLocaleString()}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      {view === "security" && security.data && (
+        <>
+          {security.data.items.length === 0 && (
+            <EmptyState description="No security events match the current filters." />
+          )}
+          {security.data.items.length > 0 && (
+            <ul className="audit-list">
+              {security.data.items.map((item) => (
+                <li className="audit-row" key={item.id}>
+                  <div className="audit-row__main">
+                    <strong>{humanizeCode(item.event_type)}</strong>
+                    <span>
+                      {item.resource_type
+                        ? `${humanizeCode(item.resource_type)}${
+                            item.resource_id ? ` · ${item.resource_id}` : ""
+                          }`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="audit-row__meta">
+                    <OutcomeBadge code={item.decision_code} />
+                    <time dateTime={item.occurred_at}>
+                      {new Date(item.occurred_at).toLocaleString()}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      {(page > 0 || hasMore) && (
+        <Pagination
+          hasNext={hasMore}
+          onNext={() => {
+            setPage((value) => value + 1);
+          }}
+          onPrevious={() => {
+            setPage((value) => Math.max(0, value - 1));
+          }}
+          page={page + 1}
+        />
+      )}
+    </div>
+  );
+}
+
+function AdminSystemPage() {
+  const client = useIdentityClient();
+  const status = useQuery({
+    queryKey: ["admin-system-status"],
+    queryFn: async () =>
+      unwrap(await client.GET("/api/v1/admin/system-status")),
+  });
+  const flag = (value: boolean) => (value ? "Enabled" : "Disabled");
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Safe configuration metadata and dependency health. No secrets are shown."
+        title="System status"
+      />
+      {status.isPending && <LoadingSkeleton label="Loading system status" />}
+      {status.error && <ErrorSummary error={status.error} />}
+      {status.data && (
+        <div className="admin-status">
+          <Panel title="Application">
+            <MetadataGrid
+              items={[
+                { label: "Version", value: status.data.app_version },
+                { label: "Environment", value: status.data.environment },
+                {
+                  label: "Migration head",
+                  value: status.data.migration_head ?? "Unknown",
+                },
+                {
+                  label: "Embedding provider",
+                  value: status.data.retrieval_embedding_provider,
+                },
+              ]}
+            />
+          </Panel>
+          <Panel title="Feature flags">
+            <MetadataGrid
+              items={[
+                {
+                  label: "OIDC sign-in",
+                  value: flag(status.data.oidc_enabled),
+                },
+                {
+                  label: "Developer identity",
+                  value: flag(status.data.developer_identity_enabled),
+                },
+                {
+                  label: "AI assistance",
+                  value: flag(status.data.ai_globally_enabled),
+                },
+                {
+                  label: "Object storage",
+                  value: flag(status.data.object_storage_enabled),
+                },
+                {
+                  label: "Malware scanning required",
+                  value: flag(status.data.clamav_required),
+                },
+                {
+                  label: "Metrics endpoint",
+                  value: flag(status.data.metrics_endpoint_enabled),
+                },
+                {
+                  label: "Row-level security",
+                  value: flag(status.data.rls_enabled),
+                },
+              ]}
+            />
+          </Panel>
+          <Panel title="Dependencies">
+            <ul className="dependency-list">
+              {status.data.dependencies.map((dependency) => (
+                <li key={dependency.name}>
+                  {dependency.status === "disabled" ? (
+                    <span className="dependency-disabled">
+                      {humanizeCode(dependency.name.toUpperCase())} — disabled
+                    </span>
+                  ) : (
+                    <HealthIndicator
+                      healthy={dependency.status === "healthy"}
+                      label={humanizeCode(dependency.name.toUpperCase())}
+                    />
+                  )}
+                  {!dependency.required && (
+                    <span className="dependency-optional">Optional</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Panel>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   return (
     <AppShell>
@@ -2361,6 +2710,36 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="TICKET_ANALYST_READ">
                 <AnalystTicketDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminLandingPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/audit"
+          element={
+            <RequireSession>
+              <RequirePermission permission="AUDIT_EVENT_READ">
+                <AdminAuditPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/system"
+          element={
+            <RequireSession>
+              <RequirePermission permission="SYSTEM_HEALTH_READ">
+                <AdminSystemPage />
               </RequirePermission>
             </RequireSession>
           }

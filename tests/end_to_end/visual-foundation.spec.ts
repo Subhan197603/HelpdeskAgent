@@ -238,4 +238,53 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expect(
     page.locator(".detail-header__badges").getByText(/in progress/i),
   ).toBeVisible();
+
+  // Administration shell: platform administrator sees real counts, safe
+  // system status, and the append-only audit history.
+  await page.getByRole("button", { name: /Sign out/ }).click();
+  await page.getByRole("button", { name: "Continue as administrator" }).click();
+  await expect(page.getByRole("heading", { name: "My queues" })).toBeVisible();
+  await openNavigation();
+  await page.getByRole("link", { name: "Overview", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Administration", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Active users")).toBeVisible();
+  await expect(
+    page.locator(".admin-card").getByRole("link", { name: "Audit logs" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-landing.png", screenshotOptions);
+
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "System status" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "System status" }),
+  ).toBeVisible();
+  await expect(page.getByText("Migration head")).toBeVisible();
+  await expect(page.getByText("Developer identity")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-system.png", screenshotOptions);
+
+  // Audit rows carry live server timestamps, so this screen is asserted
+  // functionally instead of visually.
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Audit logs" })
+    .click();
+  await expect(page.getByRole("heading", { name: "Audit logs" })).toBeVisible();
+  await expect(page.locator(".audit-row").first()).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await page.getByRole("tab", { name: "Security" }).click();
+  await expect(
+    page.getByText(/Privileged endpoint accessed/i).first(),
+  ).toBeVisible();
+  await expectAccessible(page);
 });
