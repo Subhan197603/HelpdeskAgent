@@ -346,6 +346,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/queues": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Queues */
+    get: operations["admin_queues_api_v1_admin_queues_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/queues/{support_group_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Queue Detail */
+    get: operations["admin_queue_detail_api_v1_admin_queues__support_group_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/roles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Roles */
+    get: operations["admin_roles_api_v1_admin_roles_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/roles/{role_code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Role Detail */
+    get: operations["admin_role_detail_api_v1_admin_roles__role_code__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/system-status": {
     parameters: {
       query?: never;
@@ -355,6 +423,57 @@ export interface paths {
     };
     /** System Status */
     get: operations["system_status_api_v1_admin_system_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/ticket-views": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Ticket Views */
+    get: operations["admin_ticket_views_api_v1_admin_ticket_views_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Users */
+    get: operations["admin_users_api_v1_admin_users_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin User Detail */
+    get: operations["admin_user_detail_api_v1_admin_users__user_id__get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1368,6 +1487,15 @@ export interface components {
       /** Type */
       type: string;
     };
+    /** AdminExternalIdentityItem */
+    AdminExternalIdentityItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Last Authenticated At */
+      last_authenticated_at: string | null;
+      /** Provider Code */
+      provider_code: string;
+    };
     /** AdminOverviewResponse */
     AdminOverviewResponse: {
       /** Active Users */
@@ -1378,6 +1506,317 @@ export interface components {
       published_knowledge_documents: number;
       /** Support Groups */
       support_groups: number;
+    };
+    /** AdminPermissionGroup */
+    AdminPermissionGroup: {
+      /** Domain */
+      domain: string;
+      /** Permission Codes */
+      permission_codes: string[];
+    };
+    /** AdminQueueDetailResponse */
+    AdminQueueDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Assignment Method */
+      assignment_method: string;
+      /** Contact Email */
+      contact_email: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Group Code */
+      group_code: string;
+      /** Group Name */
+      group_name: string;
+      /** Manager Display Name */
+      manager_display_name: string | null;
+      /** Members */
+      members: components["schemas"]["AdminQueueMemberItem"][];
+      /**
+       * Support Group Id
+       * Format: uuid
+       */
+      support_group_id: string;
+      /** Ticket Views */
+      ticket_views: components["schemas"]["AdminTicketViewSummary"][];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** AdminQueueListResponse */
+    AdminQueueListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminQueueSummary"][];
+    };
+    /** AdminQueueMemberItem */
+    AdminQueueMemberItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Display Name */
+      display_name: string;
+      /**
+       * Joined At
+       * Format: date-time
+       */
+      joined_at: string;
+      /** Member Role */
+      member_role: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
+    /** AdminQueueSummary */
+    AdminQueueSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Assignment Method */
+      assignment_method: string;
+      /** Contact Email */
+      contact_email: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Group Code */
+      group_code: string;
+      /** Group Name */
+      group_name: string;
+      /** Member Count */
+      member_count: number;
+      /**
+       * Support Group Id
+       * Format: uuid
+       */
+      support_group_id: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** AdminRoleAssignmentItem */
+    AdminRoleAssignmentItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Display Name */
+      display_name: string;
+      /** Email Address */
+      email_address: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+      /**
+       * Valid From
+       * Format: date-time
+       */
+      valid_from: string;
+      /** Valid To */
+      valid_to: string | null;
+    };
+    /** AdminRoleDetailResponse */
+    AdminRoleDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Assignments */
+      assignments: components["schemas"]["AdminRoleAssignmentItem"][];
+      /** Assignments Has More */
+      assignments_has_more: boolean;
+      /** Description */
+      description: string | null;
+      /** Permission Groups */
+      permission_groups: components["schemas"]["AdminPermissionGroup"][];
+      /** Role Code */
+      role_code: string;
+      /** Role Name */
+      role_name: string;
+      /** System Role Flag */
+      system_role_flag: boolean;
+    };
+    /** AdminRoleListResponse */
+    AdminRoleListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminRoleSummary"][];
+    };
+    /** AdminRoleSummary */
+    AdminRoleSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Assigned User Count */
+      assigned_user_count: number;
+      /** Description */
+      description: string | null;
+      /** Permission Count */
+      permission_count: number;
+      /** Role Code */
+      role_code: string;
+      /** Role Name */
+      role_name: string;
+      /** System Role Flag */
+      system_role_flag: boolean;
+    };
+    /** AdminTicketViewListResponse */
+    AdminTicketViewListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminTicketViewSummary"][];
+    };
+    /** AdminTicketViewSummary */
+    AdminTicketViewSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Description */
+      description: string | null;
+      /** Display Order */
+      display_order: number;
+      /** Project Code */
+      project_code: string;
+      /**
+       * Queue Id
+       * Format: uuid
+       */
+      queue_id: string;
+      /** Queue Name */
+      queue_name: string;
+      /** Version Status */
+      version_status: string | null;
+      /** Visibility */
+      visibility: string;
+    };
+    /** AdminUserDetailResponse */
+    AdminUserDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Business Unit Name */
+      business_unit_name: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Name */
+      display_name: string;
+      /** Effective Permission Codes */
+      effective_permission_codes: string[];
+      /** Email Address */
+      email_address: string;
+      /** External Identities */
+      external_identities: components["schemas"]["AdminExternalIdentityItem"][];
+      /** Locale Code */
+      locale_code: string;
+      /** Memberships */
+      memberships: components["schemas"]["AdminUserMembershipItem"][];
+      /** Oidc Linked */
+      oidc_linked: boolean;
+      /**
+       * Provisioning
+       * @enum {string}
+       */
+      provisioning: "JIT" | "PRE_PROVISIONED";
+      /** Recent Security Events */
+      recent_security_events: components["schemas"]["SecurityEventSummary"][];
+      /** Roles */
+      roles: components["schemas"]["AdminUserRoleItem"][];
+      /** Timezone Name */
+      timezone_name: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
+    /** AdminUserListResponse */
+    AdminUserListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminUserSummary"][];
+    };
+    /** AdminUserMembershipItem */
+    AdminUserMembershipItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Group Name */
+      group_name: string;
+      /**
+       * Joined At
+       * Format: date-time
+       */
+      joined_at: string;
+      /** Member Role */
+      member_role: string;
+      /**
+       * Support Group Id
+       * Format: uuid
+       */
+      support_group_id: string;
+    };
+    /** AdminUserRoleItem */
+    AdminUserRoleItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Role Code */
+      role_code: string;
+      /** Role Name */
+      role_name: string;
+      /**
+       * Valid From
+       * Format: date-time
+       */
+      valid_from: string;
+      /** Valid To */
+      valid_to: string | null;
+    };
+    /** AdminUserSummary */
+    AdminUserSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Business Unit Name */
+      business_unit_name: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Name */
+      display_name: string;
+      /** Email Address */
+      email_address: string;
+      /** Identity Provider Codes */
+      identity_provider_codes: string[];
+      /** Role Codes */
+      role_codes: string[];
+      /** Support Group Names */
+      support_group_names: string[];
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
     };
     /**
      * AgentTicketResponse
@@ -5804,6 +6243,228 @@ export interface operations {
       };
     };
   };
+  admin_queues_api_v1_admin_queues_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        active?: boolean | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminQueueListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_queue_detail_api_v1_admin_queues__support_group_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        support_group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminQueueDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_roles_api_v1_admin_roles_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRoleListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_role_detail_api_v1_admin_roles__role_code__get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        role_code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRoleDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   system_status_api_v1_admin_system_status_get: {
     parameters: {
       query?: never;
@@ -5833,6 +6494,169 @@ export interface operations {
       };
       /** @description Administration access denied */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_ticket_views_api_v1_admin_ticket_views_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminTicketViewListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_users_api_v1_admin_users_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        active?: boolean | null;
+        role_code?: string | null;
+        support_group_id?: string | null;
+        provider_code?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_user_detail_api_v1_admin_users__user_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

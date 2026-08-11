@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const databaseUrl =
-  "postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:55449/helpdesk";
+  "postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:55549/helpdesk";
 
 export default defineConfig({
   testDir: "./tests/end_to_end",
@@ -59,9 +59,11 @@ export default defineConfig({
         API_PORT: "58010",
         APP_BASE_URL: "http://127.0.0.1:53000",
         API_BASE_URL: "http://127.0.0.1:58010",
+        CLAMAV_HOST: "127.0.0.1",
         CORS_ALLOWED_ORIGINS: '["http://127.0.0.1:53000"]',
         DATABASE_URL: databaseUrl,
         DEVELOPER_IDENTITY_ENABLED: "true",
+        REDIS_URL: "redis://127.0.0.1:6379/0",
         OBJECT_STORAGE_ENABLED: "false",
         OIDC_ENABLED: "false",
         TRUSTED_HOSTS: '["127.0.0.1","localhost"]',
@@ -91,9 +93,11 @@ export default defineConfig({
         API_PORT: "58011",
         APP_BASE_URL: "http://127.0.0.1:53001",
         API_BASE_URL: "http://127.0.0.1:58011",
+        CLAMAV_HOST: "127.0.0.1",
         CORS_ALLOWED_ORIGINS: '["http://127.0.0.1:53001"]',
         DATABASE_URL: databaseUrl,
         DEVELOPER_IDENTITY_ENABLED: "false",
+        REDIS_URL: "redis://127.0.0.1:6379/0",
         OBJECT_STORAGE_ENABLED: "false",
         OIDC_ENABLED: "true",
         OIDC_PROVIDER_CODE: "TEST_OIDC",

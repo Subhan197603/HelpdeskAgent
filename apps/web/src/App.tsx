@@ -18,13 +18,18 @@ import {
   useSearchParams,
 } from "react-router-dom";
 
-import { humanizeCode, OutcomeBadge } from "./components/Admin";
+import {
+  ActiveBadge,
+  CodeChips,
+  humanizeCode,
+  OutcomeBadge,
+} from "./components/Admin";
 import {
   AppShell,
   RequirePermission,
   useCurrentIdentity,
 } from "./components/AppShell";
-import { Pagination } from "./components/DataTable";
+import { DataTable, Pagination, TableToolbar } from "./components/DataTable";
 import { AttachmentUploader } from "./components/AttachmentUploader";
 import {
   HealthIndicator,
@@ -2281,6 +2286,27 @@ function AdminLandingPage() {
       <div className="admin-cards">
         <article className="admin-card">
           <h3>
+            <Link to="/admin/users">Users</Link>
+          </h3>
+          <p>
+            Browse workspace accounts with their roles, queues, and sign-in
+            identities.
+          </p>
+        </article>
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/roles">Roles</Link>
+          </h3>
+          <p>Review role definitions, permissions, and current assignments.</p>
+        </article>
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/queues">Queues</Link>
+          </h3>
+          <p>Support groups with membership, routing, and ticket views.</p>
+        </article>
+        <article className="admin-card">
+          <h3>
             <Link to="/admin/audit">Audit logs</Link>
           </h3>
           <p>
@@ -2295,8 +2321,8 @@ function AdminLandingPage() {
         </article>
       </div>
       <p className="admin-note">
-        User, role, queue, workflow, SLA, and catalogue management arrive with
-        later milestones.
+        Identity and access screens are read-only. Workflow, SLA, and catalogue
+        management arrive with later milestones.
       </p>
     </div>
   );
@@ -2583,6 +2609,946 @@ function AdminSystemPage() {
   );
 }
 
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString();
+}
+
+function AdminUsersPage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const users = useQuery({
+    queryKey: ["admin-users", page, search, active],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/users", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+              ...(active === "" ? {} : { active: active === "active" }),
+            },
+          },
+        }),
+      ),
+  });
+  type UserRow = NonNullable<typeof users.data>["items"][number];
+  const columns = [
+    {
+      header: "User",
+      key: "user",
+      render: (row: UserRow) => (
+        <Link to={`/admin/users/${row.user_id}`}>{row.display_name}</Link>
+      ),
+    },
+    {
+      header: "Email",
+      key: "email",
+      render: (row: UserRow) => row.email_address,
+    },
+    {
+      header: "Business unit",
+      key: "business-unit",
+      render: (row: UserRow) => row.business_unit_name ?? "—",
+    },
+    {
+      header: "Roles",
+      key: "roles",
+      render: (row: UserRow) => (
+        <CodeChips codes={row.role_codes} label="Roles" />
+      ),
+    },
+    {
+      header: "Queues",
+      key: "queues",
+      render: (row: UserRow) =>
+        row.support_group_names.length > 0
+          ? row.support_group_names.join(", ")
+          : "—",
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: UserRow) => <ActiveBadge active={row.active_flag} />,
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Read-only view of workspace accounts, their roles, and queue membership."
+        title="Users"
+      />
+      <TableToolbar label="User filters">
+        <SearchField
+          className="table-search"
+          label="Search users"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or email"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setPage(0);
+              setActive(event.target.value);
+            }}
+            value={active}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {users.isPending && <LoadingSkeleton label="Loading users" />}
+      {users.error && <ErrorSummary error={users.error} />}
+      {users.data && (
+        <>
+          <DataTable
+            caption="Workspace users"
+            columns={columns}
+            empty={
+              <EmptyState description="No users match the current filters." />
+            }
+            getRowKey={(row) => row.user_id}
+            rows={users.data.items}
+          />
+          {(page > 0 || users.data.has_more) && (
+            <Pagination
+              hasNext={users.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminUserDetailPage() {
+  const { userId = "" } = useParams();
+  const client = useIdentityClient();
+  const user = useQuery({
+    queryKey: ["admin-user", userId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/users/{user_id}", {
+          params: { path: { user_id: userId } },
+        }),
+      ),
+  });
+  const data = user.data;
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Users", to: "/admin/users" },
+          { label: data?.display_name ?? "User" },
+        ]}
+      />
+      {user.isPending && <LoadingSkeleton label="Loading user" />}
+      {user.error && <ErrorSummary error={user.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={<ActiveBadge active={data.active_flag} />}
+            description={data.email_address}
+            eyebrow="User"
+            title={data.display_name}
+          />
+          <div className="admin-detail">
+            <Panel title="Profile">
+              <MetadataGrid
+                items={[
+                  {
+                    label: "Business unit",
+                    value: data.business_unit_name ?? "—",
+                  },
+                  { label: "Locale", value: data.locale_code },
+                  { label: "Timezone", value: data.timezone_name },
+                  {
+                    label: "Provisioning",
+                    value: humanizeCode(data.provisioning),
+                  },
+                  {
+                    label: "OIDC linked",
+                    value: data.oidc_linked ? "Yes" : "No",
+                  },
+                  { label: "Created", value: formatDateTime(data.created_at) },
+                  { label: "Updated", value: formatDateTime(data.updated_at) },
+                ]}
+              />
+            </Panel>
+            <Panel title="Effective permissions">
+              <CodeChips
+                codes={data.effective_permission_codes}
+                label="Effective permissions"
+              />
+            </Panel>
+          </div>
+          <SectionHeader title="Roles" />
+          <DataTable
+            caption="Assigned roles"
+            columns={[
+              {
+                header: "Role",
+                key: "role",
+                render: (row: (typeof data.roles)[number]) => (
+                  <Link to={`/admin/roles/${row.role_code}`}>
+                    {row.role_name}
+                  </Link>
+                ),
+              },
+              {
+                header: "Valid from",
+                key: "valid-from",
+                render: (row: (typeof data.roles)[number]) =>
+                  formatDateTime(row.valid_from),
+              },
+              {
+                header: "Valid to",
+                key: "valid-to",
+                render: (row: (typeof data.roles)[number]) =>
+                  row.valid_to ? formatDateTime(row.valid_to) : "—",
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (row: (typeof data.roles)[number]) => (
+                  <ActiveBadge active={row.active_flag} />
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                description="No roles are assigned."
+                title="No roles"
+              />
+            }
+            getRowKey={(row) => row.role_code}
+            rows={data.roles}
+          />
+          <SectionHeader title="Queue memberships" />
+          <DataTable
+            caption="Queue memberships"
+            columns={[
+              {
+                header: "Queue",
+                key: "queue",
+                render: (row: (typeof data.memberships)[number]) => (
+                  <Link to={`/admin/queues/${row.support_group_id}`}>
+                    {row.group_name}
+                  </Link>
+                ),
+              },
+              {
+                header: "Member role",
+                key: "member-role",
+                render: (row: (typeof data.memberships)[number]) =>
+                  humanizeCode(row.member_role),
+              },
+              {
+                header: "Joined",
+                key: "joined",
+                render: (row: (typeof data.memberships)[number]) =>
+                  formatDateTime(row.joined_at),
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (row: (typeof data.memberships)[number]) => (
+                  <ActiveBadge active={row.active_flag} />
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                description="This user belongs to no queues."
+                title="No queue memberships"
+              />
+            }
+            getRowKey={(row) => row.support_group_id}
+            rows={data.memberships}
+          />
+          <SectionHeader title="Sign-in identities" />
+          <DataTable
+            caption="External sign-in identities"
+            columns={[
+              {
+                header: "Provider",
+                key: "provider",
+                render: (row: (typeof data.external_identities)[number]) =>
+                  row.provider_code,
+              },
+              {
+                header: "Last authenticated",
+                key: "last-authenticated",
+                render: (row: (typeof data.external_identities)[number]) =>
+                  row.last_authenticated_at
+                    ? formatDateTime(row.last_authenticated_at)
+                    : "Never",
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (row: (typeof data.external_identities)[number]) => (
+                  <ActiveBadge active={row.active_flag} />
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                description="No external sign-in identities are linked."
+                title="No sign-in identities"
+              />
+            }
+            getRowKey={(row) => row.provider_code}
+            rows={data.external_identities}
+          />
+          <SectionHeader title="Recent security events" />
+          {data.recent_security_events.length === 0 && (
+            <EmptyState
+              description="No security events recorded for this user."
+              title="No security events"
+            />
+          )}
+          {data.recent_security_events.length > 0 && (
+            <ul className="audit-list">
+              {data.recent_security_events.map((item) => (
+                <li className="audit-row" key={item.id}>
+                  <div className="audit-row__main">
+                    <strong>{humanizeCode(item.event_type)}</strong>
+                    <span>
+                      {item.resource_type
+                        ? `${humanizeCode(item.resource_type)}${
+                            item.resource_id ? ` · ${item.resource_id}` : ""
+                          }`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="audit-row__meta">
+                    <OutcomeBadge code={item.decision_code} />
+                    <time dateTime={item.occurred_at}>
+                      {formatDateTime(item.occurred_at)}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminRolesPage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const roles = useQuery({
+    queryKey: ["admin-roles", page, search],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/roles", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+            },
+          },
+        }),
+      ),
+  });
+  type RoleRow = NonNullable<typeof roles.data>["items"][number];
+  const columns = [
+    {
+      header: "Role",
+      key: "role",
+      render: (row: RoleRow) => (
+        <Link to={`/admin/roles/${row.role_code}`}>{row.role_name}</Link>
+      ),
+    },
+    {
+      header: "Description",
+      key: "description",
+      render: (row: RoleRow) => row.description ?? "—",
+    },
+    {
+      header: "Type",
+      key: "type",
+      render: (row: RoleRow) => (row.system_role_flag ? "System" : "Custom"),
+    },
+    {
+      header: "Permissions",
+      key: "permissions",
+      render: (row: RoleRow) => row.permission_count,
+    },
+    {
+      header: "Assigned users",
+      key: "assigned-users",
+      render: (row: RoleRow) => row.assigned_user_count,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: RoleRow) => <ActiveBadge active={row.active_flag} />,
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Role definitions with their granted permissions and assignments."
+        title="Roles"
+      />
+      <TableToolbar label="Role filters">
+        <SearchField
+          className="table-search"
+          label="Search roles"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or code"
+          value={search}
+          withIcon={false}
+        />
+      </TableToolbar>
+      {roles.isPending && <LoadingSkeleton label="Loading roles" />}
+      {roles.error && <ErrorSummary error={roles.error} />}
+      {roles.data && (
+        <>
+          <DataTable
+            caption="Workspace roles"
+            columns={columns}
+            empty={
+              <EmptyState description="No roles match the current filters." />
+            }
+            getRowKey={(row) => row.role_code}
+            rows={roles.data.items}
+          />
+          {(page > 0 || roles.data.has_more) && (
+            <Pagination
+              hasNext={roles.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminRoleDetailPage() {
+  const { roleCode = "" } = useParams();
+  const client = useIdentityClient();
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const role = useQuery({
+    queryKey: ["admin-role", roleCode, page],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/roles/{role_code}", {
+          params: {
+            path: { role_code: roleCode },
+            query: { limit, offset: page * limit },
+          },
+        }),
+      ),
+  });
+  const data = role.data;
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Roles", to: "/admin/roles" },
+          { label: data?.role_name ?? "Role" },
+        ]}
+      />
+      {role.isPending && <LoadingSkeleton label="Loading role" />}
+      {role.error && <ErrorSummary error={role.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={<ActiveBadge active={data.active_flag} />}
+            description={
+              data.description ??
+              (data.system_role_flag ? "System role" : "Custom role")
+            }
+            eyebrow={data.system_role_flag ? "System role" : "Custom role"}
+            title={data.role_name}
+          />
+          <SectionHeader title="Permissions" />
+          {data.permission_groups.length === 0 && (
+            <EmptyState
+              description="This role grants no permissions."
+              title="No permissions"
+            />
+          )}
+          {data.permission_groups.length > 0 && (
+            <div className="permission-groups">
+              {data.permission_groups.map((group) => (
+                <Panel key={group.domain} title={group.domain}>
+                  <CodeChips
+                    codes={group.permission_codes}
+                    label={`${group.domain} permissions`}
+                  />
+                </Panel>
+              ))}
+            </div>
+          )}
+          <SectionHeader title="Assigned users" />
+          <DataTable
+            caption="Users assigned to this role"
+            columns={[
+              {
+                header: "User",
+                key: "user",
+                render: (row: (typeof data.assignments)[number]) => (
+                  <Link to={`/admin/users/${row.user_id}`}>
+                    {row.display_name}
+                  </Link>
+                ),
+              },
+              {
+                header: "Email",
+                key: "email",
+                render: (row: (typeof data.assignments)[number]) =>
+                  row.email_address,
+              },
+              {
+                header: "Valid from",
+                key: "valid-from",
+                render: (row: (typeof data.assignments)[number]) =>
+                  formatDateTime(row.valid_from),
+              },
+              {
+                header: "Valid to",
+                key: "valid-to",
+                render: (row: (typeof data.assignments)[number]) =>
+                  row.valid_to ? formatDateTime(row.valid_to) : "—",
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (row: (typeof data.assignments)[number]) => (
+                  <ActiveBadge active={row.active_flag} />
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                description="No users are assigned to this role."
+                title="No assigned users"
+              />
+            }
+            getRowKey={(row) => row.user_id}
+            rows={data.assignments}
+          />
+          {(page > 0 || data.assignments_has_more) && (
+            <Pagination
+              hasNext={data.assignments_has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminQueuesPage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const queues = useQuery({
+    queryKey: ["admin-queues", page, search, active],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/queues", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+              ...(active === "" ? {} : { active: active === "active" }),
+            },
+          },
+        }),
+      ),
+  });
+  type QueueRowData = NonNullable<typeof queues.data>["items"][number];
+  const columns = [
+    {
+      header: "Queue",
+      key: "queue",
+      render: (row: QueueRowData) => (
+        <Link to={`/admin/queues/${row.support_group_id}`}>
+          {row.group_name}
+        </Link>
+      ),
+    },
+    {
+      header: "Code",
+      key: "code",
+      render: (row: QueueRowData) => row.group_code,
+    },
+    {
+      header: "Contact",
+      key: "contact",
+      render: (row: QueueRowData) => row.contact_email ?? "—",
+    },
+    {
+      header: "Assignment",
+      key: "assignment",
+      render: (row: QueueRowData) => humanizeCode(row.assignment_method),
+    },
+    {
+      header: "Members",
+      key: "members",
+      render: (row: QueueRowData) => row.member_count,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: QueueRowData) => <ActiveBadge active={row.active_flag} />,
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        actions={<Link to="/admin/ticket-views">All ticket views</Link>}
+        description="Support groups with membership counts and routing configuration."
+        title="Queues"
+      />
+      <TableToolbar label="Queue filters">
+        <SearchField
+          className="table-search"
+          label="Search queues"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or code"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setPage(0);
+              setActive(event.target.value);
+            }}
+            value={active}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {queues.isPending && <LoadingSkeleton label="Loading queues" />}
+      {queues.error && <ErrorSummary error={queues.error} />}
+      {queues.data && (
+        <>
+          <DataTable
+            caption="Support group queues"
+            columns={columns}
+            empty={
+              <EmptyState description="No queues match the current filters." />
+            }
+            getRowKey={(row) => row.support_group_id}
+            rows={queues.data.items}
+          />
+          {(page > 0 || queues.data.has_more) && (
+            <Pagination
+              hasNext={queues.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminQueueDetailPage() {
+  const { supportGroupId = "" } = useParams();
+  const client = useIdentityClient();
+  const queue = useQuery({
+    queryKey: ["admin-queue", supportGroupId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/queues/{support_group_id}", {
+          params: { path: { support_group_id: supportGroupId } },
+        }),
+      ),
+  });
+  const data = queue.data;
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Queues", to: "/admin/queues" },
+          { label: data?.group_name ?? "Queue" },
+        ]}
+      />
+      {queue.isPending && <LoadingSkeleton label="Loading queue" />}
+      {queue.error && <ErrorSummary error={queue.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={<ActiveBadge active={data.active_flag} />}
+            description={`Queue code ${data.group_code}`}
+            eyebrow="Queue"
+            title={data.group_name}
+          />
+          <Panel title="Details">
+            <MetadataGrid
+              items={[
+                { label: "Contact email", value: data.contact_email ?? "—" },
+                {
+                  label: "Assignment method",
+                  value: humanizeCode(data.assignment_method),
+                },
+                {
+                  label: "Manager",
+                  value: data.manager_display_name ?? "—",
+                },
+                { label: "Created", value: formatDateTime(data.created_at) },
+                { label: "Updated", value: formatDateTime(data.updated_at) },
+              ]}
+            />
+          </Panel>
+          <SectionHeader title="Members" />
+          <DataTable
+            caption="Queue members"
+            columns={[
+              {
+                header: "Member",
+                key: "member",
+                render: (row: (typeof data.members)[number]) => (
+                  <Link to={`/admin/users/${row.user_id}`}>
+                    {row.display_name}
+                  </Link>
+                ),
+              },
+              {
+                header: "Member role",
+                key: "member-role",
+                render: (row: (typeof data.members)[number]) =>
+                  humanizeCode(row.member_role),
+              },
+              {
+                header: "Joined",
+                key: "joined",
+                render: (row: (typeof data.members)[number]) =>
+                  formatDateTime(row.joined_at),
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (row: (typeof data.members)[number]) => (
+                  <ActiveBadge active={row.active_flag} />
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                description="This queue has no members."
+                title="No members"
+              />
+            }
+            getRowKey={(row) => row.user_id}
+            rows={data.members}
+          />
+          <SectionHeader title="Ticket views" />
+          <DataTable
+            caption="Ticket views owned by this queue"
+            columns={[
+              {
+                header: "View",
+                key: "view",
+                render: (row: (typeof data.ticket_views)[number]) =>
+                  row.queue_name,
+              },
+              {
+                header: "Project",
+                key: "project",
+                render: (row: (typeof data.ticket_views)[number]) =>
+                  row.project_code,
+              },
+              {
+                header: "Visibility",
+                key: "visibility",
+                render: (row: (typeof data.ticket_views)[number]) =>
+                  humanizeCode(row.visibility),
+              },
+              {
+                header: "Order",
+                key: "order",
+                render: (row: (typeof data.ticket_views)[number]) =>
+                  row.display_order,
+              },
+              {
+                header: "Workflow",
+                key: "workflow",
+                render: (row: (typeof data.ticket_views)[number]) =>
+                  row.version_status ? humanizeCode(row.version_status) : "—",
+              },
+              {
+                header: "Status",
+                key: "status",
+                render: (row: (typeof data.ticket_views)[number]) => (
+                  <ActiveBadge active={row.active_flag} />
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                description="No ticket views are owned by this queue."
+                title="No ticket views"
+              />
+            }
+            getRowKey={(row) => row.queue_id}
+            rows={data.ticket_views}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminTicketViewsPage() {
+  const client = useIdentityClient();
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const views = useQuery({
+    queryKey: ["admin-ticket-views", page],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/ticket-views", {
+          params: { query: { limit, offset: page * limit } },
+        }),
+      ),
+  });
+  type ViewRow = NonNullable<typeof views.data>["items"][number];
+  const columns = [
+    {
+      header: "View",
+      key: "view",
+      render: (row: ViewRow) => row.queue_name,
+    },
+    {
+      header: "Description",
+      key: "description",
+      render: (row: ViewRow) => row.description ?? "—",
+    },
+    {
+      header: "Project",
+      key: "project",
+      render: (row: ViewRow) => row.project_code,
+    },
+    {
+      header: "Visibility",
+      key: "visibility",
+      render: (row: ViewRow) => humanizeCode(row.visibility),
+    },
+    {
+      header: "Order",
+      key: "order",
+      render: (row: ViewRow) => row.display_order,
+    },
+    {
+      header: "Workflow",
+      key: "workflow",
+      render: (row: ViewRow) =>
+        row.version_status ? humanizeCode(row.version_status) : "—",
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: ViewRow) => <ActiveBadge active={row.active_flag} />,
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Queues", to: "/admin/queues" },
+          { label: "Ticket views" },
+        ]}
+      />
+      <PageHeader
+        description="Analyst work queues defined across all support groups."
+        title="Ticket views"
+      />
+      {views.isPending && <LoadingSkeleton label="Loading ticket views" />}
+      {views.error && <ErrorSummary error={views.error} />}
+      {views.data && (
+        <>
+          <DataTable
+            caption="Ticket views"
+            columns={columns}
+            empty={<EmptyState description="No ticket views are defined." />}
+            getRowKey={(row) => row.queue_id}
+            rows={views.data.items}
+          />
+          {(page > 0 || views.data.has_more) && (
+            <Pagination
+              hasNext={views.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   return (
     <AppShell>
@@ -2720,6 +3686,76 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="ADMIN_IDENTITY_READ">
                 <AdminLandingPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminUsersPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/users/:userId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminUserDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/roles"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminRolesPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/roles/:roleCode"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminRoleDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/queues"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminQueuesPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/queues/:supportGroupId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminQueueDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/ticket-views"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_IDENTITY_READ">
+                <AdminTicketViewsPage />
               </RequirePermission>
             </RequireSession>
           }

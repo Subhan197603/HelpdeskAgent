@@ -74,7 +74,7 @@ point. `docker compose --profile application up -d --build` builds the web image
 ## Verification
 
 Component tests cover dynamic controls, accessible state handling, and persona entry. The
-Playwright test creates an isolated PostgreSQL Compose project on port 55449, installs and migrates
+Playwright test creates an isolated PostgreSQL Compose project on port 55549, installs and migrates
 the physical baseline, loads deterministic development fixtures, starts API and web processes,
 and proves this journey:
 

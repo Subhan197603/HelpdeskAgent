@@ -21,7 +21,12 @@ export function DataTable<Row>({
 }) {
   if (rows.length === 0) return <>{empty}</>;
   return (
-    <div className="data-table-wrap">
+    <div
+      aria-label={caption}
+      className="data-table-wrap"
+      role="region"
+      tabIndex={0}
+    >
       <table className="data-table">
         <caption className="sr-only">{caption}</caption>
         <thead>

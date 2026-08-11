@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 export const composeProject = "fusion-helpdesk-task-3-3-e2e";
 
 function environment(): NodeJS.ProcessEnv {
-  return { ...process.env, POSTGRES_HOST_PORT: "55449" };
+  return { ...process.env, POSTGRES_HOST_PORT: "55549" };
 }
 
 export function dockerCompose(...args: string[]): void {

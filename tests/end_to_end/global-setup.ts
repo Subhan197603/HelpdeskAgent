@@ -34,7 +34,7 @@ export default function globalSetup(): void {
   );
 
   const migrationEnvironment =
-    "postgresql+psycopg://postgres:postgres@127.0.0.1:55449/helpdesk";
+    "postgresql+psycopg://postgres:postgres@127.0.0.1:55549/helpdesk";
   process.env.MIGRATION_DATABASE_URL = migrationEnvironment;
   run("uv", ["run", "python", "-m", "apps.api.app.db.migrations_cli", "stamp"]);
   run("uv", [

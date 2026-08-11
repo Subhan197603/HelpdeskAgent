@@ -39,3 +39,30 @@ export function OutcomeBadge({ code }: { code: string }) {
     </span>
   );
 }
+
+export function ActiveBadge({ active }: { active: boolean }) {
+  return (
+    <span
+      className={`outcome-badge outcome-badge--${active ? "success" : "neutral"}`}
+    >
+      {active ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+export function CodeChips({
+  codes,
+  label,
+}: {
+  codes: string[];
+  label: string;
+}) {
+  if (codes.length === 0) return <span className="code-chips-empty">—</span>;
+  return (
+    <ul aria-label={label} className="code-chips">
+      {codes.map((code) => (
+        <li key={code}>{humanizeCode(code)}</li>
+      ))}
+    </ul>
+  );
+}

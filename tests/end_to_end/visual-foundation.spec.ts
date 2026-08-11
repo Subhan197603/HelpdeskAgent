@@ -1,4 +1,4 @@
-import AxeBuilder from "@axe-core/playwright";
+﻿import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 const screenshotOptions = {
@@ -270,6 +270,138 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expectAccessible(page);
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("admin-system.png", screenshotOptions);
+
+  // Identity and access: users carry live timestamps in their detail pages,
+  // so user screens are asserted functionally; roles, queues, and ticket
+  // views render only deterministic seeded values and are captured visually.
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Users", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Users", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Development Platform Administrator" }),
+  ).toBeVisible();
+  await page.getByLabel("Search users").fill("Agent");
+  await expect(
+    page.getByRole("link", { name: "Development Agent", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Development Customer" }),
+  ).toHaveCount(0);
+  await page.getByLabel("Search users").fill("");
+  const userStatusFilter = page.locator(".table-toolbar").getByRole("combobox");
+  await userStatusFilter.selectOption("inactive");
+  await expect(
+    page.getByRole("link", { name: "Development Inactive User" }),
+  ).toBeVisible();
+  await userStatusFilter.selectOption("");
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+
+  await page
+    .getByRole("link", { name: "Development Platform Administrator" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Development Platform Administrator" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Effective permissions" }),
+  ).toBeVisible();
+  await expect(page.getByText("Provisioning")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Sign-in identities", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Recent security events" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Roles" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Roles", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Platform Administrator" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-roles.png", screenshotOptions);
+
+  await page.getByRole("link", { name: "Platform Administrator" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Platform Administrator", level: 1 }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Permissions", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Admin identity read")).toBeVisible();
+  await expect(
+    page
+      .locator(".data-table")
+      .getByRole("link", { name: "Development Platform Administrator" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Queues", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Queues", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Development Service Desk" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-queues.png", screenshotOptions);
+
+  await page.getByRole("link", { name: "Development Service Desk" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Development Service Desk" }),
+  ).toBeVisible();
+  await expect(page.getByText("Round robin")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Members", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page
+      .locator(".data-table")
+      .getByRole("link", { name: "Development Agent", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("No ticket views are owned by this queue."),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Queues", exact: true })
+    .click();
+  await page.getByRole("link", { name: "All ticket views" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Ticket views" }),
+  ).toBeVisible();
+  await expect(page.getByText("Fusion AP group")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-ticket-views.png",
+    screenshotOptions,
+  );
 
   // Audit rows carry live server timestamps, so this screen is asserted
   // functionally instead of visually.

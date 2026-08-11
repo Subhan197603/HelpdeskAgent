@@ -250,6 +250,33 @@
         "title": "ActivityItemResponse",
         "type": "object"
       },
+      "AdminExternalIdentityItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "last_authenticated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Authenticated At"
+          },
+          "provider_code": {
+            "title": "Provider Code",
+            "type": "string"
+          }
+        },
+        "required": ["provider_code", "active_flag", "last_authenticated_at"],
+        "title": "AdminExternalIdentityItem",
+        "type": "object"
+      },
       "AdminOverviewResponse": {
         "properties": {
           "active_users": {
@@ -276,6 +303,770 @@
           "published_knowledge_documents"
         ],
         "title": "AdminOverviewResponse",
+        "type": "object"
+      },
+      "AdminPermissionGroup": {
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "permission_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permission Codes",
+            "type": "array"
+          }
+        },
+        "required": ["domain", "permission_codes"],
+        "title": "AdminPermissionGroup",
+        "type": "object"
+      },
+      "AdminQueueDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "assignment_method": {
+            "title": "Assignment Method",
+            "type": "string"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "group_code": {
+            "title": "Group Code",
+            "type": "string"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "manager_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Display Name"
+          },
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/AdminQueueMemberItem"
+            },
+            "title": "Members",
+            "type": "array"
+          },
+          "support_group_id": {
+            "format": "uuid",
+            "title": "Support Group Id",
+            "type": "string"
+          },
+          "ticket_views": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTicketViewSummary"
+            },
+            "title": "Ticket Views",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "support_group_id",
+          "group_code",
+          "group_name",
+          "contact_email",
+          "assignment_method",
+          "active_flag",
+          "manager_display_name",
+          "members",
+          "ticket_views",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminQueueDetailResponse",
+        "type": "object"
+      },
+      "AdminQueueListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminQueueSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminQueueListResponse",
+        "type": "object"
+      },
+      "AdminQueueMemberItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "joined_at": {
+            "format": "date-time",
+            "title": "Joined At",
+            "type": "string"
+          },
+          "member_role": {
+            "title": "Member Role",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "member_role",
+          "active_flag",
+          "joined_at"
+        ],
+        "title": "AdminQueueMemberItem",
+        "type": "object"
+      },
+      "AdminQueueSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "assignment_method": {
+            "title": "Assignment Method",
+            "type": "string"
+          },
+          "contact_email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Email"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "group_code": {
+            "title": "Group Code",
+            "type": "string"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "member_count": {
+            "title": "Member Count",
+            "type": "integer"
+          },
+          "support_group_id": {
+            "format": "uuid",
+            "title": "Support Group Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "support_group_id",
+          "group_code",
+          "group_name",
+          "contact_email",
+          "assignment_method",
+          "active_flag",
+          "member_count",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminQueueSummary",
+        "type": "object"
+      },
+      "AdminRoleAssignmentItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email_address": {
+            "title": "Email Address",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "email_address",
+          "active_flag",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "AdminRoleAssignmentItem",
+        "type": "object"
+      },
+      "AdminRoleDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRoleAssignmentItem"
+            },
+            "title": "Assignments",
+            "type": "array"
+          },
+          "assignments_has_more": {
+            "title": "Assignments Has More",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "permission_groups": {
+            "items": {
+              "$ref": "#/components/schemas/AdminPermissionGroup"
+            },
+            "title": "Permission Groups",
+            "type": "array"
+          },
+          "role_code": {
+            "title": "Role Code",
+            "type": "string"
+          },
+          "role_name": {
+            "title": "Role Name",
+            "type": "string"
+          },
+          "system_role_flag": {
+            "title": "System Role Flag",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role_code",
+          "role_name",
+          "description",
+          "system_role_flag",
+          "active_flag",
+          "permission_groups",
+          "assignments",
+          "assignments_has_more"
+        ],
+        "title": "AdminRoleDetailResponse",
+        "type": "object"
+      },
+      "AdminRoleListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRoleSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminRoleListResponse",
+        "type": "object"
+      },
+      "AdminRoleSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "assigned_user_count": {
+            "title": "Assigned User Count",
+            "type": "integer"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "permission_count": {
+            "title": "Permission Count",
+            "type": "integer"
+          },
+          "role_code": {
+            "title": "Role Code",
+            "type": "string"
+          },
+          "role_name": {
+            "title": "Role Name",
+            "type": "string"
+          },
+          "system_role_flag": {
+            "title": "System Role Flag",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "role_code",
+          "role_name",
+          "description",
+          "system_role_flag",
+          "active_flag",
+          "permission_count",
+          "assigned_user_count"
+        ],
+        "title": "AdminRoleSummary",
+        "type": "object"
+      },
+      "AdminTicketViewListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminTicketViewSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminTicketViewListResponse",
+        "type": "object"
+      },
+      "AdminTicketViewSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "project_code": {
+            "title": "Project Code",
+            "type": "string"
+          },
+          "queue_id": {
+            "format": "uuid",
+            "title": "Queue Id",
+            "type": "string"
+          },
+          "queue_name": {
+            "title": "Queue Name",
+            "type": "string"
+          },
+          "version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Status"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "queue_id",
+          "queue_name",
+          "description",
+          "project_code",
+          "visibility",
+          "display_order",
+          "version_status",
+          "active_flag"
+        ],
+        "title": "AdminTicketViewSummary",
+        "type": "object"
+      },
+      "AdminUserDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "business_unit_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Unit Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "effective_permission_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Effective Permission Codes",
+            "type": "array"
+          },
+          "email_address": {
+            "title": "Email Address",
+            "type": "string"
+          },
+          "external_identities": {
+            "items": {
+              "$ref": "#/components/schemas/AdminExternalIdentityItem"
+            },
+            "title": "External Identities",
+            "type": "array"
+          },
+          "locale_code": {
+            "title": "Locale Code",
+            "type": "string"
+          },
+          "memberships": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserMembershipItem"
+            },
+            "title": "Memberships",
+            "type": "array"
+          },
+          "oidc_linked": {
+            "title": "Oidc Linked",
+            "type": "boolean"
+          },
+          "provisioning": {
+            "enum": ["JIT", "PRE_PROVISIONED"],
+            "title": "Provisioning",
+            "type": "string"
+          },
+          "recent_security_events": {
+            "items": {
+              "$ref": "#/components/schemas/SecurityEventSummary"
+            },
+            "title": "Recent Security Events",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserRoleItem"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "timezone_name": {
+            "title": "Timezone Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "email_address",
+          "active_flag",
+          "business_unit_name",
+          "locale_code",
+          "timezone_name",
+          "provisioning",
+          "oidc_linked",
+          "roles",
+          "effective_permission_codes",
+          "memberships",
+          "external_identities",
+          "recent_security_events",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminUserDetailResponse",
+        "type": "object"
+      },
+      "AdminUserListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminUserSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminUserListResponse",
+        "type": "object"
+      },
+      "AdminUserMembershipItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "group_name": {
+            "title": "Group Name",
+            "type": "string"
+          },
+          "joined_at": {
+            "format": "date-time",
+            "title": "Joined At",
+            "type": "string"
+          },
+          "member_role": {
+            "title": "Member Role",
+            "type": "string"
+          },
+          "support_group_id": {
+            "format": "uuid",
+            "title": "Support Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "support_group_id",
+          "group_name",
+          "member_role",
+          "active_flag",
+          "joined_at"
+        ],
+        "title": "AdminUserMembershipItem",
+        "type": "object"
+      },
+      "AdminUserRoleItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "role_code": {
+            "title": "Role Code",
+            "type": "string"
+          },
+          "role_name": {
+            "title": "Role Name",
+            "type": "string"
+          },
+          "valid_from": {
+            "format": "date-time",
+            "title": "Valid From",
+            "type": "string"
+          },
+          "valid_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid To"
+          }
+        },
+        "required": [
+          "role_code",
+          "role_name",
+          "active_flag",
+          "valid_from",
+          "valid_to"
+        ],
+        "title": "AdminUserRoleItem",
+        "type": "object"
+      },
+      "AdminUserSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "business_unit_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Business Unit Name"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email_address": {
+            "title": "Email Address",
+            "type": "string"
+          },
+          "identity_provider_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Identity Provider Codes",
+            "type": "array"
+          },
+          "role_codes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Role Codes",
+            "type": "array"
+          },
+          "support_group_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Support Group Names",
+            "type": "array"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "display_name",
+          "email_address",
+          "active_flag",
+          "business_unit_name",
+          "role_codes",
+          "support_group_names",
+          "identity_provider_codes",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminUserSummary",
         "type": "object"
       },
       "AgentTicketResponse": {
@@ -10046,6 +10837,394 @@
         "tags": ["administration"]
       }
     },
+    "/api/v1/admin/queues": {
+      "get": {
+        "operationId": "admin_queues_api_v1_admin_queues_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminQueueListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Queues",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/queues/{support_group_id}": {
+      "get": {
+        "operationId": "admin_queue_detail_api_v1_admin_queues__support_group_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "support_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Support Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminQueueDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Queue Detail",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "operationId": "admin_roles_api_v1_admin_roles_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRoleListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Roles",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/roles/{role_code}": {
+      "get": {
+        "operationId": "admin_role_detail_api_v1_admin_roles__role_code__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_code",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{0,59}$",
+              "title": "Role Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRoleDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Role Detail",
+        "tags": ["administration"]
+      }
+    },
     "/api/v1/admin/system-status": {
       "get": {
         "operationId": "system_status_api_v1_admin_system_status_get",
@@ -10097,6 +11276,328 @@
           }
         ],
         "summary": "System Status",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/ticket-views": {
+      "get": {
+        "operationId": "admin_ticket_views_api_v1_admin_ticket_views_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminTicketViewListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Ticket Views",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "admin_users_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "role_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z][A-Z0-9_]{0,59}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Role Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "support_group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Support Group Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 80,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Users",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "get": {
+        "operationId": "admin_user_detail_api_v1_admin_users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin User Detail",
         "tags": ["administration"]
       }
     },

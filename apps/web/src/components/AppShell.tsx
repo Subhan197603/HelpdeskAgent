@@ -91,6 +91,24 @@ const administrationNavigation: readonly NavigationItem[] = [
     to: "/admin",
   },
   {
+    icon: "user",
+    label: "Users",
+    permission: "ADMIN_IDENTITY_READ",
+    to: "/admin/users",
+  },
+  {
+    icon: "shield",
+    label: "Roles",
+    permission: "ADMIN_IDENTITY_READ",
+    to: "/admin/roles",
+  },
+  {
+    icon: "queue",
+    label: "Queues",
+    permission: "ADMIN_IDENTITY_READ",
+    to: "/admin/queues",
+  },
+  {
     icon: "shield",
     label: "Audit logs",
     permission: "AUDIT_EVENT_READ",
@@ -207,7 +225,7 @@ function Sidebar({
                   className={({ isActive }) =>
                     isActive ? "active" : undefined
                   }
-                  end={item.to === "/portal"}
+                  end={item.to === "/portal" || item.to === "/admin"}
                   key={`${item.label}-${item.to}`}
                   onClick={onClose}
                   ref={
