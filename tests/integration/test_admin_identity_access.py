@@ -22,7 +22,7 @@ from apps.api.app.admin.repository import AdminRepository, escape_like_pattern
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-admin-identity-test"
-PORT = "55467"
+PORT = "55554"
 DATABASE = "admin_identity_model"
 TENANT_ID = UUID("20000000-0000-0000-0000-000000000001")
 OTHER_TENANT_ID = UUID("20000000-0000-0000-0000-000000000099")

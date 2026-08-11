@@ -250,6 +250,348 @@
         "title": "ActivityItemResponse",
         "type": "object"
       },
+      "AdminCalendarDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "calendar_code": {
+            "title": "Calendar Code",
+            "type": "string"
+          },
+          "calendar_id": {
+            "format": "uuid",
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "calendar_name": {
+            "title": "Calendar Name",
+            "type": "string"
+          },
+          "displayed_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Version Number"
+          },
+          "displayed_version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Version Status"
+          },
+          "exceptions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCalendarExceptionItem"
+            },
+            "title": "Exceptions",
+            "type": "array"
+          },
+          "linked_goals": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCalendarLinkedGoalItem"
+            },
+            "title": "Linked Goals",
+            "type": "array"
+          },
+          "timezone_name": {
+            "title": "Timezone Name",
+            "type": "string"
+          },
+          "twenty_four_seven_flag": {
+            "title": "Twenty Four Seven Flag",
+            "type": "boolean"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCalendarVersionItem"
+            },
+            "title": "Versions",
+            "type": "array"
+          },
+          "working_periods": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCalendarWorkingPeriodItem"
+            },
+            "title": "Working Periods",
+            "type": "array"
+          }
+        },
+        "required": [
+          "calendar_id",
+          "calendar_code",
+          "calendar_name",
+          "timezone_name",
+          "twenty_four_seven_flag",
+          "active_flag",
+          "displayed_version_number",
+          "displayed_version_status",
+          "versions",
+          "working_periods",
+          "exceptions",
+          "linked_goals"
+        ],
+        "title": "AdminCalendarDetailResponse",
+        "type": "object"
+      },
+      "AdminCalendarExceptionItem": {
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "end_local_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Local Time"
+          },
+          "exception_date": {
+            "title": "Exception Date",
+            "type": "string"
+          },
+          "exception_type": {
+            "title": "Exception Type",
+            "type": "string"
+          },
+          "start_local_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Start Local Time"
+          }
+        },
+        "required": [
+          "exception_date",
+          "exception_type",
+          "start_local_time",
+          "end_local_time",
+          "description"
+        ],
+        "title": "AdminCalendarExceptionItem",
+        "type": "object"
+      },
+      "AdminCalendarLinkedGoalItem": {
+        "properties": {
+          "goal_name": {
+            "title": "Goal Name",
+            "type": "string"
+          },
+          "sla_code": {
+            "title": "Sla Code",
+            "type": "string"
+          }
+        },
+        "required": ["sla_code", "goal_name"],
+        "title": "AdminCalendarLinkedGoalItem",
+        "type": "object"
+      },
+      "AdminCalendarListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminCalendarSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminCalendarListResponse",
+        "type": "object"
+      },
+      "AdminCalendarSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "calendar_code": {
+            "title": "Calendar Code",
+            "type": "string"
+          },
+          "calendar_id": {
+            "format": "uuid",
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "calendar_name": {
+            "title": "Calendar Name",
+            "type": "string"
+          },
+          "current_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Number"
+          },
+          "current_version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Status"
+          },
+          "linked_goal_count": {
+            "title": "Linked Goal Count",
+            "type": "integer"
+          },
+          "timezone_name": {
+            "title": "Timezone Name",
+            "type": "string"
+          },
+          "twenty_four_seven_flag": {
+            "title": "Twenty Four Seven Flag",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "calendar_id",
+          "calendar_code",
+          "calendar_name",
+          "timezone_name",
+          "twenty_four_seven_flag",
+          "active_flag",
+          "current_version_number",
+          "current_version_status",
+          "linked_goal_count"
+        ],
+        "title": "AdminCalendarSummary",
+        "type": "object"
+      },
+      "AdminCalendarVersionItem": {
+        "properties": {
+          "business_calendar_version_id": {
+            "format": "uuid",
+            "title": "Business Calendar Version Id",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "timezone_name": {
+            "title": "Timezone Name",
+            "type": "string"
+          },
+          "twenty_four_seven_flag": {
+            "title": "Twenty Four Seven Flag",
+            "type": "boolean"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          },
+          "version_status": {
+            "title": "Version Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "business_calendar_version_id",
+          "version_number",
+          "version_status",
+          "timezone_name",
+          "twenty_four_seven_flag",
+          "effective_from",
+          "effective_to",
+          "published_at"
+        ],
+        "title": "AdminCalendarVersionItem",
+        "type": "object"
+      },
+      "AdminCalendarWorkingPeriodItem": {
+        "properties": {
+          "end_local_time": {
+            "title": "End Local Time",
+            "type": "string"
+          },
+          "iso_day_of_week": {
+            "title": "Iso Day Of Week",
+            "type": "integer"
+          },
+          "start_local_time": {
+            "title": "Start Local Time",
+            "type": "string"
+          }
+        },
+        "required": ["iso_day_of_week", "start_local_time", "end_local_time"],
+        "title": "AdminCalendarWorkingPeriodItem",
+        "type": "object"
+      },
       "AdminExternalIdentityItem": {
         "properties": {
           "active_flag": {
@@ -275,6 +617,100 @@
         },
         "required": ["provider_code", "active_flag", "last_authenticated_at"],
         "title": "AdminExternalIdentityItem",
+        "type": "object"
+      },
+      "AdminFormFieldItem": {
+        "properties": {
+          "condition_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Condition Summary",
+            "type": "array"
+          },
+          "data_type": {
+            "title": "Data Type",
+            "type": "string"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "field_code": {
+            "title": "Field Code",
+            "type": "string"
+          },
+          "help_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Help Text"
+          },
+          "hidden_flag": {
+            "title": "Hidden Flag",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "$ref": "#/components/schemas/AdminFormFieldOptionItem"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "required_flag": {
+            "title": "Required Flag",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "field_code",
+          "label",
+          "data_type",
+          "required_flag",
+          "hidden_flag",
+          "display_order",
+          "help_text",
+          "condition_summary",
+          "options"
+        ],
+        "title": "AdminFormFieldItem",
+        "type": "object"
+      },
+      "AdminFormFieldOptionItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "option_code": {
+            "title": "Option Code",
+            "type": "string"
+          },
+          "option_label": {
+            "title": "Option Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "option_code",
+          "option_label",
+          "display_order",
+          "active_flag"
+        ],
+        "title": "AdminFormFieldOptionItem",
         "type": "object"
       },
       "AdminOverviewResponse": {
@@ -576,6 +1012,406 @@
         "title": "AdminQueueSummary",
         "type": "object"
       },
+      "AdminRequestTypeDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "displayed_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Version Number"
+          },
+          "displayed_version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Version Status"
+          },
+          "employee_visible_flag": {
+            "title": "Employee Visible Flag",
+            "type": "boolean"
+          },
+          "form_fields": {
+            "items": {
+              "$ref": "#/components/schemas/AdminFormFieldItem"
+            },
+            "title": "Form Fields",
+            "type": "array"
+          },
+          "icon_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon Name"
+          },
+          "portal_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portal Description"
+          },
+          "portal_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portal Group"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "request_type_code": {
+            "title": "Request Type Code",
+            "type": "string"
+          },
+          "request_type_id": {
+            "format": "uuid",
+            "title": "Request Type Id",
+            "type": "string"
+          },
+          "request_type_name": {
+            "title": "Request Type Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRequestTypeVersionItem"
+            },
+            "title": "Versions",
+            "type": "array"
+          },
+          "work_type_code": {
+            "title": "Work Type Code",
+            "type": "string"
+          },
+          "workflow_code": {
+            "title": "Workflow Code",
+            "type": "string"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          },
+          "workflow_name": {
+            "title": "Workflow Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_type_id",
+          "request_type_code",
+          "request_type_name",
+          "portal_description",
+          "portal_group",
+          "icon_name",
+          "project_key",
+          "project_name",
+          "work_type_code",
+          "workflow_id",
+          "workflow_code",
+          "workflow_name",
+          "employee_visible_flag",
+          "active_flag",
+          "display_order",
+          "displayed_version_number",
+          "displayed_version_status",
+          "versions",
+          "form_fields",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "AdminRequestTypeDetailResponse",
+        "type": "object"
+      },
+      "AdminRequestTypeListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminRequestTypeSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminRequestTypeListResponse",
+        "type": "object"
+      },
+      "AdminRequestTypeSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "current_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Number"
+          },
+          "current_version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Status"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "employee_visible_flag": {
+            "title": "Employee Visible Flag",
+            "type": "boolean"
+          },
+          "portal_group": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Portal Group"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "request_type_code": {
+            "title": "Request Type Code",
+            "type": "string"
+          },
+          "request_type_id": {
+            "format": "uuid",
+            "title": "Request Type Id",
+            "type": "string"
+          },
+          "request_type_name": {
+            "title": "Request Type Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "work_type_code": {
+            "title": "Work Type Code",
+            "type": "string"
+          },
+          "workflow_code": {
+            "title": "Workflow Code",
+            "type": "string"
+          },
+          "workflow_name": {
+            "title": "Workflow Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_type_id",
+          "request_type_code",
+          "request_type_name",
+          "portal_group",
+          "project_key",
+          "project_name",
+          "work_type_code",
+          "workflow_code",
+          "workflow_name",
+          "employee_visible_flag",
+          "active_flag",
+          "display_order",
+          "current_version_number",
+          "current_version_status",
+          "updated_at"
+        ],
+        "title": "AdminRequestTypeSummary",
+        "type": "object"
+      },
+      "AdminRequestTypeVersionItem": {
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "request_type_version_id": {
+            "format": "uuid",
+            "title": "Request Type Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          },
+          "version_status": {
+            "title": "Version Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_type_version_id",
+          "version_number",
+          "version_status",
+          "effective_from",
+          "effective_to",
+          "published_at"
+        ],
+        "title": "AdminRequestTypeVersionItem",
+        "type": "object"
+      },
+      "AdminRequestTypeVisibilityRequest": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "employee_visible": {
+            "title": "Employee Visible",
+            "type": "boolean"
+          },
+          "expected_updated_at": {
+            "format": "date-time",
+            "title": "Expected Updated At",
+            "type": "string"
+          }
+        },
+        "required": ["active", "employee_visible", "expected_updated_at"],
+        "title": "AdminRequestTypeVisibilityRequest",
+        "type": "object"
+      },
+      "AdminRequestTypeVisibilityResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "employee_visible_flag": {
+            "title": "Employee Visible Flag",
+            "type": "boolean"
+          },
+          "request_type_id": {
+            "format": "uuid",
+            "title": "Request Type Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_type_id",
+          "active_flag",
+          "employee_visible_flag",
+          "updated_at",
+          "changed"
+        ],
+        "title": "AdminRequestTypeVisibilityResponse",
+        "type": "object"
+      },
       "AdminRoleAssignRequest": {
         "properties": {
           "role_code": {
@@ -795,6 +1631,393 @@
           "assigned_user_count"
         ],
         "title": "AdminRoleSummary",
+        "type": "object"
+      },
+      "AdminSlaCycleCounts": {
+        "properties": {
+          "breached": {
+            "title": "Breached",
+            "type": "integer"
+          },
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "completed": {
+            "title": "Completed",
+            "type": "integer"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "integer"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pending",
+          "running",
+          "paused",
+          "completed",
+          "breached",
+          "cancelled"
+        ],
+        "title": "AdminSlaCycleCounts",
+        "type": "object"
+      },
+      "AdminSlaGoalItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "calendar_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Code"
+          },
+          "calendar_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Name"
+          },
+          "goal_name": {
+            "title": "Goal Name",
+            "type": "string"
+          },
+          "match_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Match Summary",
+            "type": "array"
+          },
+          "priority_order": {
+            "title": "Priority Order",
+            "type": "integer"
+          },
+          "sla_goal_id": {
+            "format": "uuid",
+            "title": "Sla Goal Id",
+            "type": "string"
+          },
+          "target_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Minutes"
+          },
+          "version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Number"
+          },
+          "version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Status"
+          },
+          "warning_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning Minutes"
+          }
+        },
+        "required": [
+          "sla_goal_id",
+          "goal_name",
+          "priority_order",
+          "active_flag",
+          "target_minutes",
+          "warning_minutes",
+          "calendar_code",
+          "calendar_name",
+          "version_number",
+          "version_status",
+          "match_summary"
+        ],
+        "title": "AdminSlaGoalItem",
+        "type": "object"
+      },
+      "AdminSlaPolicyDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "cycle_counts": {
+            "$ref": "#/components/schemas/AdminSlaCycleCounts"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "goals": {
+            "items": {
+              "$ref": "#/components/schemas/AdminSlaGoalItem"
+            },
+            "title": "Goals",
+            "type": "array"
+          },
+          "metric_code": {
+            "title": "Metric Code",
+            "type": "string"
+          },
+          "pause_condition_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pause Condition Summary",
+            "type": "array"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "sla_code": {
+            "title": "Sla Code",
+            "type": "string"
+          },
+          "sla_definition_id": {
+            "format": "uuid",
+            "title": "Sla Definition Id",
+            "type": "string"
+          },
+          "sla_name": {
+            "title": "Sla Name",
+            "type": "string"
+          },
+          "start_condition_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Start Condition Summary",
+            "type": "array"
+          },
+          "stop_condition_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stop Condition Summary",
+            "type": "array"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminSlaVersionItem"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sla_definition_id",
+          "sla_code",
+          "sla_name",
+          "metric_code",
+          "description",
+          "project_key",
+          "project_name",
+          "active_flag",
+          "start_condition_summary",
+          "pause_condition_summary",
+          "stop_condition_summary",
+          "goals",
+          "versions",
+          "cycle_counts"
+        ],
+        "title": "AdminSlaPolicyDetailResponse",
+        "type": "object"
+      },
+      "AdminSlaPolicyListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminSlaPolicySummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminSlaPolicyListResponse",
+        "type": "object"
+      },
+      "AdminSlaPolicySummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "breached_cycle_count": {
+            "title": "Breached Cycle Count",
+            "type": "integer"
+          },
+          "goal_count": {
+            "title": "Goal Count",
+            "type": "integer"
+          },
+          "metric_code": {
+            "title": "Metric Code",
+            "type": "string"
+          },
+          "project_key": {
+            "title": "Project Key",
+            "type": "string"
+          },
+          "project_name": {
+            "title": "Project Name",
+            "type": "string"
+          },
+          "running_cycle_count": {
+            "title": "Running Cycle Count",
+            "type": "integer"
+          },
+          "sla_code": {
+            "title": "Sla Code",
+            "type": "string"
+          },
+          "sla_definition_id": {
+            "format": "uuid",
+            "title": "Sla Definition Id",
+            "type": "string"
+          },
+          "sla_name": {
+            "title": "Sla Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sla_definition_id",
+          "sla_code",
+          "sla_name",
+          "metric_code",
+          "project_key",
+          "project_name",
+          "active_flag",
+          "goal_count",
+          "running_cycle_count",
+          "breached_cycle_count"
+        ],
+        "title": "AdminSlaPolicySummary",
+        "type": "object"
+      },
+      "AdminSlaVersionItem": {
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "sla_definition_version_id": {
+            "format": "uuid",
+            "title": "Sla Definition Version Id",
+            "type": "string"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          },
+          "version_status": {
+            "title": "Version Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sla_definition_version_id",
+          "version_number",
+          "version_status",
+          "effective_from",
+          "effective_to",
+          "published_at"
+        ],
+        "title": "AdminSlaVersionItem",
         "type": "object"
       },
       "AdminTicketViewListResponse": {
@@ -1203,6 +2426,477 @@
           "updated_at"
         ],
         "title": "AdminUserSummary",
+        "type": "object"
+      },
+      "AdminWorkflowDetailResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "displayed_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Version Number"
+          },
+          "displayed_version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Displayed Version Status"
+          },
+          "request_types": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkflowRequestTypeItem"
+            },
+            "title": "Request Types",
+            "type": "array"
+          },
+          "statuses": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkflowStatusItem"
+            },
+            "title": "Statuses",
+            "type": "array"
+          },
+          "transitions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkflowTransitionItem"
+            },
+            "title": "Transitions",
+            "type": "array"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkflowVersionItem"
+            },
+            "title": "Versions",
+            "type": "array"
+          },
+          "workflow_code": {
+            "title": "Workflow Code",
+            "type": "string"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          },
+          "workflow_name": {
+            "title": "Workflow Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "workflow_code",
+          "workflow_name",
+          "description",
+          "active_flag",
+          "created_at",
+          "displayed_version_number",
+          "displayed_version_status",
+          "versions",
+          "statuses",
+          "transitions",
+          "request_types"
+        ],
+        "title": "AdminWorkflowDetailResponse",
+        "type": "object"
+      },
+      "AdminWorkflowListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminWorkflowSummary"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items", "has_more"],
+        "title": "AdminWorkflowListResponse",
+        "type": "object"
+      },
+      "AdminWorkflowRequestTypeItem": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "employee_visible_flag": {
+            "title": "Employee Visible Flag",
+            "type": "boolean"
+          },
+          "request_type_code": {
+            "title": "Request Type Code",
+            "type": "string"
+          },
+          "request_type_id": {
+            "format": "uuid",
+            "title": "Request Type Id",
+            "type": "string"
+          },
+          "request_type_name": {
+            "title": "Request Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_type_id",
+          "request_type_code",
+          "request_type_name",
+          "active_flag",
+          "employee_visible_flag"
+        ],
+        "title": "AdminWorkflowRequestTypeItem",
+        "type": "object"
+      },
+      "AdminWorkflowStatusItem": {
+        "properties": {
+          "customer_visible_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Visible Name"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "initial_flag": {
+            "title": "Initial Flag",
+            "type": "boolean"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "string"
+          },
+          "status_id": {
+            "format": "uuid",
+            "title": "Status Id",
+            "type": "string"
+          },
+          "status_name": {
+            "title": "Status Name",
+            "type": "string"
+          },
+          "terminal_flag": {
+            "title": "Terminal Flag",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "status_id",
+          "status_code",
+          "status_name",
+          "status_category",
+          "initial_flag",
+          "terminal_flag",
+          "customer_visible_name",
+          "display_order"
+        ],
+        "title": "AdminWorkflowStatusItem",
+        "type": "object"
+      },
+      "AdminWorkflowSummary": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Number"
+          },
+          "current_version_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Status"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "request_type_count": {
+            "title": "Request Type Count",
+            "type": "integer"
+          },
+          "status_count": {
+            "title": "Status Count",
+            "type": "integer"
+          },
+          "ticket_count": {
+            "title": "Ticket Count",
+            "type": "integer"
+          },
+          "transition_count": {
+            "title": "Transition Count",
+            "type": "integer"
+          },
+          "workflow_code": {
+            "title": "Workflow Code",
+            "type": "string"
+          },
+          "workflow_id": {
+            "format": "uuid",
+            "title": "Workflow Id",
+            "type": "string"
+          },
+          "workflow_name": {
+            "title": "Workflow Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_id",
+          "workflow_code",
+          "workflow_name",
+          "description",
+          "active_flag",
+          "current_version_number",
+          "current_version_status",
+          "status_count",
+          "transition_count",
+          "request_type_count",
+          "ticket_count",
+          "created_at"
+        ],
+        "title": "AdminWorkflowSummary",
+        "type": "object"
+      },
+      "AdminWorkflowTransitionItem": {
+        "properties": {
+          "action_types": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Action Types",
+            "type": "array"
+          },
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "display_order": {
+            "title": "Display Order",
+            "type": "integer"
+          },
+          "from_status_code": {
+            "title": "From Status Code",
+            "type": "string"
+          },
+          "from_status_name": {
+            "title": "From Status Name",
+            "type": "string"
+          },
+          "guard_summary": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Guard Summary",
+            "type": "array"
+          },
+          "guarded": {
+            "title": "Guarded",
+            "type": "boolean"
+          },
+          "required_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Required Fields",
+            "type": "array"
+          },
+          "to_status_code": {
+            "title": "To Status Code",
+            "type": "string"
+          },
+          "to_status_name": {
+            "title": "To Status Name",
+            "type": "string"
+          },
+          "transition_code": {
+            "title": "Transition Code",
+            "type": "string"
+          },
+          "transition_id": {
+            "format": "uuid",
+            "title": "Transition Id",
+            "type": "string"
+          },
+          "transition_name": {
+            "title": "Transition Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transition_id",
+          "transition_code",
+          "transition_name",
+          "from_status_code",
+          "from_status_name",
+          "to_status_code",
+          "to_status_name",
+          "display_order",
+          "active_flag",
+          "guarded",
+          "guard_summary",
+          "required_fields",
+          "action_types"
+        ],
+        "title": "AdminWorkflowTransitionItem",
+        "type": "object"
+      },
+      "AdminWorkflowVersionItem": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "published_by_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published By Display Name"
+          },
+          "ticket_count": {
+            "title": "Ticket Count",
+            "type": "integer"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          },
+          "version_status": {
+            "title": "Version Status",
+            "type": "string"
+          },
+          "workflow_version_id": {
+            "format": "uuid",
+            "title": "Workflow Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflow_version_id",
+          "version_number",
+          "version_status",
+          "effective_from",
+          "effective_to",
+          "published_at",
+          "published_by_display_name",
+          "created_at",
+          "ticket_count"
+        ],
+        "title": "AdminWorkflowVersionItem",
         "type": "object"
       },
       "AgentTicketResponse": {
@@ -9045,6 +10739,499 @@
         "tags": ["administration"]
       }
     },
+    "/api/v1/admin/calendars": {
+      "get": {
+        "operationId": "admin_calendars_api_v1_admin_calendars_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCalendarListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Calendars",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/calendars/{calendar_id}": {
+      "get": {
+        "operationId": "admin_calendar_detail_api_v1_admin_calendars__calendar_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "calendar_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Calendar Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCalendarDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Calendar Detail",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/catalogue": {
+      "get": {
+        "operationId": "admin_catalogue_api_v1_admin_catalogue_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestTypeListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Catalogue",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/catalogue/{request_type_id}": {
+      "get": {
+        "operationId": "admin_catalogue_detail_api_v1_admin_catalogue__request_type_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_type_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestTypeDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Catalogue Detail",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/catalogue/{request_type_id}/visibility": {
+      "patch": {
+        "operationId": "admin_catalogue_visibility_api_v1_admin_catalogue__request_type_id__visibility_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "request_type_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Request Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRequestTypeVisibilityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRequestTypeVisibilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Concurrent modification or administrator safeguard conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Catalogue Visibility",
+        "tags": ["administration"]
+      }
+    },
     "/api/v1/admin/ingestion/runs": {
       "post": {
         "operationId": "create_run_api_v1_admin_ingestion_runs_post",
@@ -11533,6 +13720,213 @@
         "tags": ["administration"]
       }
     },
+    "/api/v1/admin/sla-policies": {
+      "get": {
+        "operationId": "admin_sla_policies_api_v1_admin_sla_policies_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "project_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Project Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSlaPolicyListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Sla Policies",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/sla-policies/{sla_definition_id}": {
+      "get": {
+        "operationId": "admin_sla_policy_detail_api_v1_admin_sla_policies__sla_definition_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sla_definition_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Sla Definition Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSlaPolicyDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Sla Policy Detail",
+        "tags": ["administration"]
+      }
+    },
     "/api/v1/admin/system-status": {
       "get": {
         "operationId": "system_status_api_v1_admin_system_status_get",
@@ -12184,6 +14578,196 @@
           }
         ],
         "summary": "Admin User Status",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/workflows": {
+      "get": {
+        "operationId": "admin_workflows_api_v1_admin_workflows_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Active"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkflowListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Workflows",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/workflows/{workflow_id}": {
+      "get": {
+        "operationId": "admin_workflow_detail_api_v1_admin_workflows__workflow_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "workflow_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Workflow Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminWorkflowDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Workflow Detail",
         "tags": ["administration"]
       }
     },

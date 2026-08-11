@@ -50,6 +50,32 @@ export function ActiveBadge({ active }: { active: boolean }) {
   );
 }
 
+const ISO_DAY_NAMES = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+] as const;
+
+export function isoDayName(isoDayOfWeek: number): string {
+  return ISO_DAY_NAMES[isoDayOfWeek - 1] ?? `Day ${String(isoDayOfWeek)}`;
+}
+
+export function formatMinutes(value: number | null | undefined): string {
+  if (value == null) return "—";
+  const days = Math.floor(value / 1440);
+  const hours = Math.floor((value % 1440) / 60);
+  const minutes = value % 60;
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${String(days)}d`);
+  if (hours > 0) parts.push(`${String(hours)}h`);
+  if (minutes > 0 || parts.length === 0) parts.push(`${String(minutes)}m`);
+  return parts.join(" ");
+}
+
 export function CodeChips({
   codes,
   label,

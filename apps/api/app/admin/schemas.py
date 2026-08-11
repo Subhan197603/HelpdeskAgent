@@ -265,3 +265,303 @@ class AdminQueueMemberChangeResponse(BaseModel):
     user_id: UUID
     member_role: MemberRole | None
     changed: bool
+
+
+class AdminWorkflowSummary(BaseModel):
+    workflow_id: UUID
+    workflow_code: str
+    workflow_name: str
+    description: str | None
+    active_flag: bool
+    current_version_number: int | None
+    current_version_status: str | None
+    status_count: int
+    transition_count: int
+    request_type_count: int
+    ticket_count: int
+    created_at: datetime
+
+
+class AdminWorkflowListResponse(BaseModel):
+    items: list[AdminWorkflowSummary]
+    has_more: bool
+
+
+class AdminWorkflowVersionItem(BaseModel):
+    workflow_version_id: UUID
+    version_number: int
+    version_status: str
+    effective_from: datetime | None
+    effective_to: datetime | None
+    published_at: datetime | None
+    published_by_display_name: str | None
+    created_at: datetime
+    ticket_count: int
+
+
+class AdminWorkflowStatusItem(BaseModel):
+    status_id: UUID
+    status_code: str
+    status_name: str
+    status_category: str
+    initial_flag: bool
+    terminal_flag: bool
+    customer_visible_name: str | None
+    display_order: int
+
+
+class AdminWorkflowTransitionItem(BaseModel):
+    transition_id: UUID
+    transition_code: str
+    transition_name: str
+    from_status_code: str
+    from_status_name: str
+    to_status_code: str
+    to_status_name: str
+    display_order: int
+    active_flag: bool
+    guarded: bool
+    guard_summary: list[str]
+    required_fields: list[str]
+    action_types: list[str]
+
+
+class AdminWorkflowRequestTypeItem(BaseModel):
+    request_type_id: UUID
+    request_type_code: str
+    request_type_name: str
+    active_flag: bool
+    employee_visible_flag: bool
+
+
+class AdminWorkflowDetailResponse(BaseModel):
+    workflow_id: UUID
+    workflow_code: str
+    workflow_name: str
+    description: str | None
+    active_flag: bool
+    created_at: datetime
+    displayed_version_number: int | None
+    displayed_version_status: str | None
+    versions: list[AdminWorkflowVersionItem]
+    statuses: list[AdminWorkflowStatusItem]
+    transitions: list[AdminWorkflowTransitionItem]
+    request_types: list[AdminWorkflowRequestTypeItem]
+
+
+class AdminSlaPolicySummary(BaseModel):
+    sla_definition_id: UUID
+    sla_code: str
+    sla_name: str
+    metric_code: str
+    project_key: str
+    project_name: str
+    active_flag: bool
+    goal_count: int
+    running_cycle_count: int
+    breached_cycle_count: int
+
+
+class AdminSlaPolicyListResponse(BaseModel):
+    items: list[AdminSlaPolicySummary]
+    has_more: bool
+
+
+class AdminSlaGoalItem(BaseModel):
+    sla_goal_id: UUID
+    goal_name: str
+    priority_order: int
+    active_flag: bool
+    target_minutes: int | None
+    warning_minutes: int | None
+    calendar_code: str | None
+    calendar_name: str | None
+    version_number: int | None
+    version_status: str | None
+    match_summary: list[str]
+
+
+class AdminSlaVersionItem(BaseModel):
+    sla_definition_version_id: UUID
+    version_number: int
+    version_status: str
+    effective_from: datetime | None
+    effective_to: datetime | None
+    published_at: datetime | None
+
+
+class AdminSlaCycleCounts(BaseModel):
+    pending: int
+    running: int
+    paused: int
+    completed: int
+    breached: int
+    cancelled: int
+
+
+class AdminSlaPolicyDetailResponse(BaseModel):
+    sla_definition_id: UUID
+    sla_code: str
+    sla_name: str
+    metric_code: str
+    description: str | None
+    project_key: str
+    project_name: str
+    active_flag: bool
+    start_condition_summary: list[str]
+    pause_condition_summary: list[str]
+    stop_condition_summary: list[str]
+    goals: list[AdminSlaGoalItem]
+    versions: list[AdminSlaVersionItem]
+    cycle_counts: AdminSlaCycleCounts
+
+
+class AdminCalendarSummary(BaseModel):
+    calendar_id: UUID
+    calendar_code: str
+    calendar_name: str
+    timezone_name: str
+    twenty_four_seven_flag: bool
+    active_flag: bool
+    current_version_number: int | None
+    current_version_status: str | None
+    linked_goal_count: int
+
+
+class AdminCalendarListResponse(BaseModel):
+    items: list[AdminCalendarSummary]
+    has_more: bool
+
+
+class AdminCalendarVersionItem(BaseModel):
+    business_calendar_version_id: UUID
+    version_number: int
+    version_status: str
+    timezone_name: str
+    twenty_four_seven_flag: bool
+    effective_from: datetime | None
+    effective_to: datetime | None
+    published_at: datetime | None
+
+
+class AdminCalendarWorkingPeriodItem(BaseModel):
+    iso_day_of_week: int
+    start_local_time: str
+    end_local_time: str
+
+
+class AdminCalendarExceptionItem(BaseModel):
+    exception_date: str
+    exception_type: str
+    start_local_time: str | None
+    end_local_time: str | None
+    description: str | None
+
+
+class AdminCalendarLinkedGoalItem(BaseModel):
+    sla_code: str
+    goal_name: str
+
+
+class AdminCalendarDetailResponse(BaseModel):
+    calendar_id: UUID
+    calendar_code: str
+    calendar_name: str
+    timezone_name: str
+    twenty_four_seven_flag: bool
+    active_flag: bool
+    displayed_version_number: int | None
+    displayed_version_status: str | None
+    versions: list[AdminCalendarVersionItem]
+    working_periods: list[AdminCalendarWorkingPeriodItem]
+    exceptions: list[AdminCalendarExceptionItem]
+    linked_goals: list[AdminCalendarLinkedGoalItem]
+
+
+class AdminRequestTypeSummary(BaseModel):
+    request_type_id: UUID
+    request_type_code: str
+    request_type_name: str
+    portal_group: str | None
+    project_key: str
+    project_name: str
+    work_type_code: str
+    workflow_code: str
+    workflow_name: str
+    employee_visible_flag: bool
+    active_flag: bool
+    display_order: int
+    current_version_number: int | None
+    current_version_status: str | None
+    updated_at: datetime
+
+
+class AdminRequestTypeListResponse(BaseModel):
+    items: list[AdminRequestTypeSummary]
+    has_more: bool
+
+
+class AdminFormFieldOptionItem(BaseModel):
+    option_code: str
+    option_label: str
+    display_order: int
+    active_flag: bool
+
+
+class AdminFormFieldItem(BaseModel):
+    field_code: str
+    label: str
+    data_type: str
+    required_flag: bool
+    hidden_flag: bool
+    display_order: int
+    help_text: str | None
+    condition_summary: list[str]
+    options: list[AdminFormFieldOptionItem]
+
+
+class AdminRequestTypeVersionItem(BaseModel):
+    request_type_version_id: UUID
+    version_number: int
+    version_status: str
+    effective_from: datetime | None
+    effective_to: datetime | None
+    published_at: datetime | None
+
+
+class AdminRequestTypeDetailResponse(BaseModel):
+    request_type_id: UUID
+    request_type_code: str
+    request_type_name: str
+    portal_description: str | None
+    portal_group: str | None
+    icon_name: str | None
+    project_key: str
+    project_name: str
+    work_type_code: str
+    workflow_id: UUID
+    workflow_code: str
+    workflow_name: str
+    employee_visible_flag: bool
+    active_flag: bool
+    display_order: int
+    displayed_version_number: int | None
+    displayed_version_status: str | None
+    versions: list[AdminRequestTypeVersionItem]
+    form_fields: list[AdminFormFieldItem]
+    created_at: datetime
+    updated_at: datetime
+
+
+class AdminRequestTypeVisibilityRequest(BaseModel):
+    active: bool
+    employee_visible: bool
+    expected_updated_at: datetime
+
+
+class AdminRequestTypeVisibilityResponse(BaseModel):
+    request_type_id: UUID
+    active_flag: bool
+    employee_visible_flag: bool
+    updated_at: datetime
+    changed: bool

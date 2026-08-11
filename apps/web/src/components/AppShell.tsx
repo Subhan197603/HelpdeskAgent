@@ -21,6 +21,7 @@ import { ErrorState, LoadingSkeleton, UnauthorizedState } from "./States";
 
 type Identity = components["schemas"]["CurrentIdentityResponse"];
 type PermissionCode =
+  | "ADMIN_CONFIG_READ"
   | "ADMIN_IDENTITY_READ"
   | "AUDIT_EVENT_READ"
   | "CATALOG_PROJECT_LIST"
@@ -107,6 +108,30 @@ const administrationNavigation: readonly NavigationItem[] = [
     label: "Queues",
     permission: "ADMIN_IDENTITY_READ",
     to: "/admin/queues",
+  },
+  {
+    icon: "activity",
+    label: "Workflows",
+    permission: "ADMIN_CONFIG_READ",
+    to: "/admin/workflows",
+  },
+  {
+    icon: "bell",
+    label: "SLA policies",
+    permission: "ADMIN_CONFIG_READ",
+    to: "/admin/sla-policies",
+  },
+  {
+    icon: "book",
+    label: "Calendars",
+    permission: "ADMIN_CONFIG_READ",
+    to: "/admin/calendars",
+  },
+  {
+    icon: "catalog",
+    label: "Catalogue",
+    permission: "ADMIN_CONFIG_READ",
+    to: "/admin/catalogue",
   },
   {
     icon: "shield",

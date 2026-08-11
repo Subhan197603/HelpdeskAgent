@@ -403,6 +403,58 @@ test("approved employee and analyst screens remain visually stable", async ({
     screenshotOptions,
   );
 
+  // Configuration administration: workflows, SLA policies, and the
+  // catalogue render only deterministic seeded values in their list views.
+  // Calendar and detail screens are asserted functionally in
+  // admin-config.spec.ts because they mix in the mutation controls.
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Workflows", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Workflows", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Catalogue fixture workflow" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-workflows.png", screenshotOptions);
+
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "SLA policies", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "SLA policies", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Time to first response" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-sla-policies.png",
+    screenshotOptions,
+  );
+
+  await openNavigation();
+  await page
+    .locator(".sidebar-nav")
+    .getByRole("link", { name: "Catalogue", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Service catalogue" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Report an Oracle Fusion error" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-catalogue.png", screenshotOptions);
+
   // Audit rows carry live server timestamps, so this screen is asserted
   // functionally instead of visually.
   await openNavigation();

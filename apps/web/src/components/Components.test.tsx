@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import { formatMinutes, isoDayName } from "./Admin";
 import { Avatar } from "./Avatar";
 import { PriorityBadge, StatusBadge } from "./Badges";
 import { Button, IconButton } from "./Button";
@@ -88,6 +89,26 @@ describe("shared UI states", () => {
     expect(screen.getByLabelText("Status: RESOLVED")).toBeVisible();
     expect(screen.getByLabelText("Priority: P1")).toBeVisible();
     expect(screen.getByLabelText("Priority: P4")).toBeVisible();
+  });
+});
+
+describe("admin configuration formatters", () => {
+  it("formats SLA durations from minutes into day, hour, and minute parts", () => {
+    expect(formatMinutes(null)).toBe("—");
+    expect(formatMinutes(undefined)).toBe("—");
+    expect(formatMinutes(0)).toBe("0m");
+    expect(formatMinutes(15)).toBe("15m");
+    expect(formatMinutes(240)).toBe("4h");
+    expect(formatMinutes(255)).toBe("4h 15m");
+    expect(formatMinutes(2400)).toBe("1d 16h");
+    expect(formatMinutes(1440)).toBe("1d");
+  });
+
+  it("maps ISO weekday numbers to English day names", () => {
+    expect(isoDayName(1)).toBe("Monday");
+    expect(isoDayName(5)).toBe("Friday");
+    expect(isoDayName(7)).toBe("Sunday");
+    expect(isoDayName(9)).toBe("Day 9");
   });
 });
 

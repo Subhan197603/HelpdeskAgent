@@ -72,6 +72,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/calendars": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Calendars */
+    get: operations["admin_calendars_api_v1_admin_calendars_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/calendars/{calendar_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Calendar Detail */
+    get: operations["admin_calendar_detail_api_v1_admin_calendars__calendar_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/catalogue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Catalogue */
+    get: operations["admin_catalogue_api_v1_admin_catalogue_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/catalogue/{request_type_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Catalogue Detail */
+    get: operations["admin_catalogue_detail_api_v1_admin_catalogue__request_type_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/catalogue/{request_type_id}/visibility": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin Catalogue Visibility */
+    patch: operations["admin_catalogue_visibility_api_v1_admin_catalogue__request_type_id__visibility_patch"];
+    trace?: never;
+  };
   "/api/v1/admin/ingestion/runs": {
     parameters: {
       query?: never;
@@ -448,6 +533,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/sla-policies": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Sla Policies */
+    get: operations["admin_sla_policies_api_v1_admin_sla_policies_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/sla-policies/{sla_definition_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Sla Policy Detail */
+    get: operations["admin_sla_policy_detail_api_v1_admin_sla_policies__sla_definition_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/system-status": {
     parameters: {
       query?: never;
@@ -565,6 +684,40 @@ export interface paths {
     head?: never;
     /** Admin User Status */
     patch: operations["admin_user_status_api_v1_admin_users__user_id__status_patch"];
+    trace?: never;
+  };
+  "/api/v1/admin/workflows": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Workflows */
+    get: operations["admin_workflows_api_v1_admin_workflows_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/workflows/{workflow_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Admin Workflow Detail */
+    get: operations["admin_workflow_detail_api_v1_admin_workflows__workflow_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
     trace?: never;
   };
   "/api/v1/agent/dashboard": {
@@ -1572,6 +1725,118 @@ export interface components {
       /** Type */
       type: string;
     };
+    /** AdminCalendarDetailResponse */
+    AdminCalendarDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Calendar Code */
+      calendar_code: string;
+      /**
+       * Calendar Id
+       * Format: uuid
+       */
+      calendar_id: string;
+      /** Calendar Name */
+      calendar_name: string;
+      /** Displayed Version Number */
+      displayed_version_number: number | null;
+      /** Displayed Version Status */
+      displayed_version_status: string | null;
+      /** Exceptions */
+      exceptions: components["schemas"]["AdminCalendarExceptionItem"][];
+      /** Linked Goals */
+      linked_goals: components["schemas"]["AdminCalendarLinkedGoalItem"][];
+      /** Timezone Name */
+      timezone_name: string;
+      /** Twenty Four Seven Flag */
+      twenty_four_seven_flag: boolean;
+      /** Versions */
+      versions: components["schemas"]["AdminCalendarVersionItem"][];
+      /** Working Periods */
+      working_periods: components["schemas"]["AdminCalendarWorkingPeriodItem"][];
+    };
+    /** AdminCalendarExceptionItem */
+    AdminCalendarExceptionItem: {
+      /** Description */
+      description: string | null;
+      /** End Local Time */
+      end_local_time: string | null;
+      /** Exception Date */
+      exception_date: string;
+      /** Exception Type */
+      exception_type: string;
+      /** Start Local Time */
+      start_local_time: string | null;
+    };
+    /** AdminCalendarLinkedGoalItem */
+    AdminCalendarLinkedGoalItem: {
+      /** Goal Name */
+      goal_name: string;
+      /** Sla Code */
+      sla_code: string;
+    };
+    /** AdminCalendarListResponse */
+    AdminCalendarListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminCalendarSummary"][];
+    };
+    /** AdminCalendarSummary */
+    AdminCalendarSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Calendar Code */
+      calendar_code: string;
+      /**
+       * Calendar Id
+       * Format: uuid
+       */
+      calendar_id: string;
+      /** Calendar Name */
+      calendar_name: string;
+      /** Current Version Number */
+      current_version_number: number | null;
+      /** Current Version Status */
+      current_version_status: string | null;
+      /** Linked Goal Count */
+      linked_goal_count: number;
+      /** Timezone Name */
+      timezone_name: string;
+      /** Twenty Four Seven Flag */
+      twenty_four_seven_flag: boolean;
+    };
+    /** AdminCalendarVersionItem */
+    AdminCalendarVersionItem: {
+      /**
+       * Business Calendar Version Id
+       * Format: uuid
+       */
+      business_calendar_version_id: string;
+      /** Effective From */
+      effective_from: string | null;
+      /** Effective To */
+      effective_to: string | null;
+      /** Published At */
+      published_at: string | null;
+      /** Timezone Name */
+      timezone_name: string;
+      /** Twenty Four Seven Flag */
+      twenty_four_seven_flag: boolean;
+      /** Version Number */
+      version_number: number;
+      /** Version Status */
+      version_status: string;
+    };
+    /** AdminCalendarWorkingPeriodItem */
+    AdminCalendarWorkingPeriodItem: {
+      /** End Local Time */
+      end_local_time: string;
+      /** Iso Day Of Week */
+      iso_day_of_week: number;
+      /** Start Local Time */
+      start_local_time: string;
+    };
     /** AdminExternalIdentityItem */
     AdminExternalIdentityItem: {
       /** Active Flag */
@@ -1580,6 +1845,38 @@ export interface components {
       last_authenticated_at: string | null;
       /** Provider Code */
       provider_code: string;
+    };
+    /** AdminFormFieldItem */
+    AdminFormFieldItem: {
+      /** Condition Summary */
+      condition_summary: string[];
+      /** Data Type */
+      data_type: string;
+      /** Display Order */
+      display_order: number;
+      /** Field Code */
+      field_code: string;
+      /** Help Text */
+      help_text: string | null;
+      /** Hidden Flag */
+      hidden_flag: boolean;
+      /** Label */
+      label: string;
+      /** Options */
+      options: components["schemas"]["AdminFormFieldOptionItem"][];
+      /** Required Flag */
+      required_flag: boolean;
+    };
+    /** AdminFormFieldOptionItem */
+    AdminFormFieldOptionItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Display Order */
+      display_order: number;
+      /** Option Code */
+      option_code: string;
+      /** Option Label */
+      option_label: string;
     };
     /** AdminOverviewResponse */
     AdminOverviewResponse: {
@@ -1720,6 +2017,158 @@ export interface components {
        */
       updated_at: string;
     };
+    /** AdminRequestTypeDetailResponse */
+    AdminRequestTypeDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Display Order */
+      display_order: number;
+      /** Displayed Version Number */
+      displayed_version_number: number | null;
+      /** Displayed Version Status */
+      displayed_version_status: string | null;
+      /** Employee Visible Flag */
+      employee_visible_flag: boolean;
+      /** Form Fields */
+      form_fields: components["schemas"]["AdminFormFieldItem"][];
+      /** Icon Name */
+      icon_name: string | null;
+      /** Portal Description */
+      portal_description: string | null;
+      /** Portal Group */
+      portal_group: string | null;
+      /** Project Key */
+      project_key: string;
+      /** Project Name */
+      project_name: string;
+      /** Request Type Code */
+      request_type_code: string;
+      /**
+       * Request Type Id
+       * Format: uuid
+       */
+      request_type_id: string;
+      /** Request Type Name */
+      request_type_name: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Versions */
+      versions: components["schemas"]["AdminRequestTypeVersionItem"][];
+      /** Work Type Code */
+      work_type_code: string;
+      /** Workflow Code */
+      workflow_code: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /** Workflow Name */
+      workflow_name: string;
+    };
+    /** AdminRequestTypeListResponse */
+    AdminRequestTypeListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminRequestTypeSummary"][];
+    };
+    /** AdminRequestTypeSummary */
+    AdminRequestTypeSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Current Version Number */
+      current_version_number: number | null;
+      /** Current Version Status */
+      current_version_status: string | null;
+      /** Display Order */
+      display_order: number;
+      /** Employee Visible Flag */
+      employee_visible_flag: boolean;
+      /** Portal Group */
+      portal_group: string | null;
+      /** Project Key */
+      project_key: string;
+      /** Project Name */
+      project_name: string;
+      /** Request Type Code */
+      request_type_code: string;
+      /**
+       * Request Type Id
+       * Format: uuid
+       */
+      request_type_id: string;
+      /** Request Type Name */
+      request_type_name: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Work Type Code */
+      work_type_code: string;
+      /** Workflow Code */
+      workflow_code: string;
+      /** Workflow Name */
+      workflow_name: string;
+    };
+    /** AdminRequestTypeVersionItem */
+    AdminRequestTypeVersionItem: {
+      /** Effective From */
+      effective_from: string | null;
+      /** Effective To */
+      effective_to: string | null;
+      /** Published At */
+      published_at: string | null;
+      /**
+       * Request Type Version Id
+       * Format: uuid
+       */
+      request_type_version_id: string;
+      /** Version Number */
+      version_number: number;
+      /** Version Status */
+      version_status: string;
+    };
+    /** AdminRequestTypeVisibilityRequest */
+    AdminRequestTypeVisibilityRequest: {
+      /** Active */
+      active: boolean;
+      /** Employee Visible */
+      employee_visible: boolean;
+      /**
+       * Expected Updated At
+       * Format: date-time
+       */
+      expected_updated_at: string;
+    };
+    /** AdminRequestTypeVisibilityResponse */
+    AdminRequestTypeVisibilityResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Changed */
+      changed: boolean;
+      /** Employee Visible Flag */
+      employee_visible_flag: boolean;
+      /**
+       * Request Type Id
+       * Format: uuid
+       */
+      request_type_id: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
     /** AdminRoleAssignRequest */
     AdminRoleAssignRequest: {
       /** Role Code */
@@ -1802,6 +2251,133 @@ export interface components {
       role_name: string;
       /** System Role Flag */
       system_role_flag: boolean;
+    };
+    /** AdminSlaCycleCounts */
+    AdminSlaCycleCounts: {
+      /** Breached */
+      breached: number;
+      /** Cancelled */
+      cancelled: number;
+      /** Completed */
+      completed: number;
+      /** Paused */
+      paused: number;
+      /** Pending */
+      pending: number;
+      /** Running */
+      running: number;
+    };
+    /** AdminSlaGoalItem */
+    AdminSlaGoalItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Calendar Code */
+      calendar_code: string | null;
+      /** Calendar Name */
+      calendar_name: string | null;
+      /** Goal Name */
+      goal_name: string;
+      /** Match Summary */
+      match_summary: string[];
+      /** Priority Order */
+      priority_order: number;
+      /**
+       * Sla Goal Id
+       * Format: uuid
+       */
+      sla_goal_id: string;
+      /** Target Minutes */
+      target_minutes: number | null;
+      /** Version Number */
+      version_number: number | null;
+      /** Version Status */
+      version_status: string | null;
+      /** Warning Minutes */
+      warning_minutes: number | null;
+    };
+    /** AdminSlaPolicyDetailResponse */
+    AdminSlaPolicyDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      cycle_counts: components["schemas"]["AdminSlaCycleCounts"];
+      /** Description */
+      description: string | null;
+      /** Goals */
+      goals: components["schemas"]["AdminSlaGoalItem"][];
+      /** Metric Code */
+      metric_code: string;
+      /** Pause Condition Summary */
+      pause_condition_summary: string[];
+      /** Project Key */
+      project_key: string;
+      /** Project Name */
+      project_name: string;
+      /** Sla Code */
+      sla_code: string;
+      /**
+       * Sla Definition Id
+       * Format: uuid
+       */
+      sla_definition_id: string;
+      /** Sla Name */
+      sla_name: string;
+      /** Start Condition Summary */
+      start_condition_summary: string[];
+      /** Stop Condition Summary */
+      stop_condition_summary: string[];
+      /** Versions */
+      versions: components["schemas"]["AdminSlaVersionItem"][];
+    };
+    /** AdminSlaPolicyListResponse */
+    AdminSlaPolicyListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminSlaPolicySummary"][];
+    };
+    /** AdminSlaPolicySummary */
+    AdminSlaPolicySummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Breached Cycle Count */
+      breached_cycle_count: number;
+      /** Goal Count */
+      goal_count: number;
+      /** Metric Code */
+      metric_code: string;
+      /** Project Key */
+      project_key: string;
+      /** Project Name */
+      project_name: string;
+      /** Running Cycle Count */
+      running_cycle_count: number;
+      /** Sla Code */
+      sla_code: string;
+      /**
+       * Sla Definition Id
+       * Format: uuid
+       */
+      sla_definition_id: string;
+      /** Sla Name */
+      sla_name: string;
+    };
+    /** AdminSlaVersionItem */
+    AdminSlaVersionItem: {
+      /** Effective From */
+      effective_from: string | null;
+      /** Effective To */
+      effective_to: string | null;
+      /** Published At */
+      published_at: string | null;
+      /**
+       * Sla Definition Version Id
+       * Format: uuid
+       */
+      sla_definition_version_id: string;
+      /** Version Number */
+      version_number: number;
+      /** Version Status */
+      version_status: string;
     };
     /** AdminTicketViewListResponse */
     AdminTicketViewListResponse: {
@@ -1979,6 +2555,176 @@ export interface components {
        * Format: uuid
        */
       user_id: string;
+    };
+    /** AdminWorkflowDetailResponse */
+    AdminWorkflowDetailResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Description */
+      description: string | null;
+      /** Displayed Version Number */
+      displayed_version_number: number | null;
+      /** Displayed Version Status */
+      displayed_version_status: string | null;
+      /** Request Types */
+      request_types: components["schemas"]["AdminWorkflowRequestTypeItem"][];
+      /** Statuses */
+      statuses: components["schemas"]["AdminWorkflowStatusItem"][];
+      /** Transitions */
+      transitions: components["schemas"]["AdminWorkflowTransitionItem"][];
+      /** Versions */
+      versions: components["schemas"]["AdminWorkflowVersionItem"][];
+      /** Workflow Code */
+      workflow_code: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /** Workflow Name */
+      workflow_name: string;
+    };
+    /** AdminWorkflowListResponse */
+    AdminWorkflowListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AdminWorkflowSummary"][];
+    };
+    /** AdminWorkflowRequestTypeItem */
+    AdminWorkflowRequestTypeItem: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Employee Visible Flag */
+      employee_visible_flag: boolean;
+      /** Request Type Code */
+      request_type_code: string;
+      /**
+       * Request Type Id
+       * Format: uuid
+       */
+      request_type_id: string;
+      /** Request Type Name */
+      request_type_name: string;
+    };
+    /** AdminWorkflowStatusItem */
+    AdminWorkflowStatusItem: {
+      /** Customer Visible Name */
+      customer_visible_name: string | null;
+      /** Display Order */
+      display_order: number;
+      /** Initial Flag */
+      initial_flag: boolean;
+      /** Status Category */
+      status_category: string;
+      /** Status Code */
+      status_code: string;
+      /**
+       * Status Id
+       * Format: uuid
+       */
+      status_id: string;
+      /** Status Name */
+      status_name: string;
+      /** Terminal Flag */
+      terminal_flag: boolean;
+    };
+    /** AdminWorkflowSummary */
+    AdminWorkflowSummary: {
+      /** Active Flag */
+      active_flag: boolean;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Current Version Number */
+      current_version_number: number | null;
+      /** Current Version Status */
+      current_version_status: string | null;
+      /** Description */
+      description: string | null;
+      /** Request Type Count */
+      request_type_count: number;
+      /** Status Count */
+      status_count: number;
+      /** Ticket Count */
+      ticket_count: number;
+      /** Transition Count */
+      transition_count: number;
+      /** Workflow Code */
+      workflow_code: string;
+      /**
+       * Workflow Id
+       * Format: uuid
+       */
+      workflow_id: string;
+      /** Workflow Name */
+      workflow_name: string;
+    };
+    /** AdminWorkflowTransitionItem */
+    AdminWorkflowTransitionItem: {
+      /** Action Types */
+      action_types: string[];
+      /** Active Flag */
+      active_flag: boolean;
+      /** Display Order */
+      display_order: number;
+      /** From Status Code */
+      from_status_code: string;
+      /** From Status Name */
+      from_status_name: string;
+      /** Guard Summary */
+      guard_summary: string[];
+      /** Guarded */
+      guarded: boolean;
+      /** Required Fields */
+      required_fields: string[];
+      /** To Status Code */
+      to_status_code: string;
+      /** To Status Name */
+      to_status_name: string;
+      /** Transition Code */
+      transition_code: string;
+      /**
+       * Transition Id
+       * Format: uuid
+       */
+      transition_id: string;
+      /** Transition Name */
+      transition_name: string;
+    };
+    /** AdminWorkflowVersionItem */
+    AdminWorkflowVersionItem: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Effective From */
+      effective_from: string | null;
+      /** Effective To */
+      effective_to: string | null;
+      /** Published At */
+      published_at: string | null;
+      /** Published By Display Name */
+      published_by_display_name: string | null;
+      /** Ticket Count */
+      ticket_count: number;
+      /** Version Number */
+      version_number: number;
+      /** Version Status */
+      version_status: string;
+      /**
+       * Workflow Version Id
+       * Format: uuid
+       */
+      workflow_version_id: string;
     };
     /**
      * AgentTicketResponse
@@ -5036,6 +5782,298 @@ export interface operations {
       };
     };
   };
+  admin_calendars_api_v1_admin_calendars_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        active?: boolean | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminCalendarListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_calendar_detail_api_v1_admin_calendars__calendar_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        calendar_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminCalendarDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_catalogue_api_v1_admin_catalogue_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        active?: boolean | null;
+        project_id?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRequestTypeListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_catalogue_detail_api_v1_admin_catalogue__request_type_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_type_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRequestTypeDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_catalogue_visibility_api_v1_admin_catalogue__request_type_id__visibility_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_type_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminRequestTypeVisibilityRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRequestTypeVisibilityResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Concurrent modification or administrator safeguard conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   create_run_api_v1_admin_ingestion_runs_post: {
     parameters: {
       query?: never;
@@ -6748,6 +7786,117 @@ export interface operations {
       };
     };
   };
+  admin_sla_policies_api_v1_admin_sla_policies_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        active?: boolean | null;
+        project_id?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSlaPolicyListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_sla_policy_detail_api_v1_admin_sla_policies__sla_definition_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sla_definition_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminSlaPolicyDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   system_status_api_v1_admin_system_status_get: {
     parameters: {
       query?: never;
@@ -7141,6 +8290,116 @@ export interface operations {
       };
       /** @description Concurrent modification or administrator safeguard conflict */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_workflows_api_v1_admin_workflows_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        active?: boolean | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminWorkflowListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_workflow_detail_api_v1_admin_workflows__workflow_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        workflow_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminWorkflowDetailResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
         headers: {
           [name: string]: unknown;
         };

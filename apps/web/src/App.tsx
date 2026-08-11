@@ -21,7 +21,9 @@ import {
 import {
   ActiveBadge,
   CodeChips,
+  formatMinutes,
   humanizeCode,
+  isoDayName,
   OutcomeBadge,
 } from "./components/Admin";
 import {
@@ -2308,6 +2310,32 @@ function AdminLandingPage() {
         </article>
         <article className="admin-card">
           <h3>
+            <Link to="/admin/workflows">Workflows</Link>
+          </h3>
+          <p>
+            Ticket workflows with their statuses, transitions, and versions.
+          </p>
+        </article>
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/sla-policies">SLA policies</Link>
+          </h3>
+          <p>Service level definitions, goals, and live cycle activity.</p>
+        </article>
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/calendars">Calendars</Link>
+          </h3>
+          <p>Business calendars with working hours and holiday exceptions.</p>
+        </article>
+        <article className="admin-card">
+          <h3>
+            <Link to="/admin/catalogue">Catalogue</Link>
+          </h3>
+          <p>Request types with forms, workflow mappings, and visibility.</p>
+        </article>
+        <article className="admin-card">
+          <h3>
             <Link to="/admin/audit">Audit logs</Link>
           </h3>
           <p>
@@ -2322,8 +2350,9 @@ function AdminLandingPage() {
         </article>
       </div>
       <p className="admin-note">
-        Identity and access screens are read-only. Workflow, SLA, and catalogue
-        management arrive with later milestones.
+        Configuration screens are read-only; new workflow, SLA, and form
+        versions are authored in a later milestone. Catalogue portal visibility
+        can be changed here.
       </p>
     </div>
   );
@@ -3930,6 +3959,1519 @@ function AdminTicketViewsPage() {
   );
 }
 
+function AdminWorkflowsPage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const workflows = useQuery({
+    queryKey: ["admin-workflows", page, search, active],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/workflows", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+              ...(active === "" ? {} : { active: active === "active" }),
+            },
+          },
+        }),
+      ),
+  });
+  type WorkflowRowData = NonNullable<typeof workflows.data>["items"][number];
+  const columns = [
+    {
+      header: "Workflow",
+      key: "workflow",
+      render: (row: WorkflowRowData) => (
+        <Link to={`/admin/workflows/${row.workflow_id}`}>
+          {row.workflow_name}
+        </Link>
+      ),
+    },
+    {
+      header: "Code",
+      key: "code",
+      render: (row: WorkflowRowData) => row.workflow_code,
+    },
+    {
+      header: "Version",
+      key: "version",
+      render: (row: WorkflowRowData) =>
+        row.current_version_number == null
+          ? "—"
+          : `v${String(row.current_version_number)} ${humanizeCode(row.current_version_status ?? "")}`,
+    },
+    {
+      header: "Statuses",
+      key: "statuses",
+      render: (row: WorkflowRowData) => row.status_count,
+    },
+    {
+      header: "Transitions",
+      key: "transitions",
+      render: (row: WorkflowRowData) => row.transition_count,
+    },
+    {
+      header: "Request types",
+      key: "requestTypes",
+      render: (row: WorkflowRowData) => row.request_type_count,
+    },
+    {
+      header: "Tickets",
+      key: "tickets",
+      render: (row: WorkflowRowData) => row.ticket_count,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: WorkflowRowData) => (
+        <ActiveBadge active={row.active_flag} />
+      ),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Ticket workflows with their published versions, statuses, and transitions. Configuration is read-only."
+        title="Workflows"
+      />
+      <TableToolbar label="Workflow filters">
+        <SearchField
+          className="table-search"
+          label="Search workflows"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or code"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setPage(0);
+              setActive(event.target.value);
+            }}
+            value={active}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {workflows.isPending && <LoadingSkeleton label="Loading workflows" />}
+      {workflows.error && <ErrorSummary error={workflows.error} />}
+      {workflows.data && (
+        <>
+          <DataTable
+            caption="Ticket workflows"
+            columns={columns}
+            empty={
+              <EmptyState
+                description="No workflows match the current filters."
+                title="No workflows"
+              />
+            }
+            getRowKey={(row) => row.workflow_id}
+            rows={workflows.data.items}
+          />
+          {(page > 0 || workflows.data.has_more) && (
+            <Pagination
+              hasNext={workflows.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+const WORKFLOW_DETAIL_TABS = [
+  { id: "statuses", label: "Statuses" },
+  { id: "transitions", label: "Transitions" },
+  { id: "versions", label: "Versions" },
+  { id: "request-types", label: "Request types" },
+] as const;
+
+function AdminWorkflowDetailPage() {
+  const { workflowId = "" } = useParams();
+  const client = useIdentityClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab") ?? "statuses";
+  const tab = WORKFLOW_DETAIL_TABS.some((item) => item.id === requestedTab)
+    ? requestedTab
+    : "statuses";
+  const workflow = useQuery({
+    queryKey: ["admin-workflow", workflowId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/workflows/{workflow_id}", {
+          params: { path: { workflow_id: workflowId } },
+        }),
+      ),
+  });
+  const data = workflow.data;
+  type StatusRowData = NonNullable<typeof data>["statuses"][number];
+  type TransitionRowData = NonNullable<typeof data>["transitions"][number];
+  type VersionRowData = NonNullable<typeof data>["versions"][number];
+  type MappedRequestTypeData = NonNullable<
+    typeof data
+  >["request_types"][number];
+  const statusColumns = [
+    {
+      header: "Order",
+      key: "order",
+      render: (row: StatusRowData) => row.display_order,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: StatusRowData) => <StatusBadge status={row.status_code} />,
+    },
+    {
+      header: "Name",
+      key: "name",
+      render: (row: StatusRowData) => row.status_name,
+    },
+    {
+      header: "Category",
+      key: "category",
+      render: (row: StatusRowData) => humanizeCode(row.status_category),
+    },
+    {
+      header: "Role",
+      key: "role",
+      render: (row: StatusRowData) =>
+        row.initial_flag ? "Initial" : row.terminal_flag ? "Terminal" : "—",
+    },
+    {
+      header: "Customer label",
+      key: "customerLabel",
+      render: (row: StatusRowData) => row.customer_visible_name ?? "—",
+    },
+  ];
+  const transitionColumns = [
+    {
+      header: "Order",
+      key: "order",
+      render: (row: TransitionRowData) => row.display_order,
+    },
+    {
+      header: "Transition",
+      key: "transition",
+      render: (row: TransitionRowData) => row.transition_name,
+    },
+    {
+      header: "Path",
+      key: "path",
+      render: (row: TransitionRowData) =>
+        `${row.from_status_name} → ${row.to_status_name}`,
+    },
+    {
+      header: "Guard",
+      key: "guard",
+      render: (row: TransitionRowData) =>
+        row.guard_summary.length === 0 ? "—" : row.guard_summary.join("; "),
+    },
+    {
+      header: "Required fields",
+      key: "requiredFields",
+      render: (row: TransitionRowData) =>
+        row.required_fields.length === 0 ? "—" : row.required_fields.join(", "),
+    },
+    {
+      header: "Actions",
+      key: "actions",
+      render: (row: TransitionRowData) =>
+        row.action_types.length === 0
+          ? "—"
+          : row.action_types.map((code) => humanizeCode(code)).join(", "),
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: TransitionRowData) => (
+        <ActiveBadge active={row.active_flag} />
+      ),
+    },
+  ];
+  const versionColumns = [
+    {
+      header: "Version",
+      key: "version",
+      render: (row: VersionRowData) => `v${String(row.version_number)}`,
+    },
+    {
+      header: "Lifecycle",
+      key: "lifecycle",
+      render: (row: VersionRowData) => humanizeCode(row.version_status),
+    },
+    {
+      header: "Effective from",
+      key: "effectiveFrom",
+      render: (row: VersionRowData) =>
+        row.effective_from == null ? "—" : formatDateTime(row.effective_from),
+    },
+    {
+      header: "Published",
+      key: "published",
+      render: (row: VersionRowData) =>
+        row.published_at == null
+          ? "—"
+          : `${formatDateTime(row.published_at)}${row.published_by_display_name == null ? "" : ` by ${row.published_by_display_name}`}`,
+    },
+    {
+      header: "Tickets",
+      key: "tickets",
+      render: (row: VersionRowData) => row.ticket_count,
+    },
+  ];
+  const mappedColumns = [
+    {
+      header: "Request type",
+      key: "requestType",
+      render: (row: MappedRequestTypeData) => (
+        <Link to={`/admin/catalogue/${row.request_type_id}`}>
+          {row.request_type_name}
+        </Link>
+      ),
+    },
+    {
+      header: "Code",
+      key: "code",
+      render: (row: MappedRequestTypeData) => row.request_type_code,
+    },
+    {
+      header: "Portal",
+      key: "portal",
+      render: (row: MappedRequestTypeData) =>
+        row.employee_visible_flag ? "Visible" : "Hidden",
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: MappedRequestTypeData) => (
+        <ActiveBadge active={row.active_flag} />
+      ),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Workflows", to: "/admin/workflows" },
+          { label: data?.workflow_name ?? "Workflow" },
+        ]}
+      />
+      {workflow.isPending && <LoadingSkeleton label="Loading workflow" />}
+      {workflow.error && <ErrorSummary error={workflow.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={<ActiveBadge active={data.active_flag} />}
+            description={
+              data.description ?? `Workflow code ${data.workflow_code}`
+            }
+            eyebrow="Workflow"
+            title={data.workflow_name}
+          />
+          <Panel title="Details">
+            <MetadataGrid
+              items={[
+                { label: "Workflow code", value: data.workflow_code },
+                {
+                  label: "Displayed version",
+                  value:
+                    data.displayed_version_number == null
+                      ? "No versions"
+                      : `v${String(data.displayed_version_number)} ${humanizeCode(data.displayed_version_status ?? "")}`,
+                },
+                { label: "Created", value: formatDateTime(data.created_at) },
+              ]}
+            />
+          </Panel>
+          <Tabs
+            activeId={tab}
+            items={[...WORKFLOW_DETAIL_TABS]}
+            label="Workflow configuration"
+            onChange={(next) => {
+              setSearchParams(next === "statuses" ? {} : { tab: next });
+            }}
+          />
+          {tab === "statuses" && (
+            <DataTable
+              caption="Workflow statuses"
+              columns={statusColumns}
+              empty={
+                <EmptyState
+                  description="The displayed version defines no statuses."
+                  title="No statuses"
+                />
+              }
+              getRowKey={(row) => row.status_id}
+              rows={data.statuses}
+            />
+          )}
+          {tab === "transitions" && (
+            <DataTable
+              caption="Workflow transitions"
+              columns={transitionColumns}
+              empty={
+                <EmptyState
+                  description="The displayed version defines no transitions."
+                  title="No transitions"
+                />
+              }
+              getRowKey={(row) => row.transition_id}
+              rows={data.transitions}
+            />
+          )}
+          {tab === "versions" && (
+            <DataTable
+              caption="Workflow versions"
+              columns={versionColumns}
+              empty={
+                <EmptyState
+                  description="This workflow has no versions yet."
+                  title="No versions"
+                />
+              }
+              getRowKey={(row) => row.workflow_version_id}
+              rows={data.versions}
+            />
+          )}
+          {tab === "request-types" && (
+            <DataTable
+              caption="Request types using this workflow"
+              columns={mappedColumns}
+              empty={
+                <EmptyState
+                  description="No request types are mapped to this workflow."
+                  title="No mapped request types"
+                />
+              }
+              getRowKey={(row) => row.request_type_id}
+              rows={data.request_types}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminSlaPoliciesPage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const policies = useQuery({
+    queryKey: ["admin-sla-policies", page, search, active],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/sla-policies", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+              ...(active === "" ? {} : { active: active === "active" }),
+            },
+          },
+        }),
+      ),
+  });
+  type PolicyRowData = NonNullable<typeof policies.data>["items"][number];
+  const columns = [
+    {
+      header: "Policy",
+      key: "policy",
+      render: (row: PolicyRowData) => (
+        <Link to={`/admin/sla-policies/${row.sla_definition_id}`}>
+          {row.sla_name}
+        </Link>
+      ),
+    },
+    {
+      header: "Code",
+      key: "code",
+      render: (row: PolicyRowData) => row.sla_code,
+    },
+    {
+      header: "Metric",
+      key: "metric",
+      render: (row: PolicyRowData) => humanizeCode(row.metric_code),
+    },
+    {
+      header: "Project",
+      key: "project",
+      render: (row: PolicyRowData) => row.project_name,
+    },
+    {
+      header: "Goals",
+      key: "goals",
+      render: (row: PolicyRowData) => row.goal_count,
+    },
+    {
+      header: "Running",
+      key: "running",
+      render: (row: PolicyRowData) => row.running_cycle_count,
+    },
+    {
+      header: "Breached",
+      key: "breached",
+      render: (row: PolicyRowData) => row.breached_cycle_count,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: PolicyRowData) => <ActiveBadge active={row.active_flag} />,
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Service level definitions with goals and live cycle activity. Configuration is read-only."
+        title="SLA policies"
+      />
+      <TableToolbar label="SLA policy filters">
+        <SearchField
+          className="table-search"
+          label="Search SLA policies"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or code"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setPage(0);
+              setActive(event.target.value);
+            }}
+            value={active}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {policies.isPending && <LoadingSkeleton label="Loading SLA policies" />}
+      {policies.error && <ErrorSummary error={policies.error} />}
+      {policies.data && (
+        <>
+          <DataTable
+            caption="SLA policies"
+            columns={columns}
+            empty={
+              <EmptyState
+                description="No SLA policies match the current filters."
+                title="No SLA policies"
+              />
+            }
+            getRowKey={(row) => row.sla_definition_id}
+            rows={policies.data.items}
+          />
+          {(page > 0 || policies.data.has_more) && (
+            <Pagination
+              hasNext={policies.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function ConditionList({ lines, title }: { lines: string[]; title: string }) {
+  return (
+    <div className="condition-summary">
+      <h3>{title}</h3>
+      {lines.length === 0 ? (
+        <p>—</p>
+      ) : (
+        <ul>
+          {lines.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function AdminSlaPolicyDetailPage() {
+  const { slaDefinitionId = "" } = useParams();
+  const client = useIdentityClient();
+  const policy = useQuery({
+    queryKey: ["admin-sla-policy", slaDefinitionId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/sla-policies/{sla_definition_id}", {
+          params: { path: { sla_definition_id: slaDefinitionId } },
+        }),
+      ),
+  });
+  const data = policy.data;
+  type GoalRowData = NonNullable<typeof data>["goals"][number];
+  type SlaVersionRowData = NonNullable<typeof data>["versions"][number];
+  const goalColumns = [
+    {
+      header: "Goal",
+      key: "goal",
+      render: (row: GoalRowData) => row.goal_name,
+    },
+    {
+      header: "Target",
+      key: "target",
+      render: (row: GoalRowData) => formatMinutes(row.target_minutes),
+    },
+    {
+      header: "Warning",
+      key: "warning",
+      render: (row: GoalRowData) => formatMinutes(row.warning_minutes),
+    },
+    {
+      header: "Calendar",
+      key: "calendar",
+      render: (row: GoalRowData) => row.calendar_name ?? "—",
+    },
+    {
+      header: "Applies when",
+      key: "appliesWhen",
+      render: (row: GoalRowData) =>
+        row.match_summary.length === 0
+          ? "Always"
+          : row.match_summary.join("; "),
+    },
+    {
+      header: "Order",
+      key: "order",
+      render: (row: GoalRowData) => row.priority_order,
+    },
+    {
+      header: "Version",
+      key: "version",
+      render: (row: GoalRowData) =>
+        row.version_number == null
+          ? "—"
+          : `v${String(row.version_number)} ${humanizeCode(row.version_status ?? "")}`,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: GoalRowData) => <ActiveBadge active={row.active_flag} />,
+    },
+  ];
+  const versionColumns = [
+    {
+      header: "Version",
+      key: "version",
+      render: (row: SlaVersionRowData) => `v${String(row.version_number)}`,
+    },
+    {
+      header: "Lifecycle",
+      key: "lifecycle",
+      render: (row: SlaVersionRowData) => humanizeCode(row.version_status),
+    },
+    {
+      header: "Effective from",
+      key: "effectiveFrom",
+      render: (row: SlaVersionRowData) =>
+        row.effective_from == null ? "—" : formatDateTime(row.effective_from),
+    },
+    {
+      header: "Published",
+      key: "published",
+      render: (row: SlaVersionRowData) =>
+        row.published_at == null ? "—" : formatDateTime(row.published_at),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "SLA policies", to: "/admin/sla-policies" },
+          { label: data?.sla_name ?? "SLA policy" },
+        ]}
+      />
+      {policy.isPending && <LoadingSkeleton label="Loading SLA policy" />}
+      {policy.error && <ErrorSummary error={policy.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={<ActiveBadge active={data.active_flag} />}
+            description={data.description ?? `SLA code ${data.sla_code}`}
+            eyebrow="SLA policy"
+            title={data.sla_name}
+          />
+          <div className="admin-stats">
+            <StatCard label="Running" value={data.cycle_counts.running} />
+            <StatCard label="Paused" value={data.cycle_counts.paused} />
+            <StatCard label="Completed" value={data.cycle_counts.completed} />
+            <StatCard label="Breached" value={data.cycle_counts.breached} />
+          </div>
+          <Panel title="Details">
+            <MetadataGrid
+              items={[
+                { label: "SLA code", value: data.sla_code },
+                { label: "Metric", value: humanizeCode(data.metric_code) },
+                {
+                  label: "Project",
+                  value: `${data.project_name} (${data.project_key})`,
+                },
+                {
+                  label: "Pending cycles",
+                  value: String(data.cycle_counts.pending),
+                },
+                {
+                  label: "Cancelled cycles",
+                  value: String(data.cycle_counts.cancelled),
+                },
+              ]}
+            />
+          </Panel>
+          <Panel title="Clock conditions">
+            <ConditionList
+              lines={data.start_condition_summary}
+              title="Starts when"
+            />
+            <ConditionList
+              lines={data.pause_condition_summary}
+              title="Pauses while"
+            />
+            <ConditionList
+              lines={data.stop_condition_summary}
+              title="Stops when"
+            />
+          </Panel>
+          <SectionHeader title="Goals" />
+          <DataTable
+            caption="SLA goals"
+            columns={goalColumns}
+            empty={
+              <EmptyState
+                description="This policy defines no goals."
+                title="No goals"
+              />
+            }
+            getRowKey={(row) => row.sla_goal_id}
+            rows={data.goals}
+          />
+          <SectionHeader title="Versions" />
+          <DataTable
+            caption="SLA policy versions"
+            columns={versionColumns}
+            empty={
+              <EmptyState
+                description="This policy has no versions yet."
+                title="No policy versions"
+              />
+            }
+            getRowKey={(row) => row.sla_definition_version_id}
+            rows={data.versions}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminCalendarsPage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const calendars = useQuery({
+    queryKey: ["admin-calendars", page, search, active],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/calendars", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+              ...(active === "" ? {} : { active: active === "active" }),
+            },
+          },
+        }),
+      ),
+  });
+  type CalendarRowData = NonNullable<typeof calendars.data>["items"][number];
+  const columns = [
+    {
+      header: "Calendar",
+      key: "calendar",
+      render: (row: CalendarRowData) => (
+        <Link to={`/admin/calendars/${row.calendar_id}`}>
+          {row.calendar_name}
+        </Link>
+      ),
+    },
+    {
+      header: "Code",
+      key: "code",
+      render: (row: CalendarRowData) => row.calendar_code,
+    },
+    {
+      header: "Timezone",
+      key: "timezone",
+      render: (row: CalendarRowData) => row.timezone_name,
+    },
+    {
+      header: "Coverage",
+      key: "coverage",
+      render: (row: CalendarRowData) =>
+        row.twenty_four_seven_flag ? "24×7" : "Business hours",
+    },
+    {
+      header: "Version",
+      key: "version",
+      render: (row: CalendarRowData) =>
+        row.current_version_number == null
+          ? "—"
+          : `v${String(row.current_version_number)} ${humanizeCode(row.current_version_status ?? "")}`,
+    },
+    {
+      header: "Linked goals",
+      key: "linkedGoals",
+      render: (row: CalendarRowData) => row.linked_goal_count,
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: CalendarRowData) => (
+        <ActiveBadge active={row.active_flag} />
+      ),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Business calendars that drive SLA working-time calculations. Configuration is read-only."
+        title="Business calendars"
+      />
+      <TableToolbar label="Calendar filters">
+        <SearchField
+          className="table-search"
+          label="Search calendars"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or code"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setPage(0);
+              setActive(event.target.value);
+            }}
+            value={active}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {calendars.isPending && <LoadingSkeleton label="Loading calendars" />}
+      {calendars.error && <ErrorSummary error={calendars.error} />}
+      {calendars.data && (
+        <>
+          <DataTable
+            caption="Business calendars"
+            columns={columns}
+            empty={
+              <EmptyState
+                description="No calendars match the current filters."
+                title="No calendars"
+              />
+            }
+            getRowKey={(row) => row.calendar_id}
+            rows={calendars.data.items}
+          />
+          {(page > 0 || calendars.data.has_more) && (
+            <Pagination
+              hasNext={calendars.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminCalendarDetailPage() {
+  const { calendarId = "" } = useParams();
+  const client = useIdentityClient();
+  const calendar = useQuery({
+    queryKey: ["admin-calendar", calendarId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/calendars/{calendar_id}", {
+          params: { path: { calendar_id: calendarId } },
+        }),
+      ),
+  });
+  const data = calendar.data;
+  type PeriodRowData = NonNullable<typeof data>["working_periods"][number];
+  type ExceptionRowData = NonNullable<typeof data>["exceptions"][number];
+  type CalendarVersionRowData = NonNullable<typeof data>["versions"][number];
+  const periodColumns = [
+    {
+      header: "Day",
+      key: "day",
+      render: (row: PeriodRowData) => isoDayName(row.iso_day_of_week),
+    },
+    {
+      header: "Start",
+      key: "start",
+      render: (row: PeriodRowData) => row.start_local_time,
+    },
+    {
+      header: "End",
+      key: "end",
+      render: (row: PeriodRowData) => row.end_local_time,
+    },
+  ];
+  const exceptionColumns = [
+    {
+      header: "Date",
+      key: "date",
+      render: (row: ExceptionRowData) => row.exception_date,
+    },
+    {
+      header: "Type",
+      key: "type",
+      render: (row: ExceptionRowData) => humanizeCode(row.exception_type),
+    },
+    {
+      header: "Hours",
+      key: "hours",
+      render: (row: ExceptionRowData) =>
+        row.start_local_time == null || row.end_local_time == null
+          ? "Closed"
+          : `${row.start_local_time}–${row.end_local_time}`,
+    },
+    {
+      header: "Description",
+      key: "description",
+      render: (row: ExceptionRowData) => row.description ?? "—",
+    },
+  ];
+  const versionColumns = [
+    {
+      header: "Version",
+      key: "version",
+      render: (row: CalendarVersionRowData) => `v${String(row.version_number)}`,
+    },
+    {
+      header: "Lifecycle",
+      key: "lifecycle",
+      render: (row: CalendarVersionRowData) => humanizeCode(row.version_status),
+    },
+    {
+      header: "Timezone",
+      key: "timezone",
+      render: (row: CalendarVersionRowData) => row.timezone_name,
+    },
+    {
+      header: "Coverage",
+      key: "coverage",
+      render: (row: CalendarVersionRowData) =>
+        row.twenty_four_seven_flag ? "24×7" : "Business hours",
+    },
+    {
+      header: "Published",
+      key: "published",
+      render: (row: CalendarVersionRowData) =>
+        row.published_at == null ? "—" : formatDateTime(row.published_at),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Calendars", to: "/admin/calendars" },
+          { label: data?.calendar_name ?? "Calendar" },
+        ]}
+      />
+      {calendar.isPending && <LoadingSkeleton label="Loading calendar" />}
+      {calendar.error && <ErrorSummary error={calendar.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={<ActiveBadge active={data.active_flag} />}
+            description={`Calendar code ${data.calendar_code}`}
+            eyebrow="Business calendar"
+            title={data.calendar_name}
+          />
+          <Panel title="Details">
+            <MetadataGrid
+              items={[
+                { label: "Timezone", value: data.timezone_name },
+                {
+                  label: "Coverage",
+                  value: data.twenty_four_seven_flag
+                    ? "24×7"
+                    : "Business hours",
+                },
+                {
+                  label: "Displayed version",
+                  value:
+                    data.displayed_version_number == null
+                      ? "No versions"
+                      : `v${String(data.displayed_version_number)} ${humanizeCode(data.displayed_version_status ?? "")}`,
+                },
+              ]}
+            />
+          </Panel>
+          <SectionHeader title="Working hours" />
+          <DataTable
+            caption="Calendar working hours"
+            columns={periodColumns}
+            empty={
+              <EmptyState
+                description={
+                  data.twenty_four_seven_flag
+                    ? "This calendar runs around the clock; no working windows apply."
+                    : "The displayed version defines no working windows."
+                }
+                title="No working windows"
+              />
+            }
+            getRowKey={(row) =>
+              `${String(row.iso_day_of_week)}-${row.start_local_time}-${row.end_local_time}`
+            }
+            rows={data.working_periods}
+          />
+          <SectionHeader title="Holidays and exceptions" />
+          <DataTable
+            caption="Calendar exceptions"
+            columns={exceptionColumns}
+            empty={
+              <EmptyState
+                description="The displayed version defines no holidays or exceptions."
+                title="No exceptions"
+              />
+            }
+            getRowKey={(row) => row.exception_date}
+            rows={data.exceptions}
+          />
+          <SectionHeader title="Versions" />
+          <DataTable
+            caption="Calendar versions"
+            columns={versionColumns}
+            empty={
+              <EmptyState
+                description="This calendar has no versions yet."
+                title="No calendar versions"
+              />
+            }
+            getRowKey={(row) => row.business_calendar_version_id}
+            rows={data.versions}
+          />
+          <SectionHeader title="Linked SLA goals" />
+          {data.linked_goals.length === 0 ? (
+            <EmptyState
+              description="No SLA goals reference this calendar."
+              title="No linked goals"
+            />
+          ) : (
+            <ul
+              aria-label="Linked SLA goals"
+              className="code-chips code-chips--wrap"
+            >
+              {data.linked_goals.map((goal) => (
+                <li key={`${goal.sla_code}-${goal.goal_name}`}>
+                  {goal.sla_code}: {goal.goal_name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminCataloguePage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [active, setActive] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const catalogue = useQuery({
+    queryKey: ["admin-catalogue", page, search, active],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/catalogue", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim() === "" ? {} : { search: search.trim() }),
+              ...(active === "" ? {} : { active: active === "active" }),
+            },
+          },
+        }),
+      ),
+  });
+  type RequestTypeRowData = NonNullable<typeof catalogue.data>["items"][number];
+  const columns = [
+    {
+      header: "Request type",
+      key: "requestType",
+      render: (row: RequestTypeRowData) => (
+        <Link to={`/admin/catalogue/${row.request_type_id}`}>
+          {row.request_type_name}
+        </Link>
+      ),
+    },
+    {
+      header: "Group",
+      key: "group",
+      render: (row: RequestTypeRowData) => row.portal_group ?? "—",
+    },
+    {
+      header: "Project",
+      key: "project",
+      render: (row: RequestTypeRowData) => row.project_key,
+    },
+    {
+      header: "Work type",
+      key: "workType",
+      render: (row: RequestTypeRowData) => humanizeCode(row.work_type_code),
+    },
+    {
+      header: "Workflow",
+      key: "workflow",
+      render: (row: RequestTypeRowData) => row.workflow_name,
+    },
+    {
+      header: "Version",
+      key: "version",
+      render: (row: RequestTypeRowData) =>
+        row.current_version_number == null
+          ? "—"
+          : `v${String(row.current_version_number)} ${humanizeCode(row.current_version_status ?? "")}`,
+    },
+    {
+      header: "Portal",
+      key: "portal",
+      render: (row: RequestTypeRowData) =>
+        row.employee_visible_flag ? "Visible" : "Hidden",
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: RequestTypeRowData) => (
+        <ActiveBadge active={row.active_flag} />
+      ),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Request types offered in the employee portal, with their forms and mappings."
+        title="Service catalogue"
+      />
+      <TableToolbar label="Catalogue filters">
+        <SearchField
+          className="table-search"
+          label="Search catalogue"
+          onChange={(value) => {
+            setPage(0);
+            setSearch(value);
+          }}
+          placeholder="Search by name or code"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setPage(0);
+              setActive(event.target.value);
+            }}
+            value={active}
+          >
+            <option value="">All statuses</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {catalogue.isPending && <LoadingSkeleton label="Loading catalogue" />}
+      {catalogue.error && <ErrorSummary error={catalogue.error} />}
+      {catalogue.data && (
+        <>
+          <DataTable
+            caption="Catalogue request types"
+            columns={columns}
+            empty={
+              <EmptyState
+                description="No request types match the current filters."
+                title="No request types"
+              />
+            }
+            getRowKey={(row) => row.request_type_id}
+            rows={catalogue.data.items}
+          />
+          {(page > 0 || catalogue.data.has_more) && (
+            <Pagination
+              hasNext={catalogue.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminCatalogueDetailPage() {
+  const { requestTypeId = "" } = useParams();
+  const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const requestType = useQuery({
+    queryKey: ["admin-request-type", requestTypeId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/catalogue/{request_type_id}", {
+          params: { path: { request_type_id: requestTypeId } },
+        }),
+      ),
+  });
+  const data = requestType.data;
+  const canWrite =
+    identity?.permission_codes.includes("ADMIN_CONFIG_WRITE") ?? false;
+  const [confirming, setConfirming] = useState<"active" | "portal" | null>(
+    null,
+  );
+  const [announcement, setAnnouncement] = useState("");
+  const visibilityMutation = useMutation({
+    mutationFn: async (change: {
+      active: boolean;
+      employee_visible: boolean;
+    }) =>
+      unwrap(
+        await client.PATCH(
+          "/api/v1/admin/catalogue/{request_type_id}/visibility",
+          {
+            params: { path: { request_type_id: requestTypeId } },
+            body: { ...change, expected_updated_at: data?.updated_at ?? "" },
+          },
+        ),
+      ),
+    onSuccess: (result) => {
+      setConfirming(null);
+      setAnnouncement(
+        result.changed
+          ? "Request type visibility updated."
+          : "No change was needed.",
+      );
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-request-type", requestTypeId],
+      });
+      void queryClient.invalidateQueries({ queryKey: ["admin-catalogue"] });
+    },
+  });
+  type FormFieldRowData = NonNullable<typeof data>["form_fields"][number];
+  type RequestTypeVersionRowData = NonNullable<typeof data>["versions"][number];
+  const fieldColumns = [
+    {
+      header: "Order",
+      key: "order",
+      render: (row: FormFieldRowData) => row.display_order,
+    },
+    {
+      header: "Field",
+      key: "field",
+      render: (row: FormFieldRowData) => row.label,
+    },
+    {
+      header: "Code",
+      key: "code",
+      render: (row: FormFieldRowData) => row.field_code,
+    },
+    {
+      header: "Type",
+      key: "type",
+      render: (row: FormFieldRowData) => humanizeCode(row.data_type),
+    },
+    {
+      header: "Required",
+      key: "required",
+      render: (row: FormFieldRowData) => (row.required_flag ? "Required" : "—"),
+    },
+    {
+      header: "Shown when",
+      key: "shownWhen",
+      render: (row: FormFieldRowData) =>
+        row.hidden_flag
+          ? "Hidden"
+          : row.condition_summary.length === 0
+            ? "Always"
+            : row.condition_summary.join("; "),
+    },
+    {
+      header: "Options",
+      key: "options",
+      render: (row: FormFieldRowData) =>
+        row.options.length === 0
+          ? "—"
+          : row.options
+              .map(
+                (option) =>
+                  `${option.option_label}${option.active_flag ? "" : " (inactive)"}`,
+              )
+              .join(", "),
+    },
+  ];
+  const versionColumns = [
+    {
+      header: "Version",
+      key: "version",
+      render: (row: RequestTypeVersionRowData) =>
+        `v${String(row.version_number)}`,
+    },
+    {
+      header: "Lifecycle",
+      key: "lifecycle",
+      render: (row: RequestTypeVersionRowData) =>
+        humanizeCode(row.version_status),
+    },
+    {
+      header: "Effective from",
+      key: "effectiveFrom",
+      render: (row: RequestTypeVersionRowData) =>
+        row.effective_from == null ? "—" : formatDateTime(row.effective_from),
+    },
+    {
+      header: "Published",
+      key: "published",
+      render: (row: RequestTypeVersionRowData) =>
+        row.published_at == null ? "—" : formatDateTime(row.published_at),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Catalogue", to: "/admin/catalogue" },
+          { label: data?.request_type_name ?? "Request type" },
+        ]}
+      />
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
+      {requestType.isPending && (
+        <LoadingSkeleton label="Loading request type" />
+      )}
+      {requestType.error && <ErrorSummary error={requestType.error} />}
+      {visibilityMutation.error != null && (
+        <ErrorSummary error={visibilityMutation.error} />
+      )}
+      {data && (
+        <>
+          <PageHeader
+            actions={
+              canWrite ? (
+                <>
+                  <Button
+                    onClick={() => {
+                      setConfirming("portal");
+                    }}
+                    variant="secondary"
+                  >
+                    {data.employee_visible_flag
+                      ? "Hide from portal"
+                      : "Show in portal"}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setConfirming("active");
+                    }}
+                    variant={data.active_flag ? "danger" : "primary"}
+                  >
+                    {data.active_flag
+                      ? "Disable request type"
+                      : "Enable request type"}
+                  </Button>
+                </>
+              ) : (
+                <ActiveBadge active={data.active_flag} />
+              )
+            }
+            description={
+              data.portal_description ??
+              `Request type code ${data.request_type_code}`
+            }
+            eyebrow="Request type"
+            title={data.request_type_name}
+          />
+          <Panel title="Details">
+            <MetadataGrid
+              items={[
+                { label: "Code", value: data.request_type_code },
+                {
+                  label: "Project",
+                  value: `${data.project_name} (${data.project_key})`,
+                },
+                {
+                  label: "Work type",
+                  value: humanizeCode(data.work_type_code),
+                },
+                { label: "Workflow", value: data.workflow_name },
+                { label: "Portal group", value: data.portal_group ?? "—" },
+                {
+                  label: "Portal visibility",
+                  value: data.employee_visible_flag ? "Visible" : "Hidden",
+                },
+                {
+                  label: "Status",
+                  value: data.active_flag ? "Active" : "Inactive",
+                },
+                {
+                  label: "Displayed version",
+                  value:
+                    data.displayed_version_number == null
+                      ? "No versions"
+                      : `v${String(data.displayed_version_number)} ${humanizeCode(data.displayed_version_status ?? "")}`,
+                },
+                { label: "Updated", value: formatDateTime(data.updated_at) },
+              ]}
+            />
+          </Panel>
+          <SectionHeader title="Request form" />
+          <DataTable
+            caption="Request form fields"
+            columns={fieldColumns}
+            empty={
+              <EmptyState
+                description="The displayed version defines no form fields."
+                title="No form fields"
+              />
+            }
+            getRowKey={(row) => row.field_code}
+            rows={data.form_fields}
+          />
+          <SectionHeader title="Versions" />
+          <DataTable
+            caption="Request type versions"
+            columns={versionColumns}
+            empty={
+              <EmptyState
+                description="This request type has no versions yet."
+                title="No request type versions"
+              />
+            }
+            getRowKey={(row) => row.request_type_version_id}
+            rows={data.versions}
+          />
+          <ConfirmationDialog
+            confirmLabel={data.active_flag ? "Disable" : "Enable"}
+            confirmVariant={data.active_flag ? "danger" : "primary"}
+            onCancel={() => {
+              setConfirming(null);
+            }}
+            onConfirm={() => {
+              visibilityMutation.mutate({
+                active: !data.active_flag,
+                employee_visible: data.employee_visible_flag,
+              });
+            }}
+            open={confirming === "active"}
+            pending={visibilityMutation.isPending}
+            title={
+              data.active_flag
+                ? `Disable ${data.request_type_name}?`
+                : `Enable ${data.request_type_name}?`
+            }
+          >
+            {data.active_flag
+              ? "Employees will no longer be able to start new requests of this type. Tickets already submitted keep their form and workflow."
+              : "Employees will be able to start new requests of this type again."}
+          </ConfirmationDialog>
+          <ConfirmationDialog
+            confirmLabel={data.employee_visible_flag ? "Hide" : "Show"}
+            confirmVariant="primary"
+            onCancel={() => {
+              setConfirming(null);
+            }}
+            onConfirm={() => {
+              visibilityMutation.mutate({
+                active: data.active_flag,
+                employee_visible: !data.employee_visible_flag,
+              });
+            }}
+            open={confirming === "portal"}
+            pending={visibilityMutation.isPending}
+            title={
+              data.employee_visible_flag
+                ? `Hide ${data.request_type_name} from the portal?`
+                : `Show ${data.request_type_name} in the portal?`
+            }
+          >
+            {data.employee_visible_flag
+              ? "The request type stays active but disappears from the employee portal listing."
+              : "The request type will appear in the employee portal listing again."}
+          </ConfirmationDialog>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function App() {
   return (
     <AppShell>
@@ -4137,6 +5679,86 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="ADMIN_IDENTITY_READ">
                 <AdminTicketViewsPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/workflows"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminWorkflowsPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/workflows/:workflowId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminWorkflowDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/sla-policies"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminSlaPoliciesPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/sla-policies/:slaDefinitionId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminSlaPolicyDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/calendars"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminCalendarsPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/calendars/:calendarId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminCalendarDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/catalogue"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminCataloguePage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/catalogue/:requestTypeId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="ADMIN_CONFIG_READ">
+                <AdminCatalogueDetailPage />
               </RequirePermission>
             </RequireSession>
           }

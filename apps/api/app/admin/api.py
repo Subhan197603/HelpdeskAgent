@@ -7,20 +7,30 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Path, Query, Request
 
 from apps.api.app.admin.schemas import (
+    AdminCalendarDetailResponse,
+    AdminCalendarListResponse,
     AdminOverviewResponse,
     AdminQueueDetailResponse,
     AdminQueueListResponse,
     AdminQueueMemberChangeResponse,
     AdminQueueMemberRequest,
+    AdminRequestTypeDetailResponse,
+    AdminRequestTypeListResponse,
+    AdminRequestTypeVisibilityRequest,
+    AdminRequestTypeVisibilityResponse,
     AdminRoleAssignmentChangeResponse,
     AdminRoleAssignRequest,
     AdminRoleDetailResponse,
     AdminRoleListResponse,
+    AdminSlaPolicyDetailResponse,
+    AdminSlaPolicyListResponse,
     AdminTicketViewListResponse,
     AdminUserDetailResponse,
     AdminUserListResponse,
     AdminUserStatusRequest,
     AdminUserStatusResponse,
+    AdminWorkflowDetailResponse,
+    AdminWorkflowListResponse,
     AuditEventListResponse,
     DecisionCode,
     OutcomeCode,
@@ -53,6 +63,8 @@ _IDENTITY_READ = Depends(require_permission(Permission.ADMIN_IDENTITY_READ, priv
 _IDENTITY_WRITE = Depends(
     require_permission(Permission.ADMIN_IDENTITY_WRITE, privileged_access=True)
 )
+_CONFIG_READ = Depends(require_permission(Permission.ADMIN_CONFIG_READ, privileged_access=True))
+_CONFIG_WRITE = Depends(require_permission(Permission.ADMIN_CONFIG_WRITE, privileged_access=True))
 MUTATION_ERRORS: dict[int | str, dict[str, Any]] = {
     **DETAIL_ERRORS,
     409: {
@@ -246,6 +258,130 @@ async def admin_remove_queue_member(
     user_id: UUID,
 ) -> AdminQueueMemberChangeResponse:
     return await _service(request).remove_queue_member(context, support_group_id, user_id)
+
+
+@router.get("/workflows", response_model=AdminWorkflowListResponse, responses=ERRORS)
+async def admin_workflows(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    search: FilterText = None,
+    active: bool | None = None,
+    limit: Limit = 25,
+    offset: Offset = 0,
+) -> AdminWorkflowListResponse:
+    return await _service(request).workflows(
+        context, search=search, active=active, limit=limit, offset=offset
+    )
+
+
+@router.get(
+    "/workflows/{workflow_id}",
+    response_model=AdminWorkflowDetailResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_workflow_detail(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    workflow_id: UUID,
+) -> AdminWorkflowDetailResponse:
+    return await _service(request).workflow_detail(context, workflow_id)
+
+
+@router.get("/sla-policies", response_model=AdminSlaPolicyListResponse, responses=ERRORS)
+async def admin_sla_policies(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    search: FilterText = None,
+    active: bool | None = None,
+    project_id: UUID | None = None,
+    limit: Limit = 25,
+    offset: Offset = 0,
+) -> AdminSlaPolicyListResponse:
+    return await _service(request).sla_policies(
+        context, search=search, active=active, project_id=project_id, limit=limit, offset=offset
+    )
+
+
+@router.get(
+    "/sla-policies/{sla_definition_id}",
+    response_model=AdminSlaPolicyDetailResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_sla_policy_detail(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    sla_definition_id: UUID,
+) -> AdminSlaPolicyDetailResponse:
+    return await _service(request).sla_policy_detail(context, sla_definition_id)
+
+
+@router.get("/calendars", response_model=AdminCalendarListResponse, responses=ERRORS)
+async def admin_calendars(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    search: FilterText = None,
+    active: bool | None = None,
+    limit: Limit = 25,
+    offset: Offset = 0,
+) -> AdminCalendarListResponse:
+    return await _service(request).calendars(
+        context, search=search, active=active, limit=limit, offset=offset
+    )
+
+
+@router.get(
+    "/calendars/{calendar_id}",
+    response_model=AdminCalendarDetailResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_calendar_detail(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    calendar_id: UUID,
+) -> AdminCalendarDetailResponse:
+    return await _service(request).calendar_detail(context, calendar_id)
+
+
+@router.get("/catalogue", response_model=AdminRequestTypeListResponse, responses=ERRORS)
+async def admin_catalogue(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    search: FilterText = None,
+    active: bool | None = None,
+    project_id: UUID | None = None,
+    limit: Limit = 25,
+    offset: Offset = 0,
+) -> AdminRequestTypeListResponse:
+    return await _service(request).request_types(
+        context, search=search, active=active, project_id=project_id, limit=limit, offset=offset
+    )
+
+
+@router.get(
+    "/catalogue/{request_type_id}",
+    response_model=AdminRequestTypeDetailResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_catalogue_detail(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_READ],
+    request_type_id: UUID,
+) -> AdminRequestTypeDetailResponse:
+    return await _service(request).request_type_detail(context, request_type_id)
+
+
+@router.patch(
+    "/catalogue/{request_type_id}/visibility",
+    response_model=AdminRequestTypeVisibilityResponse,
+    responses=MUTATION_ERRORS,
+)
+async def admin_catalogue_visibility(
+    request: Request,
+    context: Annotated[RequestContext, _CONFIG_WRITE],
+    request_type_id: UUID,
+    payload: AdminRequestTypeVisibilityRequest,
+) -> AdminRequestTypeVisibilityResponse:
+    return await _service(request).set_request_type_visibility(context, request_type_id, payload)
 
 
 @router.get("/audit/events", response_model=AuditEventListResponse, responses=ERRORS)

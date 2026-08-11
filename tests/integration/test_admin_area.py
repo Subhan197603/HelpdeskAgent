@@ -21,7 +21,7 @@ from apps.api.app.admin.repository import AdminRepository
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-admin-test"
-PORT = "55466"
+PORT = "55553"
 DATABASE = "admin_model"
 TENANT_ID = UUID("20000000-0000-0000-0000-000000000001")
 OTHER_TENANT_ID = UUID("20000000-0000-0000-0000-000000000099")
