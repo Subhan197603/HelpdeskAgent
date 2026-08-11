@@ -427,6 +427,39 @@
         "title": "AdminQueueListResponse",
         "type": "object"
       },
+      "AdminQueueMemberChangeResponse": {
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "member_role": {
+            "anyOf": [
+              {
+                "enum": ["AGENT", "LEAD", "MANAGER", "OBSERVER"],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Member Role"
+          },
+          "support_group_id": {
+            "format": "uuid",
+            "title": "Support Group Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": ["support_group_id", "user_id", "member_role", "changed"],
+        "title": "AdminQueueMemberChangeResponse",
+        "type": "object"
+      },
       "AdminQueueMemberItem": {
         "properties": {
           "active_flag": {
@@ -460,6 +493,24 @@
           "joined_at"
         ],
         "title": "AdminQueueMemberItem",
+        "type": "object"
+      },
+      "AdminQueueMemberRequest": {
+        "properties": {
+          "member_role": {
+            "default": "AGENT",
+            "enum": ["AGENT", "LEAD", "MANAGER", "OBSERVER"],
+            "title": "Member Role",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": ["user_id"],
+        "title": "AdminQueueMemberRequest",
         "type": "object"
       },
       "AdminQueueSummary": {
@@ -523,6 +574,50 @@
           "updated_at"
         ],
         "title": "AdminQueueSummary",
+        "type": "object"
+      },
+      "AdminRoleAssignRequest": {
+        "properties": {
+          "role_code": {
+            "pattern": "^[A-Z][A-Z0-9_]{0,59}$",
+            "title": "Role Code",
+            "type": "string"
+          }
+        },
+        "required": ["role_code"],
+        "title": "AdminRoleAssignRequest",
+        "type": "object"
+      },
+      "AdminRoleAssignmentChangeResponse": {
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "role_code": {
+            "title": "Role Code",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "valid_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valid From"
+          }
+        },
+        "required": ["user_id", "role_code", "valid_from", "changed"],
+        "title": "AdminRoleAssignmentChangeResponse",
         "type": "object"
       },
       "AdminRoleAssignmentItem": {
@@ -990,6 +1085,47 @@
           "valid_to"
         ],
         "title": "AdminUserRoleItem",
+        "type": "object"
+      },
+      "AdminUserStatusRequest": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "expected_updated_at": {
+            "format": "date-time",
+            "title": "Expected Updated At",
+            "type": "string"
+          }
+        },
+        "required": ["active", "expected_updated_at"],
+        "title": "AdminUserStatusRequest",
+        "type": "object"
+      },
+      "AdminUserStatusResponse": {
+        "properties": {
+          "active_flag": {
+            "title": "Active Flag",
+            "type": "boolean"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": ["user_id", "active_flag", "updated_at", "changed"],
+        "title": "AdminUserStatusResponse",
         "type": "object"
       },
       "AdminUserSummary": {
@@ -11027,6 +11163,178 @@
         "tags": ["administration"]
       }
     },
+    "/api/v1/admin/queues/{support_group_id}/members": {
+      "post": {
+        "operationId": "admin_add_queue_member_api_v1_admin_queues__support_group_id__members_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "support_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Support Group Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminQueueMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminQueueMemberChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Add Queue Member",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/queues/{support_group_id}/members/{user_id}": {
+      "delete": {
+        "operationId": "admin_remove_queue_member_api_v1_admin_queues__support_group_id__members__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "support_group_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Support Group Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminQueueMemberChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Remove Queue Member",
+        "tags": ["administration"]
+      }
+    },
     "/api/v1/admin/roles": {
       "get": {
         "operationId": "admin_roles_api_v1_admin_roles_get",
@@ -11598,6 +11906,284 @@
           }
         ],
         "summary": "Admin User Detail",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/roles": {
+      "post": {
+        "operationId": "admin_assign_role_api_v1_admin_users__user_id__roles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminRoleAssignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRoleAssignmentChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Assign Role",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/roles/{role_code}": {
+      "delete": {
+        "operationId": "admin_remove_role_api_v1_admin_users__user_id__roles__role_code__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "role_code",
+            "required": true,
+            "schema": {
+              "pattern": "^[A-Z][A-Z0-9_]{0,59}$",
+              "title": "Role Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminRoleAssignmentChangeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Concurrent modification or administrator safeguard conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin Remove Role",
+        "tags": ["administration"]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/status": {
+      "patch": {
+        "operationId": "admin_user_status_api_v1_admin_users__user_id__status_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminUserStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Concurrent modification or administrator safeguard conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Administration request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Admin User Status",
         "tags": ["administration"]
       }
     },

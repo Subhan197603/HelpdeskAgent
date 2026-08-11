@@ -226,6 +226,37 @@ describe("shared tables and forms", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(cancel).toHaveBeenCalledOnce();
   });
+
+  it("supports a danger confirmation that disables actions while pending", () => {
+    render(
+      <ConfirmationDialog
+        confirmLabel="Deactivate"
+        confirmVariant="danger"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        open
+        pending
+        title="Deactivate Development Agent?"
+      >
+        They will no longer be able to sign in.
+      </ConfirmationDialog>,
+    );
+    const confirm = screen.getByRole("button", { name: "Deactivate" });
+    expect(confirm.className).toContain("danger");
+    expect(confirm).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  });
+
+  it("renders the danger button variant with danger styling", () => {
+    renderWithQuery(
+      <Button onClick={vi.fn()} variant="danger">
+        Deactivate user
+      </Button>,
+    );
+    expect(
+      screen.getByRole("button", { name: "Deactivate user" }).className,
+    ).toContain("danger");
+  });
 });
 
 describe("ticket presentation", () => {

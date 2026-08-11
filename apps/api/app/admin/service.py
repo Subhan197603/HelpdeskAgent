@@ -13,9 +13,13 @@ from apps.api.app.admin.schemas import (
     AdminPermissionGroup,
     AdminQueueDetailResponse,
     AdminQueueListResponse,
+    AdminQueueMemberChangeResponse,
     AdminQueueMemberItem,
+    AdminQueueMemberRequest,
     AdminQueueSummary,
+    AdminRoleAssignmentChangeResponse,
     AdminRoleAssignmentItem,
+    AdminRoleAssignRequest,
     AdminRoleDetailResponse,
     AdminRoleListResponse,
     AdminRoleSummary,
@@ -25,6 +29,8 @@ from apps.api.app.admin.schemas import (
     AdminUserListResponse,
     AdminUserMembershipItem,
     AdminUserRoleItem,
+    AdminUserStatusRequest,
+    AdminUserStatusResponse,
     AdminUserSummary,
     AuditEventListResponse,
     AuditEventSummary,
@@ -33,8 +39,14 @@ from apps.api.app.admin.schemas import (
     SecurityEventSummary,
     SystemStatusResponse,
 )
+from apps.api.app.audit.security_events import SecurityEvent, SecurityEventService
 from apps.api.app.core.context import RequestContext
-from apps.api.app.core.exceptions import AuthorizationError, NotFoundError
+from apps.api.app.core.exceptions import (
+    AuthorizationError,
+    ConcurrencyError,
+    ConflictError,
+    NotFoundError,
+)
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.migration_guard import inspect_revision
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
@@ -63,6 +75,23 @@ def application_migration_head(versions_path: Path = _VERSIONS_PATH) -> str | No
     return heads[0] if len(heads) == 1 else None
 
 
+_ADMIN_ROLE_CODE = "PLATFORM_ADMIN"
+# Granting is blocked only when the target role carries privileged permissions the
+# caller does not hold. A full-subset rule would break legitimate grants in the flat
+# permission model (for example TICKET_READ_ALL does not literally contain
+# TICKET_READ_GROUP), so the boundary tracks the permissions that confer
+# administrative or governance power.
+_PRIVILEGED_GRANT_PERMISSIONS = frozenset(
+    {
+        Permission.ADMIN_IDENTITY_READ,
+        Permission.ADMIN_IDENTITY_WRITE,
+        Permission.AUDIT_EVENT_READ,
+        Permission.SYSTEM_HEALTH_READ,
+        Permission.AI_OVERSIGHT,
+        Permission.KNOWLEDGE_SOURCE_MANAGE_GLOBAL,
+        Permission.KNOWLEDGE_ACQUISITION_PERMISSION_MANAGE,
+    }
+)
 _JIT_SUBJECT_PREFIX = "oidc:"
 _RECENT_SECURITY_EVENT_LIMIT = 10
 _PERMISSION_DOMAINS: tuple[tuple[str, str], ...] = (
@@ -519,6 +548,275 @@ class AdminService:
             items=[self._ticket_view(row) for row in rows[:limit]],
             has_more=len(rows) > limit,
         )
+
+    async def set_user_status(
+        self, context: RequestContext, user_id: UUID, payload: AdminUserStatusRequest
+    ) -> AdminUserStatusResponse:
+        tenant_id = self._tenant(context)
+        await self._forbid_self_mutation(context, user_id, resource_type="user")
+        try:
+            async with self._factory(context) as uow:
+                repository = AdminRepository(uow.session)
+                await repository.lock_tenant_identity(tenant_id)
+                user = await repository.user_for_update(tenant_id, user_id)
+                if user is None:
+                    raise NotFoundError("User not found.")
+                if user.active_flag == payload.active:
+                    await uow.commit()
+                    return AdminUserStatusResponse(
+                        user_id=user_id,
+                        active_flag=user.active_flag,
+                        updated_at=user.updated_at,
+                        changed=False,
+                    )
+                if user.updated_at != payload.expected_updated_at:
+                    raise ConcurrencyError(
+                        "The user was modified by someone else. Reload and try again."
+                    )
+                if not payload.active:
+                    await self._require_surviving_administrator(repository, tenant_id, user_id)
+                updated_at = await repository.set_user_active(
+                    tenant_id, user_id, active=payload.active
+                )
+                await repository.record_admin_action(
+                    tenant_id,
+                    actor_id=context.user_id,
+                    action_code=(
+                        "ADMIN_USER_REACTIVATED" if payload.active else "ADMIN_USER_DEACTIVATED"
+                    ),
+                    resource_type="USER",
+                    resource_id=str(user_id),
+                    change_summary={
+                        "active_flag": {"from": user.active_flag, "to": payload.active}
+                    },
+                )
+                await uow.commit()
+                return AdminUserStatusResponse(
+                    user_id=user_id,
+                    active_flag=payload.active,
+                    updated_at=updated_at,
+                    changed=True,
+                )
+        except ConflictError:
+            await self._record_security_denial(
+                context, "LAST_ADMIN_PROTECTION_TRIGGERED", "user", str(user_id)
+            )
+            raise
+
+    async def assign_role(
+        self, context: RequestContext, user_id: UUID, payload: AdminRoleAssignRequest
+    ) -> AdminRoleAssignmentChangeResponse:
+        tenant_id = self._tenant(context)
+        await self._forbid_self_mutation(context, user_id, resource_type="user_role")
+        role_code = payload.role_code
+        try:
+            async with self._factory(context) as uow:
+                repository = AdminRepository(uow.session)
+                await repository.lock_tenant_identity(tenant_id)
+                user = await repository.user_for_update(tenant_id, user_id)
+                if user is None:
+                    raise NotFoundError("User not found.")
+                granted_permissions = ROLE_PERMISSIONS.get(role_code)
+                if granted_permissions is None or not await repository.active_role_definition(
+                    role_code
+                ):
+                    raise NotFoundError("Role not found.")
+                caller_permissions: set[Permission] = set()
+                for caller_role in context.roles:
+                    caller_permissions.update(ROLE_PERMISSIONS.get(caller_role, frozenset()))
+                privileged_grants = granted_permissions & _PRIVILEGED_GRANT_PERMISSIONS
+                if not privileged_grants <= caller_permissions:
+                    raise AuthorizationError(
+                        "A role granting privileged permissions beyond your own cannot be assigned."
+                    )
+                existing = await repository.active_role_assignment(tenant_id, user_id, role_code)
+                if existing is not None:
+                    await uow.commit()
+                    return AdminRoleAssignmentChangeResponse(
+                        user_id=user_id, role_code=role_code, valid_from=existing, changed=False
+                    )
+                valid_from = await repository.insert_role_assignment(
+                    tenant_id, user_id, role_code, granted_by=context.user_id
+                )
+                await repository.record_admin_action(
+                    tenant_id,
+                    actor_id=context.user_id,
+                    action_code="ADMIN_ROLE_ASSIGNED",
+                    resource_type="USER_ROLE",
+                    resource_id=f"{user_id}:{role_code}",
+                    change_summary={"user_id": str(user_id), "role_code": role_code},
+                )
+                await uow.commit()
+                return AdminRoleAssignmentChangeResponse(
+                    user_id=user_id, role_code=role_code, valid_from=valid_from, changed=True
+                )
+        except AuthorizationError:
+            await self._record_security_denial(
+                context, "ADMIN_ROLE_GRANT_BOUNDARY_BLOCKED", "user_role", role_code
+            )
+            raise
+
+    async def remove_role(
+        self, context: RequestContext, user_id: UUID, role_code: str
+    ) -> AdminRoleAssignmentChangeResponse:
+        tenant_id = self._tenant(context)
+        await self._forbid_self_mutation(context, user_id, resource_type="user_role")
+        try:
+            async with self._factory(context) as uow:
+                repository = AdminRepository(uow.session)
+                await repository.lock_tenant_identity(tenant_id)
+                user = await repository.user_for_update(tenant_id, user_id)
+                if user is None:
+                    raise NotFoundError("User not found.")
+                if role_code == _ADMIN_ROLE_CODE:
+                    assigned = await repository.active_role_assignment(
+                        tenant_id, user_id, role_code
+                    )
+                    if assigned is not None:
+                        await self._require_surviving_administrator(repository, tenant_id, user_id)
+                closed = await repository.close_role_assignments(tenant_id, user_id, role_code)
+                changed = closed > 0
+                if changed:
+                    await repository.record_admin_action(
+                        tenant_id,
+                        actor_id=context.user_id,
+                        action_code="ADMIN_ROLE_REMOVED",
+                        resource_type="USER_ROLE",
+                        resource_id=f"{user_id}:{role_code}",
+                        change_summary={"user_id": str(user_id), "role_code": role_code},
+                    )
+                await uow.commit()
+                return AdminRoleAssignmentChangeResponse(
+                    user_id=user_id, role_code=role_code, valid_from=None, changed=changed
+                )
+        except ConflictError:
+            await self._record_security_denial(
+                context, "LAST_ADMIN_PROTECTION_TRIGGERED", "user_role", str(user_id)
+            )
+            raise
+
+    async def add_queue_member(
+        self, context: RequestContext, support_group_id: UUID, payload: AdminQueueMemberRequest
+    ) -> AdminQueueMemberChangeResponse:
+        tenant_id = self._tenant(context)
+        async with self._factory(context) as uow:
+            repository = AdminRepository(uow.session)
+            queue = await repository.queue_reference(tenant_id, support_group_id)
+            if queue is None:
+                raise NotFoundError("Queue not found.")
+            user = await repository.user_for_update(tenant_id, payload.user_id)
+            if user is None:
+                raise NotFoundError("User not found.")
+            existing = await repository.membership_for_update(support_group_id, payload.user_id)
+            if (
+                existing is not None
+                and existing.active_flag
+                and existing.member_role == payload.member_role
+            ):
+                await uow.commit()
+                return AdminQueueMemberChangeResponse(
+                    support_group_id=support_group_id,
+                    user_id=payload.user_id,
+                    member_role=payload.member_role,
+                    changed=False,
+                )
+            await repository.upsert_queue_member(
+                support_group_id, payload.user_id, member_role=payload.member_role
+            )
+            await repository.record_admin_action(
+                tenant_id,
+                actor_id=context.user_id,
+                action_code="ADMIN_QUEUE_MEMBER_ADDED",
+                resource_type="SUPPORT_GROUP_MEMBER",
+                resource_id=f"{support_group_id}:{payload.user_id}",
+                change_summary={
+                    "member_role": payload.member_role,
+                    "previous": (
+                        None
+                        if existing is None
+                        else {
+                            "member_role": existing.member_role,
+                            "active_flag": existing.active_flag,
+                        }
+                    ),
+                },
+            )
+            await uow.commit()
+            return AdminQueueMemberChangeResponse(
+                support_group_id=support_group_id,
+                user_id=payload.user_id,
+                member_role=payload.member_role,
+                changed=True,
+            )
+
+    async def remove_queue_member(
+        self, context: RequestContext, support_group_id: UUID, user_id: UUID
+    ) -> AdminQueueMemberChangeResponse:
+        tenant_id = self._tenant(context)
+        async with self._factory(context) as uow:
+            repository = AdminRepository(uow.session)
+            queue = await repository.queue_reference(tenant_id, support_group_id)
+            if queue is None:
+                raise NotFoundError("Queue not found.")
+            deactivated = await repository.deactivate_queue_member(support_group_id, user_id)
+            changed = deactivated > 0
+            if changed:
+                await repository.record_admin_action(
+                    tenant_id,
+                    actor_id=context.user_id,
+                    action_code="ADMIN_QUEUE_MEMBER_REMOVED",
+                    resource_type="SUPPORT_GROUP_MEMBER",
+                    resource_id=f"{support_group_id}:{user_id}",
+                    change_summary={"user_id": str(user_id)},
+                )
+            await uow.commit()
+            return AdminQueueMemberChangeResponse(
+                support_group_id=support_group_id,
+                user_id=user_id,
+                member_role=None,
+                changed=changed,
+            )
+
+    async def _forbid_self_mutation(
+        self, context: RequestContext, user_id: UUID, *, resource_type: str
+    ) -> None:
+        if context.user_id == user_id:
+            await self._record_security_denial(
+                context, "ADMIN_SELF_MUTATION_BLOCKED", resource_type, str(user_id)
+            )
+            raise AuthorizationError(
+                "Administrators cannot change their own access. Ask another administrator."
+            )
+
+    @staticmethod
+    async def _require_surviving_administrator(
+        repository: AdminRepository, tenant_id: UUID, excluded_user_id: UUID
+    ) -> None:
+        survivors = await repository.active_admin_count(
+            tenant_id, admin_role_code=_ADMIN_ROLE_CODE, excluded_user_id=excluded_user_id
+        )
+        if survivors == 0:
+            raise ConflictError(
+                "The tenant must keep at least one active administrator. "
+                "Grant another administrator first."
+            )
+
+    async def _record_security_denial(
+        self, context: RequestContext, event_type: str, resource_type: str, resource_id: str
+    ) -> None:
+        async with self._factory(context) as uow:
+            await SecurityEventService(uow.session).record(
+                SecurityEvent(
+                    event_type,
+                    "DENIED",
+                    tenant_id=context.tenant_id,
+                    user_id=context.user_id,
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                ),
+                context,
+            )
+            await uow.commit()
 
     @staticmethod
     def _ticket_view(row: TicketViewRow) -> AdminTicketViewSummary:

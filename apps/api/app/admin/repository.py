@@ -1,11 +1,13 @@
-"""Tenant-scoped administration reads over identity, ticket, kb, and audit data."""
+"""Tenant-scoped administration reads and access mutations over identity data."""
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import text
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _OVERVIEW = text("""
@@ -248,6 +250,94 @@ ORDER BY queue_definition.display_order,queue_definition.queue_name,queue_defini
 LIMIT :result_limit OFFSET :result_offset
 """)
 
+_LOCK_TENANT_IDENTITY = text(
+    "SELECT pg_advisory_xact_lock(hashtextextended(CAST(:tenant_id AS text), 0))"
+)
+
+_USER_FOR_UPDATE = text("""
+SELECT user_id,display_name,active_flag,updated_at
+FROM identity.app_user
+WHERE tenant_id=:tenant_id AND user_id=:user_id
+FOR UPDATE
+""")
+
+_ACTIVE_ADMIN_COUNT = text("""
+SELECT count(DISTINCT user_role.user_id) AS admin_count
+FROM identity.user_role
+JOIN identity.app_user
+  ON app_user.user_id=user_role.user_id
+  AND app_user.tenant_id=:tenant_id AND app_user.active_flag
+WHERE user_role.tenant_id=:tenant_id AND user_role.role_code=:role_code
+  AND user_role.active_flag AND user_role.valid_from<=CURRENT_TIMESTAMP
+  AND (user_role.valid_to IS NULL OR user_role.valid_to>CURRENT_TIMESTAMP)
+  AND user_role.user_id<>:excluded_user_id
+""")
+
+_SET_USER_ACTIVE = text("""
+UPDATE identity.app_user SET active_flag=:active
+WHERE tenant_id=:tenant_id AND user_id=:user_id
+RETURNING updated_at
+""")
+
+_ACTIVE_ROLE_DEFINITION = text("""
+SELECT role_code FROM identity.role_definition
+WHERE role_code=:role_code AND active_flag
+""")
+
+_ACTIVE_ASSIGNMENT = text("""
+SELECT valid_from FROM identity.user_role
+WHERE tenant_id=:tenant_id AND user_id=:user_id AND role_code=:role_code
+  AND active_flag AND valid_from<=CURRENT_TIMESTAMP
+  AND (valid_to IS NULL OR valid_to>CURRENT_TIMESTAMP)
+ORDER BY valid_from DESC
+LIMIT 1
+""")
+
+_INSERT_ASSIGNMENT = text("""
+INSERT INTO identity.user_role(tenant_id,user_id,role_code,granted_by)
+VALUES (:tenant_id,:user_id,:role_code,:granted_by)
+RETURNING valid_from
+""")
+
+_CLOSE_ASSIGNMENTS = text("""
+UPDATE identity.user_role
+SET active_flag=false,valid_to=CURRENT_TIMESTAMP
+WHERE tenant_id=:tenant_id AND user_id=:user_id AND role_code=:role_code
+  AND active_flag AND valid_from<=CURRENT_TIMESTAMP
+  AND (valid_to IS NULL OR valid_to>CURRENT_TIMESTAMP)
+""")
+
+_QUEUE_FOR_TENANT = text("""
+SELECT support_group_id,group_name FROM identity.support_group
+WHERE tenant_id=:tenant_id AND support_group_id=:support_group_id
+""")
+
+_MEMBERSHIP_FOR_UPDATE = text("""
+SELECT member_role,active_flag FROM identity.support_group_member
+WHERE support_group_id=:support_group_id AND user_id=:user_id
+FOR UPDATE
+""")
+
+_UPSERT_MEMBER = text("""
+INSERT INTO identity.support_group_member(support_group_id,user_id,member_role)
+VALUES (:support_group_id,:user_id,:member_role)
+ON CONFLICT (support_group_id,user_id)
+DO UPDATE SET active_flag=true,member_role=EXCLUDED.member_role
+""")
+
+_DEACTIVATE_MEMBER = text("""
+UPDATE identity.support_group_member SET active_flag=false
+WHERE support_group_id=:support_group_id AND user_id=:user_id AND active_flag
+""")
+
+_INSERT_ADMIN_AUDIT_EVENT = text("""
+INSERT INTO audit.audit_event(
+  tenant_id,actor_id,actor_type,action_code,resource_type,resource_id,
+  change_summary_json,outcome_code)
+VALUES (:tenant_id,:actor_id,'USER',:action_code,:resource_type,:resource_id,
+  CAST(:change_summary AS jsonb),'SUCCESS')
+""")
+
 _SECURITY_EVENTS = text("""
 SELECT security_event_id,event_type,decision_code,user_id,resource_type,resource_id,
   event_data_json,occurred_at
@@ -405,6 +495,26 @@ class QueueMemberRow:
     member_role: str
     active_flag: bool
     joined_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class UserLockRow:
+    user_id: UUID
+    display_name: str
+    active_flag: bool
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class QueueRefRow:
+    support_group_id: UUID
+    group_name: str
+
+
+@dataclass(frozen=True, slots=True)
+class MembershipStateRow:
+    member_role: str
+    active_flag: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -837,4 +947,157 @@ class AdminRepository:
                 active_flag=row.active_flag,
             )
             for row in rows
+        )
+
+    async def lock_tenant_identity(self, tenant_id: UUID) -> None:
+        await self._session.execute(_LOCK_TENANT_IDENTITY, {"tenant_id": tenant_id})
+
+    async def user_for_update(self, tenant_id: UUID, user_id: UUID) -> UserLockRow | None:
+        row = (
+            await self._session.execute(
+                _USER_FOR_UPDATE, {"tenant_id": tenant_id, "user_id": user_id}
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return UserLockRow(
+            user_id=row.user_id,
+            display_name=row.display_name,
+            active_flag=row.active_flag,
+            updated_at=row.updated_at,
+        )
+
+    async def active_admin_count(
+        self, tenant_id: UUID, *, admin_role_code: str, excluded_user_id: UUID
+    ) -> int:
+        row = (
+            await self._session.execute(
+                _ACTIVE_ADMIN_COUNT,
+                {
+                    "tenant_id": tenant_id,
+                    "role_code": admin_role_code,
+                    "excluded_user_id": excluded_user_id,
+                },
+            )
+        ).one()
+        return int(row.admin_count)
+
+    async def set_user_active(self, tenant_id: UUID, user_id: UUID, *, active: bool) -> datetime:
+        row = (
+            await self._session.execute(
+                _SET_USER_ACTIVE,
+                {"tenant_id": tenant_id, "user_id": user_id, "active": active},
+            )
+        ).one()
+        return row.updated_at  # type: ignore[no-any-return]
+
+    async def active_role_definition(self, role_code: str) -> bool:
+        row = (
+            await self._session.execute(_ACTIVE_ROLE_DEFINITION, {"role_code": role_code})
+        ).one_or_none()
+        return row is not None
+
+    async def active_role_assignment(
+        self, tenant_id: UUID, user_id: UUID, role_code: str
+    ) -> datetime | None:
+        row = (
+            await self._session.execute(
+                _ACTIVE_ASSIGNMENT,
+                {"tenant_id": tenant_id, "user_id": user_id, "role_code": role_code},
+            )
+        ).one_or_none()
+        return None if row is None else row.valid_from
+
+    async def insert_role_assignment(
+        self, tenant_id: UUID, user_id: UUID, role_code: str, *, granted_by: UUID | None
+    ) -> datetime:
+        row = (
+            await self._session.execute(
+                _INSERT_ASSIGNMENT,
+                {
+                    "tenant_id": tenant_id,
+                    "user_id": user_id,
+                    "role_code": role_code,
+                    "granted_by": granted_by,
+                },
+            )
+        ).one()
+        return row.valid_from  # type: ignore[no-any-return]
+
+    async def close_role_assignments(self, tenant_id: UUID, user_id: UUID, role_code: str) -> int:
+        result = cast(
+            "CursorResult[Any]",
+            await self._session.execute(
+                _CLOSE_ASSIGNMENTS,
+                {"tenant_id": tenant_id, "user_id": user_id, "role_code": role_code},
+            ),
+        )
+        return int(result.rowcount or 0)
+
+    async def queue_reference(self, tenant_id: UUID, support_group_id: UUID) -> QueueRefRow | None:
+        row = (
+            await self._session.execute(
+                _QUEUE_FOR_TENANT,
+                {"tenant_id": tenant_id, "support_group_id": support_group_id},
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return QueueRefRow(support_group_id=row.support_group_id, group_name=row.group_name)
+
+    async def membership_for_update(
+        self, support_group_id: UUID, user_id: UUID
+    ) -> MembershipStateRow | None:
+        row = (
+            await self._session.execute(
+                _MEMBERSHIP_FOR_UPDATE,
+                {"support_group_id": support_group_id, "user_id": user_id},
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        return MembershipStateRow(member_role=row.member_role, active_flag=row.active_flag)
+
+    async def upsert_queue_member(
+        self, support_group_id: UUID, user_id: UUID, *, member_role: str
+    ) -> None:
+        await self._session.execute(
+            _UPSERT_MEMBER,
+            {
+                "support_group_id": support_group_id,
+                "user_id": user_id,
+                "member_role": member_role,
+            },
+        )
+
+    async def deactivate_queue_member(self, support_group_id: UUID, user_id: UUID) -> int:
+        result = cast(
+            "CursorResult[Any]",
+            await self._session.execute(
+                _DEACTIVATE_MEMBER,
+                {"support_group_id": support_group_id, "user_id": user_id},
+            ),
+        )
+        return int(result.rowcount or 0)
+
+    async def record_admin_action(
+        self,
+        tenant_id: UUID,
+        *,
+        actor_id: UUID | None,
+        action_code: str,
+        resource_type: str,
+        resource_id: str,
+        change_summary: dict[str, Any],
+    ) -> None:
+        await self._session.execute(
+            _INSERT_ADMIN_AUDIT_EVENT,
+            {
+                "tenant_id": tenant_id,
+                "actor_id": str(actor_id) if actor_id else None,
+                "action_code": action_code,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "change_summary": json.dumps(change_summary, separators=(",", ":")),
+            },
         )

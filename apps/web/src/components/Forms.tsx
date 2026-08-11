@@ -203,17 +203,21 @@ export function ConfirmationDialog({
   cancelLabel = "Cancel",
   children,
   confirmLabel = "Confirm",
+  confirmVariant = "primary",
   onCancel,
   onConfirm,
   open,
+  pending = false,
   title,
 }: {
   cancelLabel?: string;
   children: ReactNode;
   confirmLabel?: string;
+  confirmVariant?: "danger" | "primary";
   onCancel: () => void;
   onConfirm: () => void;
   open: boolean;
+  pending?: boolean;
   title: string;
 }) {
   const titleId = useId();
@@ -243,10 +247,12 @@ export function ConfirmationDialog({
       <h2 id={titleId}>{title}</h2>
       {children}
       <div className="dialog-actions">
-        <Button onClick={onCancel} variant="secondary">
+        <Button disabled={pending} onClick={onCancel} variant="secondary">
           {cancelLabel}
         </Button>
-        <Button onClick={onConfirm}>{confirmLabel}</Button>
+        <Button disabled={pending} onClick={onConfirm} variant={confirmVariant}>
+          {confirmLabel}
+        </Button>
       </div>
     </dialog>
   );

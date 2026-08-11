@@ -10,11 +10,17 @@ from apps.api.app.admin.schemas import (
     AdminOverviewResponse,
     AdminQueueDetailResponse,
     AdminQueueListResponse,
+    AdminQueueMemberChangeResponse,
+    AdminQueueMemberRequest,
+    AdminRoleAssignmentChangeResponse,
+    AdminRoleAssignRequest,
     AdminRoleDetailResponse,
     AdminRoleListResponse,
     AdminTicketViewListResponse,
     AdminUserDetailResponse,
     AdminUserListResponse,
+    AdminUserStatusRequest,
+    AdminUserStatusResponse,
     AuditEventListResponse,
     DecisionCode,
     OutcomeCode,
@@ -44,6 +50,17 @@ DETAIL_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ProblemResponse, "description": "Administration resource not found"},
 }
 _IDENTITY_READ = Depends(require_permission(Permission.ADMIN_IDENTITY_READ, privileged_access=True))
+_IDENTITY_WRITE = Depends(
+    require_permission(Permission.ADMIN_IDENTITY_WRITE, privileged_access=True)
+)
+MUTATION_ERRORS: dict[int | str, dict[str, Any]] = {
+    **DETAIL_ERRORS,
+    409: {
+        "model": ProblemResponse,
+        "description": "Concurrent modification or administrator safeguard conflict",
+    },
+}
+RoleCode = Annotated[str, Path(pattern="^[A-Z][A-Z0-9_]{0,59}$")]
 
 
 def _service(request: Request) -> AdminService:
@@ -159,6 +176,76 @@ async def admin_ticket_views(
     offset: Offset = 0,
 ) -> AdminTicketViewListResponse:
     return await _service(request).ticket_views(context, limit=limit, offset=offset)
+
+
+@router.patch(
+    "/users/{user_id}/status",
+    response_model=AdminUserStatusResponse,
+    responses=MUTATION_ERRORS,
+)
+async def admin_user_status(
+    request: Request,
+    context: Annotated[RequestContext, _IDENTITY_WRITE],
+    user_id: UUID,
+    payload: AdminUserStatusRequest,
+) -> AdminUserStatusResponse:
+    return await _service(request).set_user_status(context, user_id, payload)
+
+
+@router.post(
+    "/users/{user_id}/roles",
+    response_model=AdminRoleAssignmentChangeResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_assign_role(
+    request: Request,
+    context: Annotated[RequestContext, _IDENTITY_WRITE],
+    user_id: UUID,
+    payload: AdminRoleAssignRequest,
+) -> AdminRoleAssignmentChangeResponse:
+    return await _service(request).assign_role(context, user_id, payload)
+
+
+@router.delete(
+    "/users/{user_id}/roles/{role_code}",
+    response_model=AdminRoleAssignmentChangeResponse,
+    responses=MUTATION_ERRORS,
+)
+async def admin_remove_role(
+    request: Request,
+    context: Annotated[RequestContext, _IDENTITY_WRITE],
+    user_id: UUID,
+    role_code: RoleCode,
+) -> AdminRoleAssignmentChangeResponse:
+    return await _service(request).remove_role(context, user_id, role_code)
+
+
+@router.post(
+    "/queues/{support_group_id}/members",
+    response_model=AdminQueueMemberChangeResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_add_queue_member(
+    request: Request,
+    context: Annotated[RequestContext, _IDENTITY_WRITE],
+    support_group_id: UUID,
+    payload: AdminQueueMemberRequest,
+) -> AdminQueueMemberChangeResponse:
+    return await _service(request).add_queue_member(context, support_group_id, payload)
+
+
+@router.delete(
+    "/queues/{support_group_id}/members/{user_id}",
+    response_model=AdminQueueMemberChangeResponse,
+    responses=DETAIL_ERRORS,
+)
+async def admin_remove_queue_member(
+    request: Request,
+    context: Annotated[RequestContext, _IDENTITY_WRITE],
+    support_group_id: UUID,
+    user_id: UUID,
+) -> AdminQueueMemberChangeResponse:
+    return await _service(request).remove_queue_member(context, support_group_id, user_id)
 
 
 @router.get("/audit/events", response_model=AuditEventListResponse, responses=ERRORS)

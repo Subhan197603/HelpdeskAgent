@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 OutcomeCode = Literal["SUCCESS", "DENIED", "FAILED", "PARTIAL"]
 DecisionCode = Literal["ALLOWED", "DENIED"]
@@ -230,3 +230,38 @@ class AdminQueueDetailResponse(BaseModel):
 class AdminTicketViewListResponse(BaseModel):
     items: list[AdminTicketViewSummary]
     has_more: bool
+
+
+class AdminUserStatusRequest(BaseModel):
+    active: bool
+    expected_updated_at: datetime
+
+
+class AdminUserStatusResponse(BaseModel):
+    user_id: UUID
+    active_flag: bool
+    updated_at: datetime
+    changed: bool
+
+
+class AdminRoleAssignRequest(BaseModel):
+    role_code: str = Field(pattern="^[A-Z][A-Z0-9_]{0,59}$")
+
+
+class AdminRoleAssignmentChangeResponse(BaseModel):
+    user_id: UUID
+    role_code: str
+    valid_from: datetime | None
+    changed: bool
+
+
+class AdminQueueMemberRequest(BaseModel):
+    user_id: UUID
+    member_role: MemberRole = "AGENT"
+
+
+class AdminQueueMemberChangeResponse(BaseModel):
+    support_group_id: UUID
+    user_id: UUID
+    member_role: MemberRole | None
+    changed: bool

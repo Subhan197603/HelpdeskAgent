@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { Icon, type IconName } from "./Icon";
 
-type ButtonVariant = "inverse" | "primary" | "secondary";
+type ButtonVariant = "danger" | "inverse" | "primary" | "secondary";
 
 function variantClassName(variant: ButtonVariant): string {
   if (variant === "inverse") return "button secondary button--inverse";

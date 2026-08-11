@@ -39,6 +39,7 @@ import {
 } from "./components/Badges";
 import { Button } from "./components/Button";
 import { ActivityFeed, DonutChart, formatDelta } from "./components/Dashboard";
+import { ConfirmationDialog } from "./components/Forms";
 import { SearchField } from "./components/SearchField";
 import { Tabs } from "./components/Tabs";
 import {
@@ -2742,6 +2743,8 @@ function AdminUsersPage() {
 function AdminUserDetailPage() {
   const { userId = "" } = useParams();
   const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
   const user = useQuery({
     queryKey: ["admin-user", userId],
     queryFn: async () =>
@@ -2752,6 +2755,89 @@ function AdminUserDetailPage() {
       ),
   });
   const data = user.data;
+  const canWrite =
+    identity?.permission_codes.includes("ADMIN_IDENTITY_WRITE") ?? false;
+  const canMutate = canWrite && identity?.user_id !== userId;
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [roleToAdd, setRoleToAdd] = useState("");
+  const [roleToRemove, setRoleToRemove] = useState<{
+    code: string;
+    name: string;
+  } | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const roleOptions = useQuery({
+    queryKey: ["admin-role-options"],
+    enabled: canMutate,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/roles", {
+          params: { query: { limit: 100 } },
+        }),
+      ),
+  });
+  const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ["admin-user", userId] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-roles"] });
+  };
+  const statusMutation = useMutation({
+    mutationFn: async () => {
+      if (!data) throw new Error("User is not loaded");
+      return unwrap(
+        await client.PATCH("/api/v1/admin/users/{user_id}/status", {
+          params: { path: { user_id: userId } },
+          body: {
+            active: !data.active_flag,
+            expected_updated_at: data.updated_at,
+          },
+        }),
+      );
+    },
+    onSuccess: (result) => {
+      setStatusDialogOpen(false);
+      setAnnouncement(
+        result.active_flag ? "User reactivated." : "User deactivated.",
+      );
+      refresh();
+    },
+  });
+  const addRoleMutation = useMutation({
+    mutationFn: async (roleCode: string) =>
+      unwrap(
+        await client.POST("/api/v1/admin/users/{user_id}/roles", {
+          params: { path: { user_id: userId } },
+          body: { role_code: roleCode },
+        }),
+      ),
+    onSuccess: (result) => {
+      setRoleToAdd("");
+      setAnnouncement(
+        result.changed
+          ? `Role ${humanizeCode(result.role_code)} assigned.`
+          : "Role was already assigned.",
+      );
+      refresh();
+    },
+  });
+  const removeRoleMutation = useMutation({
+    mutationFn: async (roleCode: string) =>
+      unwrap(
+        await client.DELETE("/api/v1/admin/users/{user_id}/roles/{role_code}", {
+          params: { path: { user_id: userId, role_code: roleCode } },
+        }),
+      ),
+    onSuccess: (result) => {
+      setRoleToRemove(null);
+      setAnnouncement(
+        result.changed
+          ? `Role ${humanizeCode(result.role_code)} removed.`
+          : "Role was not assigned.",
+      );
+      refresh();
+    },
+  });
+  const mutationError =
+    statusMutation.error ?? addRoleMutation.error ?? removeRoleMutation.error;
   return (
     <div className="page admin-page">
       <Breadcrumbs
@@ -2760,12 +2846,31 @@ function AdminUserDetailPage() {
           { label: data?.display_name ?? "User" },
         ]}
       />
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
       {user.isPending && <LoadingSkeleton label="Loading user" />}
       {user.error && <ErrorSummary error={user.error} />}
+      {mutationError != null && <ErrorSummary error={mutationError} />}
       {data && (
         <>
           <PageHeader
-            actions={<ActiveBadge active={data.active_flag} />}
+            actions={
+              <>
+                <ActiveBadge active={data.active_flag} />
+                {canMutate && (
+                  <Button
+                    onClick={() => {
+                      statusMutation.reset();
+                      setStatusDialogOpen(true);
+                    }}
+                    variant={data.active_flag ? "danger" : "primary"}
+                  >
+                    {data.active_flag ? "Deactivate user" : "Reactivate user"}
+                  </Button>
+                )}
+              </>
+            }
             description={data.email_address}
             eyebrow="User"
             title={data.display_name}
@@ -2801,6 +2906,38 @@ function AdminUserDetailPage() {
             </Panel>
           </div>
           <SectionHeader title="Roles" />
+          {canMutate && (
+            <TableToolbar label="Role assignment">
+              <label className="sort-control">
+                Add role
+                <select
+                  onChange={(event) => {
+                    setRoleToAdd(event.target.value);
+                  }}
+                  value={roleToAdd}
+                >
+                  <option value="">Choose a role</option>
+                  {(roleOptions.data?.items ?? [])
+                    .filter((role) => role.active_flag)
+                    .map((role) => (
+                      <option key={role.role_code} value={role.role_code}>
+                        {role.role_name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <Button
+                disabled={roleToAdd === "" || addRoleMutation.isPending}
+                onClick={() => {
+                  addRoleMutation.reset();
+                  addRoleMutation.mutate(roleToAdd);
+                }}
+                variant="secondary"
+              >
+                Assign role
+              </Button>
+            </TableToolbar>
+          )}
           <DataTable
             caption="Assigned roles"
             columns={[
@@ -2832,6 +2969,28 @@ function AdminUserDetailPage() {
                   <ActiveBadge active={row.active_flag} />
                 ),
               },
+              ...(canMutate
+                ? [
+                    {
+                      header: "Actions",
+                      key: "actions",
+                      render: (row: (typeof data.roles)[number]) => (
+                        <Button
+                          onClick={() => {
+                            removeRoleMutation.reset();
+                            setRoleToRemove({
+                              code: row.role_code,
+                              name: row.role_name,
+                            });
+                          }}
+                          variant="secondary"
+                        >
+                          Remove
+                        </Button>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
             empty={
               <EmptyState
@@ -2950,6 +3109,59 @@ function AdminUserDetailPage() {
               ))}
             </ul>
           )}
+          <ConfirmationDialog
+            confirmLabel={data.active_flag ? "Deactivate" : "Reactivate"}
+            confirmVariant={data.active_flag ? "danger" : "primary"}
+            onCancel={() => {
+              setStatusDialogOpen(false);
+            }}
+            onConfirm={() => {
+              statusMutation.mutate();
+            }}
+            open={statusDialogOpen}
+            pending={statusMutation.isPending}
+            title={
+              data.active_flag
+                ? `Deactivate ${data.display_name}?`
+                : `Reactivate ${data.display_name}?`
+            }
+          >
+            <p>
+              {data.active_flag
+                ? `${data.display_name} will no longer be able to sign in. ` +
+                  "Tickets, comments, and history remain unchanged."
+                : `${data.display_name} will be able to sign in again with ` +
+                  "their existing roles."}
+            </p>
+          </ConfirmationDialog>
+          <ConfirmationDialog
+            confirmLabel="Remove role"
+            confirmVariant="danger"
+            onCancel={() => {
+              setRoleToRemove(null);
+            }}
+            onConfirm={() => {
+              if (roleToRemove) removeRoleMutation.mutate(roleToRemove.code);
+            }}
+            open={roleToRemove !== null}
+            pending={removeRoleMutation.isPending}
+            title={
+              roleToRemove
+                ? `Remove the ${roleToRemove.name} role?`
+                : "Remove role"
+            }
+          >
+            <p>
+              {roleToRemove
+                ? `${data.display_name} will lose the ${roleToRemove.name} ` +
+                  `role${
+                    roleToRemove.code === "PLATFORM_ADMIN"
+                      ? " and all administrative access"
+                      : ""
+                  }.`
+                : ""}
+            </p>
+          </ConfirmationDialog>
         </>
       )}
     </div>
@@ -3309,9 +3521,13 @@ function AdminQueuesPage() {
   );
 }
 
+const MEMBER_ROLES = ["AGENT", "LEAD", "MANAGER", "OBSERVER"] as const;
+
 function AdminQueueDetailPage() {
   const { supportGroupId = "" } = useParams();
   const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
   const queue = useQuery({
     queryKey: ["admin-queue", supportGroupId],
     queryFn: async () =>
@@ -3322,6 +3538,73 @@ function AdminQueueDetailPage() {
       ),
   });
   const data = queue.data;
+  const canWrite =
+    identity?.permission_codes.includes("ADMIN_IDENTITY_WRITE") ?? false;
+  const [memberToAdd, setMemberToAdd] = useState("");
+  const [memberRole, setMemberRole] =
+    useState<(typeof MEMBER_ROLES)[number]>("AGENT");
+  const [memberToRemove, setMemberToRemove] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+  const [announcement, setAnnouncement] = useState("");
+  const userOptions = useQuery({
+    queryKey: ["admin-member-options"],
+    enabled: canWrite,
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/users", {
+          params: { query: { limit: 100, active: true } },
+        }),
+      ),
+  });
+  const refresh = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["admin-queue", supportGroupId],
+    });
+    void queryClient.invalidateQueries({ queryKey: ["admin-queues"] });
+    void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+  };
+  const addMemberMutation = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.POST("/api/v1/admin/queues/{support_group_id}/members", {
+          params: { path: { support_group_id: supportGroupId } },
+          body: { user_id: memberToAdd, member_role: memberRole },
+        }),
+      ),
+    onSuccess: (result) => {
+      setMemberToAdd("");
+      setAnnouncement(
+        result.changed ? "Queue member added." : "User is already a member.",
+      );
+      refresh();
+    },
+  });
+  const removeMemberMutation = useMutation({
+    mutationFn: async (memberUserId: string) =>
+      unwrap(
+        await client.DELETE(
+          "/api/v1/admin/queues/{support_group_id}/members/{user_id}",
+          {
+            params: {
+              path: {
+                support_group_id: supportGroupId,
+                user_id: memberUserId,
+              },
+            },
+          },
+        ),
+      ),
+    onSuccess: (result) => {
+      setMemberToRemove(null);
+      setAnnouncement(
+        result.changed ? "Queue member removed." : "User was not a member.",
+      );
+      refresh();
+    },
+  });
+  const mutationError = addMemberMutation.error ?? removeMemberMutation.error;
   return (
     <div className="page admin-page">
       <Breadcrumbs
@@ -3330,8 +3613,12 @@ function AdminQueueDetailPage() {
           { label: data?.group_name ?? "Queue" },
         ]}
       />
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
       {queue.isPending && <LoadingSkeleton label="Loading queue" />}
       {queue.error && <ErrorSummary error={queue.error} />}
+      {mutationError != null && <ErrorSummary error={mutationError} />}
       {data && (
         <>
           <PageHeader
@@ -3358,6 +3645,53 @@ function AdminQueueDetailPage() {
             />
           </Panel>
           <SectionHeader title="Members" />
+          {canWrite && (
+            <TableToolbar label="Queue membership">
+              <label className="sort-control">
+                Add member
+                <select
+                  onChange={(event) => {
+                    setMemberToAdd(event.target.value);
+                  }}
+                  value={memberToAdd}
+                >
+                  <option value="">Choose a user</option>
+                  {(userOptions.data?.items ?? []).map((candidate) => (
+                    <option key={candidate.user_id} value={candidate.user_id}>
+                      {candidate.display_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="sort-control">
+                Member role
+                <select
+                  onChange={(event) => {
+                    setMemberRole(
+                      event.target.value as (typeof MEMBER_ROLES)[number],
+                    );
+                  }}
+                  value={memberRole}
+                >
+                  {MEMBER_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {humanizeCode(role)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button
+                disabled={memberToAdd === "" || addMemberMutation.isPending}
+                onClick={() => {
+                  addMemberMutation.reset();
+                  addMemberMutation.mutate();
+                }}
+                variant="secondary"
+              >
+                Add to queue
+              </Button>
+            </TableToolbar>
+          )}
           <DataTable
             caption="Queue members"
             columns={[
@@ -3389,6 +3723,28 @@ function AdminQueueDetailPage() {
                   <ActiveBadge active={row.active_flag} />
                 ),
               },
+              ...(canWrite
+                ? [
+                    {
+                      header: "Actions",
+                      key: "actions",
+                      render: (row: (typeof data.members)[number]) => (
+                        <Button
+                          onClick={() => {
+                            removeMemberMutation.reset();
+                            setMemberToRemove({
+                              userId: row.user_id,
+                              name: row.display_name,
+                            });
+                          }}
+                          variant="secondary"
+                        >
+                          Remove
+                        </Button>
+                      ),
+                    },
+                  ]
+                : []),
             ]}
             empty={
               <EmptyState
@@ -3450,6 +3806,31 @@ function AdminQueueDetailPage() {
             getRowKey={(row) => row.queue_id}
             rows={data.ticket_views}
           />
+          <ConfirmationDialog
+            confirmLabel="Remove member"
+            confirmVariant="danger"
+            onCancel={() => {
+              setMemberToRemove(null);
+            }}
+            onConfirm={() => {
+              if (memberToRemove)
+                removeMemberMutation.mutate(memberToRemove.userId);
+            }}
+            open={memberToRemove !== null}
+            pending={removeMemberMutation.isPending}
+            title={
+              memberToRemove
+                ? `Remove ${memberToRemove.name} from ${data.group_name}?`
+                : "Remove member"
+            }
+          >
+            <p>
+              {memberToRemove
+                ? `Tickets currently assigned to ${memberToRemove.name} stay ` +
+                  "assigned and may need manual reassignment."
+                : ""}
+            </p>
+          </ConfirmationDialog>
         </>
       )}
     </div>

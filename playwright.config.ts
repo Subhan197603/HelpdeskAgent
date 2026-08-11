@@ -21,7 +21,7 @@ export default defineConfig({
   projects: [
     {
       name: "functional-chromium",
-      testMatch: /ticket-vertical-slice\.spec\.ts/,
+      testMatch: /(ticket-vertical-slice|admin-mutations)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { height: 800, width: 1280 },

@@ -380,6 +380,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/queues/{support_group_id}/members": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Add Queue Member */
+    post: operations["admin_add_queue_member_api_v1_admin_queues__support_group_id__members_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/queues/{support_group_id}/members/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Remove Queue Member */
+    delete: operations["admin_remove_queue_member_api_v1_admin_queues__support_group_id__members__user_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/roles": {
     parameters: {
       query?: never;
@@ -480,6 +514,57 @@ export interface paths {
     options?: never;
     head?: never;
     patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}/roles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Admin Assign Role */
+    post: operations["admin_assign_role_api_v1_admin_users__user_id__roles_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}/roles/{role_code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Admin Remove Role */
+    delete: operations["admin_remove_role_api_v1_admin_users__user_id__roles__role_code__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/users/{user_id}/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Admin User Status */
+    patch: operations["admin_user_status_api_v1_admin_users__user_id__status_patch"];
     trace?: never;
   };
   "/api/v1/agent/dashboard": {
@@ -1555,6 +1640,23 @@ export interface components {
       /** Items */
       items: components["schemas"]["AdminQueueSummary"][];
     };
+    /** AdminQueueMemberChangeResponse */
+    AdminQueueMemberChangeResponse: {
+      /** Changed */
+      changed: boolean;
+      /** Member Role */
+      member_role: ("AGENT" | "LEAD" | "MANAGER" | "OBSERVER") | null;
+      /**
+       * Support Group Id
+       * Format: uuid
+       */
+      support_group_id: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
     /** AdminQueueMemberItem */
     AdminQueueMemberItem: {
       /** Active Flag */
@@ -1568,6 +1670,20 @@ export interface components {
       joined_at: string;
       /** Member Role */
       member_role: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
+    /** AdminQueueMemberRequest */
+    AdminQueueMemberRequest: {
+      /**
+       * Member Role
+       * @default AGENT
+       * @enum {string}
+       */
+      member_role: "AGENT" | "LEAD" | "MANAGER" | "OBSERVER";
       /**
        * User Id
        * Format: uuid
@@ -1603,6 +1719,25 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** AdminRoleAssignRequest */
+    AdminRoleAssignRequest: {
+      /** Role Code */
+      role_code: string;
+    };
+    /** AdminRoleAssignmentChangeResponse */
+    AdminRoleAssignmentChangeResponse: {
+      /** Changed */
+      changed: boolean;
+      /** Role Code */
+      role_code: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+      /** Valid From */
+      valid_from: string | null;
     };
     /** AdminRoleAssignmentItem */
     AdminRoleAssignmentItem: {
@@ -1785,6 +1920,33 @@ export interface components {
       valid_from: string;
       /** Valid To */
       valid_to: string | null;
+    };
+    /** AdminUserStatusRequest */
+    AdminUserStatusRequest: {
+      /** Active */
+      active: boolean;
+      /**
+       * Expected Updated At
+       * Format: date-time
+       */
+      expected_updated_at: string;
+    };
+    /** AdminUserStatusResponse */
+    AdminUserStatusResponse: {
+      /** Active Flag */
+      active_flag: boolean;
+      /** Changed */
+      changed: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
     };
     /** AdminUserSummary */
     AdminUserSummary: {
@@ -6353,6 +6515,127 @@ export interface operations {
       };
     };
   };
+  admin_add_queue_member_api_v1_admin_queues__support_group_id__members_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        support_group_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminQueueMemberRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminQueueMemberChangeResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_remove_queue_member_api_v1_admin_queues__support_group_id__members__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        support_group_id: string;
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminQueueMemberChangeResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   admin_roles_api_v1_admin_roles_get: {
     parameters: {
       query?: {
@@ -6657,6 +6940,207 @@ export interface operations {
       };
       /** @description Administration resource not found */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_assign_role_api_v1_admin_users__user_id__roles_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminRoleAssignRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRoleAssignmentChangeResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_remove_role_api_v1_admin_users__user_id__roles__role_code__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+        role_code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminRoleAssignmentChangeResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Concurrent modification or administrator safeguard conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  admin_user_status_api_v1_admin_users__user_id__status_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdminUserStatusRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AdminUserStatusResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Administration resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Concurrent modification or administrator safeguard conflict */
+      409: {
         headers: {
           [name: string]: unknown;
         };

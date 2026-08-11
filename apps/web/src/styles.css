@@ -753,6 +753,13 @@ h3 {
   border-color: var(--color-border-strong);
   color: var(--color-text);
 }
+.danger {
+  background: var(--color-danger);
+  color: #fff;
+}
+.danger:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
 .button--inverse {
   background: transparent;
   border-color: rgb(255 255 255 / 65%);
@@ -1001,6 +1008,7 @@ h3 {
 .details dd,
 .metadata-grid dd {
   margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
 }
 .confirmation-dialog {
   border: 0;
@@ -1480,6 +1488,13 @@ h3 {
 }
 .sort-control select {
   width: auto;
+}
+.table-toolbar .sort-control {
+  max-width: 100%;
+  min-width: 0;
+}
+.table-toolbar .sort-control select {
+  max-width: min(100%, 260px);
 }
 
 @media (max-width: 1279px) {
