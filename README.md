@@ -1,6 +1,12 @@
 # Fusion AI Helpdesk
 
-This repository contains the modular-monolith scaffold, approved initial PostgreSQL physical baseline, and FastAPI application foundation for the Fusion AI Helpdesk described in [BUILD_SPEC.md](BUILD_SPEC.md). Business behavior remains deferred.
+This repository contains the modular-monolith Fusion AI Helpdesk described in
+[BUILD_SPEC.md](BUILD_SPEC.md). The initial production roadmap is frozen as
+`v1.0.0` at commit `cc9d76885e181230bd91f5b9bfd0605a9b23fb07`;
+`develop` contains separately governed post-v1 Milestone 11 work. See the
+[master approval orchestrator](CODEX_MASTER_APPROVAL_ORCHESTRATOR.md) and
+[product backlog](docs/PRODUCT_BACKLOG.md) for verified status and authorization
+boundaries.
 
 ## Prerequisites
 

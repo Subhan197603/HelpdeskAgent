@@ -11,11 +11,11 @@ Codex must use it to:
 3. Validate the current task using its task-specific gate.
 4. Correct only in-scope defects.
 5. Present a completion and risk report.
-6. Ask the human owner for explicit approval.
-7. Continue only after the owner gives the exact approval phrase.
-8. Commit and tag the approved task.
-9. Implement exactly one next task.
-10. Stop again for review and approval.
+6. Present an implementation plan and ask the human owner for explicit approval.
+7. Implement only after the owner gives the exact plan-approval phrase.
+8. Fully validate the implementation and stop for explicit commit approval.
+9. Commit, tag, verify, and push only after the exact commit-approval phrase.
+10. Stop. A new task requires its own plan and approval cycle.
 
 Codex must never run unattended through multiple unreviewed tasks.
 
@@ -48,9 +48,14 @@ For execution control, this document decomposes Milestones 4 through 10 into
 smaller reviewable tasks. That decomposition is operational only. It does not
 add scope beyond the milestone deliverables and acceptance criteria.
 
-The project reaches its initial production-complete state after Milestone 10 is
-approved. Items listed as Future Milestones in `docs/PRODUCT_BACKLOG.md` remain
-deferred unless the owner separately assigns them.
+The initial production roadmap reached completion after Milestone 10 and is
+frozen as `v1.0.0` at commit
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07`. Milestone 11 is post-v1
+development on `develop`; none of it is part of `v1.0.0`.
+
+Items listed as Future Milestones in `docs/PRODUCT_BACKLOG.md`, including the
+remaining Milestone 11 administration tasks, remain deferred unless the owner
+separately assigns and approves a task-specific plan.
 
 ---
 
@@ -58,7 +63,12 @@ deferred unless the owner separately assigns them.
 
 ## 1.1 Mandatory Pause
 
-At the end of every task, Codex must stop and display:
+Before implementation, Codex must present a bounded plan and stop for the exact
+plan-approval phrase defined for the task. Plan approval authorizes only the
+planned implementation; it does not authorize a commit, tag, push, deployment,
+or another task.
+
+After implementation and full validation, Codex must stop and display:
 
 ```text
 TASK REVIEW READY
@@ -68,21 +78,24 @@ Validation result: PASS | FAIL
 Commit status: uncommitted
 Recommended next task: Milestone A, Task A.B — <name>
 
-To approve, reply exactly:
-APPROVE MILESTONE X TASK X.Y
+To approve the commit, tag, verification, and push, reply exactly:
+APPROVE MILESTONE X TASK X.Y COMMIT
 
 To reject or request changes, describe the required corrections.
 ```
 
-Codex must not commit, tag, or begin the next task until the exact approval is
-received.
+Codex must not commit, tag, push, or begin another task until the exact current
+approval is received.
 
 ## 1.2 Approval Meaning
 
-When the owner replies:
+When the owner gives the exact plan-approval phrase, Codex may implement only
+the approved plan, validate it fully, and stop for commit approval.
+
+When the owner then replies:
 
 ```text
-APPROVE MILESTONE X TASK X.Y
+APPROVE MILESTONE X TASK X.Y COMMIT
 ```
 
 Codex must:
@@ -96,10 +109,14 @@ Codex must:
 7. Create the task registry's annotated or lightweight tag according to the
    repository's existing convention.
 8. Verify the commit and tag.
-9. Begin exactly one next task.
-10. Stop when that next task is implemented and fully validated.
+9. Push the verified commit and tag when push is in scope.
+10. Stop and await a separately planned and approved next task.
 
-Approval does not authorize Codex to implement two or more future tasks.
+Neither approval authorizes Codex to begin a future task automatically.
+
+Single approval phrases retained in completed historical task gates record the
+workflow used at the time. They are not active authorization and must not be
+reused to bypass the current plan and commit approval gates.
 
 ## 1.3 Rejection or Correction
 
@@ -205,25 +222,37 @@ Use this when:
 - The working tree contains unrelated changes that cannot be separated.
 - A task requires a deferred feature not authorized by the roadmap.
 
-## 2.2 Current Expected Status
+## 2.2 Current Verified Status
 
-At the time this document was created, the expected project state was:
+This snapshot records repository evidence as of the Milestone 11 governance
+reconciliation. Codex must still reverify it before every task.
 
 ```yaml
-last_approved_task:
-  milestone: 3
-  task: 3.1
-  name: Service catalogue and dynamic request-form foundation
-  possible_status: implemented_uncommitted_or_pending_review
-
-next_task:
-  milestone: 3
-  task: 3.2
-  name: Ticket draft and submission foundation
+branch: develop
+develop_commit: cc47d12fb716b3f4bd659931e19aabda8d1ea494
+origin_develop_commit: cc47d12fb716b3f4bd659931e19aabda8d1ea494
+development_migration_head: 0022_admin_config_privileges
+production_commit: cc9d76885e181230bd91f5b9bfd0605a9b23fb07
+production_tag: v1.0.0
+production_migration_head: 0020_reporting_views
+latest_completed_task: milestone-11-task-11.5c
+remaining_tasks:
+  - milestone-11-task-11.5d: NOT_STARTED_UNAUTHORIZED
+  - milestone-11-task-11.5e: NOT_STARTED_UNAUTHORIZED
+tracked_working_tree: clean
 ```
 
-Codex must verify this from the repository. Do not trust this expectation when
-Git, migrations, code, or tests show a different state.
+The following local-only paths are outside tracked product work and must not be
+edited merely to satisfy formatting or validation:
+
+```text
+backups/
+docker-compose.keycloak.local.yml
+docker-compose.production.yml
+docker-compose.staging.yml
+production-deployment-plan.md
+staging-uat-report.md
+```
 
 ---
 
@@ -384,6 +413,40 @@ documented alternative.
 
 Before using a registry entry, verify that the task exists in this roadmap and
 that no conflicting convention has already been approved.
+
+## 4.1 Verified Post-v1 Milestone 11 Register
+
+The following completed tasks are historical facts verified from Git tags and
+commits. They are post-v1 development and are not part of `v1.0.0`.
+
+| Task  | Capability                                                      | Tag                       | Commit                                     |
+| ----- | --------------------------------------------------------------- | ------------------------- | ------------------------------------------ |
+| 11.1  | Shared design system and application chrome                     | `milestone-11-task-11.1`  | `0396cccb0aba6ae0813eeb01f5604dcffe6193f6` |
+| 11.2  | Analyst dashboard                                               | `milestone-11-task-11.2`  | `389ecfd6e50d3f8ea6b59094c4007eb80e13059b` |
+| 11.3  | Ticket-detail alignment                                         | `milestone-11-task-11.3`  | `4a5f944d744231b46e657a51dd57989014a6855e` |
+| 11.4  | Knowledge Base browsing and search                              | `milestone-11-task-11.4`  | `95d50937c706313d7879b9544ef57bfb8ed6cb2f` |
+| 11.5A | Administration shell and overview                               | `milestone-11-task-11.5a` | `c40f536a703359ddb110190c43cc91800998fb28` |
+| 11.5B | Read-only identity, role, queue, and ticket-view administration | `milestone-11-task-11.5b` | `a8556e9f67623891a0663c2b80dfa295f5f98b82` |
+| 11.5F | Access-administration mutations                                 | `milestone-11-task-11.5f` | `b461fa86e7616ed95d3f04009e46255895569b97` |
+| 11.5C | Workflow, SLA, calendar, and catalogue administration           | `milestone-11-task-11.5c` | `cc47d12fb716b3f4bd659931e19aabda8d1ea494` |
+
+Git ancestry places 11.5F before 11.5C. Preserve the recorded history; do not
+renumber, recreate, or move these tags.
+
+## 4.2 Milestone 11 Governance Reconciliation Checkpoint
+
+The documentation-only reconciliation uses:
+
+```text
+Commit: docs(governance): reconcile milestone 11 repository status
+Tag: milestone-11-governance-reconciliation
+```
+
+Implementation was authorized by
+`APPROVE MILESTONE 11 GOVERNANCE RECONCILIATION`. Commit, tag, verification,
+and push require the separate exact phrase
+`APPROVE MILESTONE 11 GOVERNANCE RECONCILIATION COMMIT`. This checkpoint does
+not authorize Tasks 11.5D or 11.5E.
 
 ---
 
@@ -1291,6 +1354,91 @@ After approval, the initial project roadmap is complete.
 
 ---
 
+## Milestone 11 — Post-v1 User Experience and Administration
+
+Milestone 11 is post-v1 development on `develop`. Git tags and commits are the
+definitive completion evidence for the following tasks:
+
+### Completed task record
+
+- **11.1 — Shared design system and application chrome:** semantic design
+  tokens, self-hosted typography, permission-driven responsive navigation,
+  shared accessible controls, and visual baselines.
+- **11.2 — Analyst dashboard:** tenant-scoped dashboard aggregates, SLA and
+  ticket status summaries, recent activity, primary queue, and responsive UI.
+- **11.3 — Ticket-detail alignment:** enriched analyst ticket detail,
+  assignment, SLA and attachment metadata, activity views, generated API
+  contracts, and responsive visual coverage.
+- **11.4 — Knowledge Base browsing and search:** permission-aware employee and
+  analyst article listing, article detail, evidence search, filters, and visual
+  coverage.
+- **11.5A — Administration shell and overview:** tenant overview, secret-free
+  system status, audit and security-event viewers, and privileged-access
+  events.
+- **11.5B — Read-only access administration:** tenant-scoped users, roles,
+  permissions, queues, memberships, identity summaries, security history, and
+  ticket views without sensitive identity metadata.
+- **11.5F — Access-administration mutations:** user activation, role and queue
+  membership changes behind `ADMIN_IDENTITY_WRITE`, with self-mutation
+  prevention, last-admin locking, optimistic concurrency, privileged-grant
+  boundaries, tenant isolation, and audit/security events. Migration
+  `0021_admin_access_privileges` supplies only the required runtime grants.
+- **11.5C — Configuration administration:** read-only workflow, SLA, calendar,
+  and catalogue administration plus guarded catalogue visibility behind
+  `ADMIN_CONFIG_WRITE`. Migration `0022_admin_config_privileges` grants only
+  the two request-type columns required by that mutation.
+
+### Task 11.5D — Knowledge Administration
+
+Status: `NOT_STARTED_UNAUTHORIZED`.
+
+This is a planning candidate for administration of the existing governed
+knowledge lifecycle. Exact APIs, mutations, permissions, migrations,
+acceptance criteria, and tests require a separate task-specific plan and human
+approval. This entry does not authorize implementation.
+
+Required workflow:
+
+```text
+PLAN
+→ human approval
+→ IMPLEMENT
+→ full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push
+→ stop
+```
+
+### Task 11.5E — AI Governance
+
+Status: `NOT_STARTED_UNAUTHORIZED`.
+
+This is a planning candidate for administration of existing AI governance and
+oversight controls. Exact configuration operations, permissions, migrations,
+acceptance criteria, and tests require a separate task-specific plan and human
+approval. This entry does not authorize implementation.
+
+Required workflow:
+
+```text
+PLAN
+→ human approval
+→ IMPLEMENT
+→ full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push
+→ stop
+```
+
+Neither remaining task has an active implementation or commit approval phrase.
+Do not create one until its detailed plan is assigned and reviewed.
+
+---
+
 # 6. Project Completion Gate
 
 Codex must not declare the project complete until all of the following are true:
@@ -1323,6 +1471,12 @@ Deferred backlog: unchanged and documented
 
 Do not automatically start Future Milestones.
 
+This completion gate describes the historical initial production roadmap.
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with migration head
+`0020_reporting_views`. No Milestone 11 work is part of that release, and no
+production image publication or deployment is authorized by this document.
+
 ---
 
 # 7. Future Backlog Boundary
@@ -1337,6 +1491,11 @@ approved and assigned:
 - Extended ITSM
 - Assets and full CMDB
 - Additional production operations beyond Milestone 10 commitments
+
+Milestone 11 Tasks 11.5D and 11.5E are named post-v1 planning candidates, not
+active tasks. Their bounded descriptions do not authorize implementation.
+Broader advanced knowledge and AI operations remain deferred even if one of
+those tasks is later planned.
 
 To begin one of these, require a new approved roadmap amendment with:
 
@@ -1361,19 +1520,22 @@ listed in it.
 Determine the repository's real status from Git, Alembic, code, tests,
 documentation, and generated contracts.
 
-Validate the current unapproved task using its complete task gate. Fix only
-in-scope defects. Run all required checks in the current working tree.
+Prepare a bounded plan for the assigned task and stop for its exact
+implementation-approval phrase. Do not implement before that approval.
+
+After approval, implement only the approved scope and run all required checks
+in the current working tree.
 
 When the task is review-ready, stop and present the required completion report
-and exact approval phrase.
+and exact commit-approval phrase.
 
-Do not commit, tag, or begin the next task until I provide the exact approval
-phrase defined for the current task.
+Do not commit, tag, verify, push, or begin another task until I provide the
+exact commit-approval phrase defined for the current task.
 
-After approval, commit and tag the approved task, implement exactly one next
-task, validate it fully, and stop for approval again.
+After commit approval, commit and tag the approved task, verify the references,
+push when authorized, and stop. A next task requires a new plan and approval.
 
-Never advance through more than one newly implemented task per approval.
+Never advance into a new task automatically.
 Never start Future Backlog work without a separately approved roadmap amendment.
 ```
 
@@ -1381,36 +1543,34 @@ Never start Future Backlog work without a separately approved roadmap amendment.
 
 # 9. Recommended Interaction Example
 
-Codex:
+Codex first presents a plan:
 
 ```text
-TASK REVIEW READY
+TASK PLAN READY
 
-Completed task: Milestone 3, Task 3.1 — Service catalogue and dynamic forms
-Validation result: PASS
-Commit status: uncommitted
-Recommended next task: Milestone 3, Task 3.2 — Ticket draft and submission
+Planned task: Milestone X, Task X.Y — <name>
+Implementation status: NOT STARTED
 
-To approve, reply exactly:
-APPROVE MILESTONE 3 TASK 3.1
+To authorize implementation, reply exactly:
+APPROVE MILESTONE X TASK X.Y PLAN
 ```
 
 Owner:
 
 ```text
-APPROVE MILESTONE 3 TASK 3.1
+APPROVE MILESTONE X TASK X.Y PLAN
 ```
 
 Codex then:
 
-1. Commits and tags Task 3.1.
-2. Implements Task 3.2.
-3. Runs the full Task 3.2 gate.
-4. Stops.
-5. Requests:
+1. Implements only Task X.Y.
+2. Runs the full Task X.Y gate.
+3. Stops with the review-ready report.
+4. Requests:
 
 ```text
-APPROVE MILESTONE 3 TASK 3.2
+APPROVE MILESTONE X TASK X.Y COMMIT
 ```
 
-This cycle repeats until Milestone 10, Task 10.3 is approved.
+Only after that exact commit approval may Codex commit, tag, verify, and push.
+It then stops; another task starts with a new plan.

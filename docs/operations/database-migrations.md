@@ -9,11 +9,35 @@ data. Alembic owns every reviewed database change after that baseline. Never pla
 
 Alembic records state in `config.alembic_version`. The `config` schema must already exist, which is
 one reason the marker cannot replace physical-baseline installation. The root revision,
-`0000_physical_baseline`, has empty upgrade and downgrade functions. The current head is
-`0008_attachment_lifecycle`; identity behavior is documented in the
+`0000_physical_baseline`, has empty upgrade and downgrade functions. Identity behavior is documented in the
 [developer identity guide](developer-identity.md), queue indexes are documented in the
 [analyst queue guide](analyst-queues-activity.md), and attachment lifecycle indexes and
 constraints are documented in the [attachment security guide](attachment-security.md).
+
+## Release lineage
+
+Production `main` and `v1.0.0` are frozen at commit
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07`. Their historical Alembic head is
+`0020_reporting_views`.
+
+Current development is `develop` at commit
+`cc47d12fb716b3f4bd659931e19aabda8d1ea494`, with Alembic head
+`0022_admin_config_privileges`.
+
+The only post-v1 revisions currently present are:
+
+```text
+0020_reporting_views
+→ 0021_admin_access_privileges
+→ 0022_admin_config_privileges
+```
+
+Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
+for access-administration mutations. Revision
+`0022_admin_config_privileges` grants only
+`UPDATE(active_flag, employee_visible_flag)` on `config.request_type` to the
+application runtime role. Never rewrite production history to imply that
+`v1.0.0` contains either revision.
 
 ## Adopt a new local database
 

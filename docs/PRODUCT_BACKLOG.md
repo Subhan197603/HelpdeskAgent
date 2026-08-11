@@ -81,6 +81,61 @@ management during this task.
 - Add delivery attempts and failure handling
 - Add in-app notifications
 
+## Post-v1 Milestone 11 — User Experience and Administration
+
+Milestone 11 is post-v1 development on `develop`. It is not part of the frozen
+`v1.0.0` production release at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07`.
+
+The following work is complete, as verified by its Git tag and commit:
+
+| Task  | Capability                                                      | Tag                       | Commit                                     |
+| ----- | --------------------------------------------------------------- | ------------------------- | ------------------------------------------ |
+| 11.1  | Shared design system and application chrome                     | `milestone-11-task-11.1`  | `0396cccb0aba6ae0813eeb01f5604dcffe6193f6` |
+| 11.2  | Analyst dashboard                                               | `milestone-11-task-11.2`  | `389ecfd6e50d3f8ea6b59094c4007eb80e13059b` |
+| 11.3  | Ticket-detail alignment                                         | `milestone-11-task-11.3`  | `4a5f944d744231b46e657a51dd57989014a6855e` |
+| 11.4  | Knowledge Base browsing and search                              | `milestone-11-task-11.4`  | `95d50937c706313d7879b9544ef57bfb8ed6cb2f` |
+| 11.5A | Administration shell and overview                               | `milestone-11-task-11.5a` | `c40f536a703359ddb110190c43cc91800998fb28` |
+| 11.5B | Read-only identity, role, queue, and ticket-view administration | `milestone-11-task-11.5b` | `a8556e9f67623891a0663c2b80dfa295f5f98b82` |
+| 11.5F | Access-administration mutations                                 | `milestone-11-task-11.5f` | `b461fa86e7616ed95d3f04009e46255895569b97` |
+| 11.5C | Workflow, SLA, calendar, and catalogue administration           | `milestone-11-task-11.5c` | `cc47d12fb716b3f4bd659931e19aabda8d1ea494` |
+
+Git ancestry places Task 11.5F before Task 11.5C. Preserve that history.
+
+### Task 11.5D — Knowledge Administration
+
+Status: `NOT_STARTED_UNAUTHORIZED`.
+
+This is a planning candidate for administration of the existing governed
+knowledge lifecycle. Exact APIs, mutations, permissions, migrations,
+acceptance criteria, and tests must be established in a separately approved
+task plan. This entry does not authorize implementation.
+
+### Task 11.5E — AI Governance
+
+Status: `NOT_STARTED_UNAUTHORIZED`.
+
+This is a planning candidate for administration of existing AI governance and
+oversight controls. Exact configuration operations, permissions, migrations,
+acceptance criteria, and tests must be established in a separately approved
+task plan. This entry does not authorize implementation.
+
+Both tasks must preserve tenant isolation, authorization, auditability,
+knowledge access controls, AI kill switches and budgets, tool controls, and
+evidence requirements. Each task must follow:
+
+```text
+PLAN
+→ human approval
+→ IMPLEMENT
+→ full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push
+→ stop
+```
+
 ## Future Milestone — Email Channel
 
 - Inbound mailbox integration
