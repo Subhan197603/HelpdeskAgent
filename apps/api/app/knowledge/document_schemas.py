@@ -43,6 +43,64 @@ class ProcessingVersionResponse(BaseModel):
     completed_at: datetime | None
 
 
+class DocumentAdminSummaryResponse(BaseModel):
+    id: UUID
+    source_id: UUID
+    source_name: str
+    title: str
+    document_type: str
+    audience_code: str
+    security_classification: str
+    approval_status: str
+    publication_state: Literal["UNPUBLISHED", "PUBLISHED", "RETIRED"]
+    active: bool
+    owner_group_name: str | None
+    current_version_number: int | None
+    published_at: datetime | None
+    row_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentAdminListResponse(BaseModel):
+    items: list[DocumentAdminSummaryResponse]
+    total: int
+    has_more: bool
+
+
+class DocumentPermissionSummaryResponse(BaseModel):
+    principal_type: str
+    permission_code: str
+    count: int
+
+
+class DocumentPublicationEventResponse(BaseModel):
+    id: UUID
+    document_version_id: UUID
+    processing_version_id: UUID
+    action_code: Literal["PUBLISHED", "RETIRED"]
+    actor_name: str
+    occurred_at: datetime
+
+
+class DocumentPreviewSectionResponse(BaseModel):
+    sequence: int
+    heading_path: str | None
+    section_title: str | None
+    section_anchor: str | None
+    page_number: int | None
+    content: str
+
+
+class DocumentPreviewResponse(BaseModel):
+    document_id: UUID
+    document_version_id: UUID
+    processing_version_id: UUID
+    items: list[DocumentPreviewSectionResponse]
+    total: int
+    has_more: bool
+
+
 class DocumentVersionResponse(BaseModel):
     id: UUID
     version_number: int
@@ -62,6 +120,7 @@ class DocumentAdminResponse(BaseModel):
     id: UUID
     scope: Literal["TENANT", "GLOBAL"]
     source_id: UUID
+    source_name: str
     title: str
     document_type: str
     audience_code: str
@@ -70,8 +129,14 @@ class DocumentAdminResponse(BaseModel):
     approved_by: UUID | None
     approved_at: datetime | None
     active: bool
+    owner_group_name: str | None
+    publication_state: Literal["UNPUBLISHED", "PUBLISHED", "RETIRED"]
+    current_version_number: int | None
+    published_at: datetime | None
     row_version: int
     created_at: datetime
     updated_at: datetime
     versions: list[DocumentVersionResponse]
+    permission_summary: list[DocumentPermissionSummaryResponse]
+    publication_events: list[DocumentPublicationEventResponse]
     replayed: bool = False

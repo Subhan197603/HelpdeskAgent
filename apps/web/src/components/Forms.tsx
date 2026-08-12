@@ -203,6 +203,7 @@ export function ConfirmationDialog({
   cancelLabel = "Cancel",
   children,
   confirmLabel = "Confirm",
+  confirmDisabled = false,
   confirmVariant = "primary",
   onCancel,
   onConfirm,
@@ -213,6 +214,7 @@ export function ConfirmationDialog({
   cancelLabel?: string;
   children: ReactNode;
   confirmLabel?: string;
+  confirmDisabled?: boolean;
   confirmVariant?: "danger" | "primary";
   onCancel: () => void;
   onConfirm: () => void;
@@ -250,7 +252,11 @@ export function ConfirmationDialog({
         <Button disabled={pending} onClick={onCancel} variant="secondary">
           {cancelLabel}
         </Button>
-        <Button disabled={pending} onClick={onConfirm} variant={confirmVariant}>
+        <Button
+          disabled={pending || confirmDisabled}
+          onClick={onConfirm}
+          variant={confirmVariant}
+        >
           {confirmLabel}
         </Button>
       </div>

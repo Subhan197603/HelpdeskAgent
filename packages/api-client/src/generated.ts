@@ -191,6 +191,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/documents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Documents */
+    get: operations["list_documents_api_v1_admin_knowledge_documents_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/documents/{document_id}": {
     parameters: {
       query?: never;
@@ -253,6 +270,23 @@ export interface paths {
     put?: never;
     /** Retire Document */
     post: operations["retire_document_api_v1_admin_knowledge_documents__document_id__retirement_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/documents/{document_id}/versions/{version_id}/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Preview Document Version */
+    get: operations["preview_document_version_api_v1_admin_knowledge_documents__document_id__versions__version_id__preview_get"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3463,6 +3497,15 @@ export interface components {
        */
       status: "healthy" | "unhealthy" | "disabled";
     };
+    /** DocumentAdminListResponse */
+    DocumentAdminListResponse: {
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["DocumentAdminSummaryResponse"][];
+      /** Total */
+      total: number;
+    };
     /** DocumentAdminResponse */
     DocumentAdminResponse: {
       /** Active */
@@ -3480,6 +3523,8 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Current Version Number */
+      current_version_number: number | null;
       /** Document Type */
       document_type: string;
       /**
@@ -3487,6 +3532,19 @@ export interface components {
        * Format: uuid
        */
       id: string;
+      /** Owner Group Name */
+      owner_group_name: string | null;
+      /** Permission Summary */
+      permission_summary: components["schemas"]["DocumentPermissionSummaryResponse"][];
+      /** Publication Events */
+      publication_events: components["schemas"]["DocumentPublicationEventResponse"][];
+      /**
+       * Publication State
+       * @enum {string}
+       */
+      publication_state: "UNPUBLISHED" | "PUBLISHED" | "RETIRED";
+      /** Published At */
+      published_at: string | null;
       /**
        * Replayed
        * @default false
@@ -3506,6 +3564,8 @@ export interface components {
        * Format: uuid
        */
       source_id: string;
+      /** Source Name */
+      source_name: string;
       /** Title */
       title: string;
       /**
@@ -3515,6 +3575,56 @@ export interface components {
       updated_at: string;
       /** Versions */
       versions: components["schemas"]["DocumentVersionResponse"][];
+    };
+    /** DocumentAdminSummaryResponse */
+    DocumentAdminSummaryResponse: {
+      /** Active */
+      active: boolean;
+      /** Approval Status */
+      approval_status: string;
+      /** Audience Code */
+      audience_code: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Current Version Number */
+      current_version_number: number | null;
+      /** Document Type */
+      document_type: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Owner Group Name */
+      owner_group_name: string | null;
+      /**
+       * Publication State
+       * @enum {string}
+       */
+      publication_state: "UNPUBLISHED" | "PUBLISHED" | "RETIRED";
+      /** Published At */
+      published_at: string | null;
+      /** Row Version */
+      row_version: number;
+      /** Security Classification */
+      security_classification: string;
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      /** Source Name */
+      source_name: string;
+      /** Title */
+      title: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
     };
     /** DocumentApprovalCommand */
     DocumentApprovalCommand: {
@@ -3527,6 +3637,84 @@ export interface components {
       expected_version: number;
       /** Reason */
       reason: string;
+    };
+    /** DocumentPermissionSummaryResponse */
+    DocumentPermissionSummaryResponse: {
+      /** Count */
+      count: number;
+      /** Permission Code */
+      permission_code: string;
+      /** Principal Type */
+      principal_type: string;
+    };
+    /** DocumentPreviewResponse */
+    DocumentPreviewResponse: {
+      /**
+       * Document Id
+       * Format: uuid
+       */
+      document_id: string;
+      /**
+       * Document Version Id
+       * Format: uuid
+       */
+      document_version_id: string;
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["DocumentPreviewSectionResponse"][];
+      /**
+       * Processing Version Id
+       * Format: uuid
+       */
+      processing_version_id: string;
+      /** Total */
+      total: number;
+    };
+    /** DocumentPreviewSectionResponse */
+    DocumentPreviewSectionResponse: {
+      /** Content */
+      content: string;
+      /** Heading Path */
+      heading_path: string | null;
+      /** Page Number */
+      page_number: number | null;
+      /** Section Anchor */
+      section_anchor: string | null;
+      /** Section Title */
+      section_title: string | null;
+      /** Sequence */
+      sequence: number;
+    };
+    /** DocumentPublicationEventResponse */
+    DocumentPublicationEventResponse: {
+      /**
+       * Action Code
+       * @enum {string}
+       */
+      action_code: "PUBLISHED" | "RETIRED";
+      /** Actor Name */
+      actor_name: string;
+      /**
+       * Document Version Id
+       * Format: uuid
+       */
+      document_version_id: string;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+      /**
+       * Processing Version Id
+       * Format: uuid
+       */
+      processing_version_id: string;
     };
     /** DocumentVersionResponse */
     DocumentVersionResponse: {
@@ -6248,6 +6436,87 @@ export interface operations {
       };
     };
   };
+  list_documents_api_v1_admin_knowledge_documents_get: {
+    parameters: {
+      query?: {
+        search?: string | null;
+        approval_status?:
+          | ("DRAFT" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "RETIRED")
+          | null;
+        publication_state?: ("UNPUBLISHED" | "PUBLISHED" | "RETIRED") | null;
+        audience_code?:
+          | ("EMPLOYEE" | "ANALYST" | "TECHNICAL_SPECIALIST" | "ADMIN" | "ALL")
+          | null;
+        security_classification?:
+          ("PUBLIC" | "INTERNAL" | "CONFIDENTIAL" | "RESTRICTED") | null;
+        document_type?: string | null;
+        source_id?: string | null;
+        owner_group_id?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentAdminListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge document not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication lifecycle conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   get_document_api_v1_admin_knowledge_documents__document_id__get: {
     parameters: {
       query?: never;
@@ -6485,6 +6754,78 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DocumentAdminResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge document not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication lifecycle conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Publication validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  preview_document_version_api_v1_admin_knowledge_documents__document_id__versions__version_id__preview_get: {
+    parameters: {
+      query: {
+        processing_version_id: string;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        document_id: string;
+        version_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DocumentPreviewResponse"];
         };
       };
       /** @description Authentication required */

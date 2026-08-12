@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 
@@ -10,6 +11,7 @@ class DocumentRecord:
     document_id: UUID
     tenant_id: UUID | None
     source_id: UUID
+    source_name: str
     title: str
     document_type: str
     audience_code: str
@@ -18,9 +20,57 @@ class DocumentRecord:
     approved_by: UUID | None
     approved_at: datetime | None
     active: bool
+    owner_group_name: str | None
     row_version: int
     created_at: datetime
     updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSummaryRecord:
+    document_id: UUID
+    source_id: UUID
+    source_name: str
+    title: str
+    document_type: str
+    audience_code: str
+    security_classification: str
+    approval_status: str
+    active: bool
+    owner_group_name: str | None
+    current_version_number: int | None
+    published_at: datetime | None
+    row_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PermissionSummaryRecord:
+    principal_type: str
+    permission_code: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationEventRecord:
+    publication_event_id: UUID
+    document_version_id: UUID
+    processing_version_id: UUID
+    action_code: Literal["PUBLISHED", "RETIRED"]
+    actor_name: str
+    occurred_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PreviewSectionRecord:
+    sequence: int
+    heading_path: str | None
+    section_title: str | None
+    section_anchor: str | None
+    page_number: int | None
+    content: str
+    total: int
 
 
 @dataclass(frozen=True, slots=True)

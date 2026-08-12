@@ -16,6 +16,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from apps.api.app.attachments.clamav import MalwareScanner, ScanResult
@@ -25,6 +26,7 @@ from apps.api.app.db.engine import Database
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService
 from apps.api.app.infrastructure.health import ApplicationResources
+from apps.api.app.knowledge.document_repository import KnowledgeDocumentRepository
 from apps.api.app.main import create_app
 from apps.api.app.retrieval.models import (
     RetrievalCandidates,
@@ -49,7 +51,7 @@ from ingestion.embeddings import (
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-acquisition-test"
-PORT = "55463"
+PORT = "55555"
 DATABASE = "acquisition_test"
 TENANT_ID = "20000000-0000-0000-0000-000000000001"
 AUTHOR_ID = "22000000-0000-0000-0000-000000000007"
@@ -363,6 +365,45 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
     return cast("dict[str, Any]", response.json())
 
 
+@pytest.mark.integration
+def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
+    assert _value("SELECT version_num FROM config.alembic_version") == "0023_knowledge_admin_index"
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
+            "AND indexname='document_admin_title_trgm_ix'"
+        )
+        == "1"
+    )
+    for table in (
+        "document",
+        "document_version",
+        "document_processing_version",
+        "document_chunk",
+        "chunk_embedding_1536",
+        "document_permission",
+        "document_publication_event",
+    ):
+        assert _value(f"SELECT has_table_privilege('helpdesk_app','kb.{table}','SELECT')") == "t"
+    for table in ("document", "document_version", "document_permission"):
+        assert _value(f"SELECT has_table_privilege('helpdesk_app','kb.{table}','INSERT')") == "f"
+    for table in (
+        "document",
+        "document_version",
+        "document_processing_version",
+        "document_chunk",
+        "chunk_embedding_1536",
+        "document_permission",
+        "document_publication_event",
+    ):
+        assert _value(f"SELECT has_table_privilege('helpdesk_app','kb.{table}','DELETE')") == "f"
+    denied = _psql(
+        "SET ROLE helpdesk_app; DELETE FROM kb.document WHERE false",
+        check=False,
+    )
+    assert denied.returncode != 0
+
+
 async def _process(
     storage: MemoryStorage,
     fetcher: SequenceFetcher,
@@ -391,6 +432,62 @@ async def _process(
         one, two = await asyncio.gather(first.process_one(), second.process_one())
         return one, two
     finally:
+        await engine.dispose()
+
+
+async def _admin_statement_counts(
+    document_id: UUID, version_id: UUID, processing_id: UUID
+) -> tuple[int, int, int]:
+    engine = create_async_engine(
+        f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"
+    )
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    statements: list[str] = []
+
+    def count_statement(*args: object) -> None:
+        statements.append(str(args[2]))
+
+    event.listen(engine.sync_engine, "before_cursor_execute", count_statement)
+    try:
+        async with sessions() as session:
+            repo = KnowledgeDocumentRepository(session)
+            await repo.documents(
+                UUID(TENANT_ID),
+                search="Policy",
+                approval_status=None,
+                publication_state=None,
+                audience_code=None,
+                security_classification=None,
+                document_type=None,
+                source_id=None,
+                owner_group_id=None,
+                limit=25,
+                offset=0,
+            )
+            list_count = len(statements)
+            statements.clear()
+            await repo.get(UUID(TENANT_ID), document_id)
+            await repo.versions(UUID(TENANT_ID), document_id)
+            await repo.processing_versions(UUID(TENANT_ID), document_id)
+            await repo.permission_summary(UUID(TENANT_ID), document_id)
+            await repo.publication_events(UUID(TENANT_ID), document_id)
+            detail_count = len(statements)
+            statements.clear()
+            await repo.preview_target_exists(
+                UUID(TENANT_ID), document_id, version_id, processing_id
+            )
+            await repo.preview(
+                UUID(TENANT_ID),
+                document_id,
+                version_id,
+                processing_id,
+                limit=100,
+                offset=0,
+            )
+            preview_count = len(statements)
+        return list_count, detail_count, preview_count
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", count_statement)
         await engine.dispose()
 
 
@@ -742,6 +839,44 @@ def test_versioned_processing_publication_reprocessing_and_retirement(
     assert processing["validation_status"] == "WARNING"
     assert processing["chunk_count"] == processing["embedded_chunk_count"]
     assert processing["chunk_count"] > 0
+    listing = client.get(
+        "/api/v1/admin/knowledge/documents",
+        headers=_headers("knowledge-author"),
+        params={"search": "Policy", "publication_state": "UNPUBLISHED"},
+    )
+    assert listing.status_code == 200, listing.text
+    assert any(item["id"] == document_id for item in listing.json()["items"])
+    global_document_id = "a9000000-0000-0000-0000-000000000001"
+    _psql(
+        "INSERT INTO kb.document(document_id,tenant_id,source_id,document_title,"
+        "document_type,audience_code,security_classification,approval_status) VALUES "
+        f"('{global_document_id}',NULL,'{source['id']}','Global administration canary',"
+        "'PROCEDURE','EMPLOYEE','INTERNAL','DRAFT')"
+    )
+    assert (
+        client.get(
+            f"/api/v1/admin/knowledge/documents/{global_document_id}",
+            headers=_headers("platform-admin"),
+        ).status_code
+        == 404
+    )
+    assert all(item["id"] != global_document_id for item in listing.json()["items"])
+    preview = client.get(
+        f"/api/v1/admin/knowledge/documents/{document_id}/versions/"
+        f"{body['versions'][0]['id']}/preview",
+        headers=_headers("knowledge-author"),
+        params={"processing_version_id": processing["id"]},
+    )
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["total"] == processing["chunk_count"]
+    assert preview.json()["items"][0]["content"]
+    statement_counts = asyncio.run(
+        _admin_statement_counts(
+            UUID(document_id), UUID(body["versions"][0]["id"]), UUID(processing["id"])
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert statement_counts == (2, 5, 2)
     assert (
         client.get(
             f"/api/v1/admin/knowledge/documents/{document_id}",
@@ -1218,10 +1353,22 @@ def _retrieval_context(
 def test_authorization_first_full_text_vector_filters_and_query_plans(
     application: tuple[TestClient, FastAPI, MemoryStorage],
 ) -> None:
-    _, app, _ = application
+    client, app, _ = application
     assert not hasattr(app.state.retrieval_service, "_cache")
     assert not hasattr(app.state.retrieval_service, "_tracer")
     vector, ids = _seed_retrieval_corpus()
+    admin_listing = client.get(
+        "/api/v1/admin/knowledge/documents", headers=_headers("platform-admin")
+    )
+    assert admin_listing.status_code == 200, admin_listing.text
+    assert ids["other_tenant"] not in {item["id"] for item in admin_listing.json()["items"]}
+    assert (
+        client.get(
+            f"/api/v1/admin/knowledge/documents/{ids['other_tenant']}",
+            headers=_headers("platform-admin"),
+        ).status_code
+        == 404
+    )
     embedding = (1.0,) + (0.0,) * 1535
     customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
     unfiltered_request = RetrievalRequest(

@@ -41,7 +41,7 @@ import {
 } from "./components/Badges";
 import { Button } from "./components/Button";
 import { ActivityFeed, DonutChart, formatDelta } from "./components/Dashboard";
-import { ConfirmationDialog } from "./components/Forms";
+import { ConfirmationDialog, TextArea } from "./components/Forms";
 import { SearchField } from "./components/SearchField";
 import { Tabs } from "./components/Tabs";
 import {
@@ -2289,6 +2289,15 @@ function AdminLandingPage() {
       <div className="admin-cards">
         <article className="admin-card">
           <h3>
+            <Link to="/admin/knowledge">Knowledge</Link>
+          </h3>
+          <p>
+            Review governed articles, versions, visibility, and publication
+            state.
+          </p>
+        </article>
+        <article className="admin-card">
+          <h3>
             <Link to="/admin/users">Users</Link>
           </h3>
           <p>
@@ -2354,6 +2363,688 @@ function AdminLandingPage() {
         versions are authored in a later milestone. Catalogue portal visibility
         can be changed here.
       </p>
+    </div>
+  );
+}
+
+type KnowledgeAdminQuery = NonNullable<
+  paths["/api/v1/admin/knowledge/documents"]["get"]["parameters"]["query"]
+>;
+type KnowledgeAdminSummary =
+  components["schemas"]["DocumentAdminSummaryResponse"];
+interface KnowledgeAdminAction {
+  kind: "APPROVE" | "REJECT" | "PUBLISH" | "RETIRE";
+  processingVersionId?: string;
+}
+
+function knowledgeLifecycleLabel(item: {
+  approval_status: string;
+  publication_state: string;
+}): string {
+  if (item.publication_state === "PUBLISHED") return "Published";
+  if (item.publication_state === "RETIRED") return "Retired";
+  if (item.approval_status === "APPROVED") return "Approved — unpublished";
+  return humanizeCode(item.approval_status);
+}
+
+function AdminKnowledgePage() {
+  const client = useIdentityClient();
+  const [search, setSearch] = useState("");
+  const [approval, setApproval] = useState("");
+  const [publication, setPublication] = useState("");
+  const [audience, setAudience] = useState("");
+  const [classification, setClassification] = useState("");
+  const [page, setPage] = useState(0);
+  const limit = 25;
+  const documents = useQuery({
+    queryKey: [
+      "admin-knowledge",
+      page,
+      search,
+      approval,
+      publication,
+      audience,
+      classification,
+    ],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/knowledge/documents", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim().length < 2 ? {} : { search: search.trim() }),
+              ...(approval === ""
+                ? {}
+                : {
+                    approval_status:
+                      approval as KnowledgeAdminQuery["approval_status"],
+                  }),
+              ...(publication === ""
+                ? {}
+                : {
+                    publication_state:
+                      publication as KnowledgeAdminQuery["publication_state"],
+                  }),
+              ...(audience === ""
+                ? {}
+                : {
+                    audience_code:
+                      audience as KnowledgeAdminQuery["audience_code"],
+                  }),
+              ...(classification === ""
+                ? {}
+                : {
+                    security_classification:
+                      classification as KnowledgeAdminQuery["security_classification"],
+                  }),
+            },
+          },
+        }),
+      ),
+  });
+  const resetPage = () => {
+    setPage(0);
+  };
+  const columns = [
+    {
+      header: "Article",
+      key: "article",
+      render: (row: KnowledgeAdminSummary) => (
+        <div className="admin-knowledge-title">
+          <Link to={`/admin/knowledge/${row.id}`}>{row.title}</Link>
+          <span>{row.source_name}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Type",
+      key: "type",
+      render: (row: KnowledgeAdminSummary) =>
+        documentTypeLabel(row.document_type),
+    },
+    {
+      header: "Visibility",
+      key: "visibility",
+      render: (row: KnowledgeAdminSummary) => (
+        <span>
+          {humanizeCode(row.audience_code)} ·{" "}
+          {humanizeCode(row.security_classification)}
+        </span>
+      ),
+    },
+    {
+      header: "Lifecycle",
+      key: "lifecycle",
+      render: (row: KnowledgeAdminSummary) => (
+        <OutcomeBadge
+          code={
+            row.publication_state === "PUBLISHED"
+              ? "SUCCESS"
+              : row.publication_state === "RETIRED" ||
+                  row.approval_status === "REJECTED"
+                ? "DENIED"
+                : "PARTIAL"
+          }
+        />
+      ),
+    },
+    {
+      header: "State",
+      key: "state",
+      render: (row: KnowledgeAdminSummary) => knowledgeLifecycleLabel(row),
+    },
+    {
+      header: "Version",
+      key: "version",
+      render: (row: KnowledgeAdminSummary) =>
+        row.current_version_number == null
+          ? "—"
+          : `v${String(row.current_version_number)}`,
+    },
+    {
+      header: "Owner",
+      key: "owner",
+      render: (row: KnowledgeAdminSummary) => row.owner_group_name ?? "—",
+    },
+    {
+      header: "Updated",
+      key: "updated",
+      render: (row: KnowledgeAdminSummary) => formatDateTime(row.updated_at),
+    },
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Review tenant knowledge, governed versions, visibility, and publication state."
+        title="Knowledge"
+      />
+      <TableToolbar label="Knowledge filters">
+        <SearchField
+          className="table-search"
+          label="Search article titles"
+          onChange={(value) => {
+            resetPage();
+            setSearch(value);
+          }}
+          placeholder="Enter at least 2 characters"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Publication
+          <select
+            onChange={(event) => {
+              resetPage();
+              setPublication(event.target.value);
+            }}
+            value={publication}
+          >
+            <option value="">All publication states</option>
+            <option value="UNPUBLISHED">Unpublished</option>
+            <option value="PUBLISHED">Published</option>
+            <option value="RETIRED">Retired</option>
+          </select>
+        </label>
+        <label className="sort-control">
+          Approval
+          <select
+            onChange={(event) => {
+              resetPage();
+              setApproval(event.target.value);
+            }}
+            value={approval}
+          >
+            <option value="">All approval states</option>
+            {["DRAFT", "UNDER_REVIEW", "APPROVED", "REJECTED", "RETIRED"].map(
+              (value) => (
+                <option key={value} value={value}>
+                  {humanizeCode(value)}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+        <label className="sort-control">
+          Audience
+          <select
+            onChange={(event) => {
+              resetPage();
+              setAudience(event.target.value);
+            }}
+            value={audience}
+          >
+            <option value="">All audiences</option>
+            {[
+              "EMPLOYEE",
+              "ANALYST",
+              "TECHNICAL_SPECIALIST",
+              "ADMIN",
+              "ALL",
+            ].map((value) => (
+              <option key={value} value={value}>
+                {humanizeCode(value)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="sort-control">
+          Classification
+          <select
+            onChange={(event) => {
+              resetPage();
+              setClassification(event.target.value);
+            }}
+            value={classification}
+          >
+            <option value="">All classifications</option>
+            {["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"].map(
+              (value) => (
+                <option key={value} value={value}>
+                  {humanizeCode(value)}
+                </option>
+              ),
+            )}
+          </select>
+        </label>
+      </TableToolbar>
+      {search.trim().length === 1 && (
+        <p className="admin-note">
+          Enter one more character to search article titles.
+        </p>
+      )}
+      {documents.isPending && (
+        <LoadingSkeleton label="Loading knowledge articles" />
+      )}
+      {documents.error && <ErrorSummary error={documents.error} />}
+      {documents.data && (
+        <>
+          <p className="admin-result-count">
+            {documents.data.total} tenant articles
+          </p>
+          <DataTable
+            caption="Tenant knowledge articles"
+            columns={columns}
+            empty={
+              <EmptyState
+                description="No articles match the current filters."
+                title="No knowledge articles"
+              />
+            }
+            getRowKey={(row) => row.id}
+            rows={documents.data.items}
+          />
+          {(page > 0 || documents.data.has_more) && (
+            <Pagination
+              hasNext={documents.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function AdminKnowledgeDetailPage() {
+  const { documentId = "" } = useParams();
+  const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const [action, setAction] = useState<KnowledgeAdminAction | null>(null);
+  const [reason, setReason] = useState("");
+  const [announcement, setAnnouncement] = useState("");
+  const [previewTarget, setPreviewTarget] = useState<{
+    versionId: string;
+    processingId: string;
+  } | null>(null);
+  const document = useQuery({
+    queryKey: ["admin-knowledge-document", documentId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/knowledge/documents/{document_id}", {
+          params: { path: { document_id: documentId } },
+        }),
+      ),
+  });
+  const data = document.data;
+  const preview = useQuery({
+    queryKey: [
+      "admin-knowledge-preview",
+      documentId,
+      previewTarget?.versionId,
+      previewTarget?.processingId,
+    ],
+    enabled: previewTarget != null,
+    queryFn: async () => {
+      if (previewTarget == null) throw new Error("Preview target is required.");
+      return unwrap(
+        await client.GET(
+          "/api/v1/admin/knowledge/documents/{document_id}/versions/{version_id}/preview",
+          {
+            params: {
+              path: {
+                document_id: documentId,
+                version_id: previewTarget.versionId,
+              },
+              query: {
+                processing_version_id: previewTarget.processingId,
+                limit: 100,
+                offset: 0,
+              },
+            },
+          },
+        ),
+      );
+    },
+  });
+  const actionMutation = useMutation({
+    mutationFn: async (
+      requested: KnowledgeAdminAction & { reason: string },
+    ) => {
+      if (data == null) throw new Error("Knowledge document is unavailable.");
+      const header = {
+        "Idempotency-Key": newIdempotencyKey(
+          `knowledge-${requested.kind.toLowerCase()}`,
+        ),
+      };
+      if (requested.kind === "APPROVE" || requested.kind === "REJECT") {
+        return unwrap(
+          await client.POST(
+            "/api/v1/admin/knowledge/documents/{document_id}/approval-decisions",
+            {
+              params: { path: { document_id: documentId }, header },
+              body: {
+                decision:
+                  requested.kind === "APPROVE" ? "APPROVED" : "REJECTED",
+                expected_version: data.row_version,
+                reason: requested.reason,
+              },
+            },
+          ),
+        );
+      }
+      if (requested.kind === "PUBLISH") {
+        if (requested.processingVersionId == null)
+          throw new Error("A processing version is required.");
+        return unwrap(
+          await client.POST(
+            "/api/v1/admin/knowledge/documents/{document_id}/publication",
+            {
+              params: { path: { document_id: documentId }, header },
+              body: {
+                processing_version_id: requested.processingVersionId,
+                expected_document_version: data.row_version,
+                reason: requested.reason,
+              },
+            },
+          ),
+        );
+      }
+      return unwrap(
+        await client.POST(
+          "/api/v1/admin/knowledge/documents/{document_id}/retirement",
+          {
+            params: { path: { document_id: documentId }, header },
+            body: {
+              expected_version: data.row_version,
+              reason: requested.reason,
+            },
+          },
+        ),
+      );
+    },
+    onSuccess: (result, requested) => {
+      queryClient.setQueryData(
+        ["admin-knowledge-document", documentId],
+        result,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["admin-knowledge"] });
+      setAnnouncement(`${humanizeCode(requested.kind)} completed.`);
+      setAction(null);
+      setReason("");
+    },
+  });
+  const canApprove =
+    identity?.permission_codes.includes("KNOWLEDGE_DOCUMENT_APPROVE") ?? false;
+  const canPublish =
+    identity?.permission_codes.includes("KNOWLEDGE_DOCUMENT_PUBLISH") ?? false;
+  const canRetire =
+    identity?.permission_codes.includes("KNOWLEDGE_DOCUMENT_RETIRE") ?? false;
+  const openAction = (next: KnowledgeAdminAction) => {
+    setReason("");
+    setAction(next);
+  };
+  return (
+    <div className="page admin-page">
+      <Breadcrumbs
+        items={[
+          { label: "Knowledge", to: "/admin/knowledge" },
+          { label: data?.title ?? "Article" },
+        ]}
+      />
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
+      {document.isPending && (
+        <LoadingSkeleton label="Loading knowledge article" />
+      )}
+      {document.error && <ErrorSummary error={document.error} />}
+      {actionMutation.error && <ErrorSummary error={actionMutation.error} />}
+      {data && (
+        <>
+          <PageHeader
+            actions={
+              <div className="knowledge-admin-actions">
+                {canApprove &&
+                  data.publication_state === "UNPUBLISHED" &&
+                  data.approval_status !== "RETIRED" && (
+                    <>
+                      <Button
+                        onClick={() => {
+                          openAction({ kind: "APPROVE" });
+                        }}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          openAction({ kind: "REJECT" });
+                        }}
+                        variant="danger"
+                      >
+                        Reject
+                      </Button>
+                    </>
+                  )}
+                {canRetire && data.publication_state === "PUBLISHED" && (
+                  <Button
+                    onClick={() => {
+                      openAction({ kind: "RETIRE" });
+                    }}
+                    variant="danger"
+                  >
+                    Retire
+                  </Button>
+                )}
+              </div>
+            }
+            description={`${data.source_name} · ${documentTypeLabel(data.document_type)}`}
+            eyebrow={knowledgeLifecycleLabel(data)}
+            title={data.title}
+          />
+          <div className="admin-detail">
+            <Panel title="Governance">
+              <MetadataGrid
+                items={[
+                  { label: "Lifecycle", value: knowledgeLifecycleLabel(data) },
+                  {
+                    label: "Audience",
+                    value: humanizeCode(data.audience_code),
+                  },
+                  {
+                    label: "Classification",
+                    value: humanizeCode(data.security_classification),
+                  },
+                  { label: "Owner", value: data.owner_group_name ?? "—" },
+                  {
+                    label: "Current version",
+                    value:
+                      data.current_version_number == null
+                        ? "None"
+                        : `v${String(data.current_version_number)}`,
+                  },
+                  {
+                    label: "Published",
+                    value:
+                      data.published_at == null
+                        ? "—"
+                        : formatDateTime(data.published_at),
+                  },
+                  { label: "Updated", value: formatDateTime(data.updated_at) },
+                  { label: "Revision", value: String(data.row_version) },
+                ]}
+              />
+            </Panel>
+            <Panel title="Access summary">
+              {data.permission_summary.length === 0 ? (
+                <p>
+                  No explicit document ACL entries. Audience and classification
+                  still apply.
+                </p>
+              ) : (
+                <ul className="knowledge-access-summary">
+                  {data.permission_summary.map((item) => (
+                    <li key={`${item.principal_type}-${item.permission_code}`}>
+                      {item.count} {humanizeCode(item.principal_type)} ·{" "}
+                      {humanizeCode(item.permission_code)}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          </div>
+          <SectionHeader title="Versions and processing" />
+          <div className="knowledge-version-list">
+            {data.versions.map((version) => (
+              <article className="knowledge-version-card" key={version.id}>
+                <div className="knowledge-version-card__heading">
+                  <div>
+                    <h3>Version {version.version_number}</h3>
+                    <p>
+                      {humanizeCode(version.extraction_status)} ·{" "}
+                      {humanizeCode(version.validation_status)}
+                    </p>
+                  </div>
+                  {version.current && <OutcomeBadge code="SUCCESS" />}
+                </div>
+                <ul className="knowledge-processing-list">
+                  {version.processing_versions.map((processing) => {
+                    const publishable =
+                      canPublish &&
+                      data.approval_status === "APPROVED" &&
+                      data.active &&
+                      processing.status === "COMPLETED" &&
+                      (processing.validation_status === "PASSED" ||
+                        processing.validation_status === "WARNING") &&
+                      (processing.chunk_count ?? 0) > 0 &&
+                      processing.chunk_count ===
+                        processing.embedded_chunk_count &&
+                      version.published_processing_version_id !== processing.id;
+                    return (
+                      <li key={processing.id}>
+                        <div>
+                          <strong>
+                            Processing {processing.processing_number}
+                          </strong>
+                          <span>
+                            {humanizeCode(processing.status)} ·{" "}
+                            {humanizeCode(processing.validation_status)} ·{" "}
+                            {processing.chunk_count ?? 0} sections
+                          </span>
+                        </div>
+                        <div className="knowledge-processing-actions">
+                          <Button
+                            onClick={() => {
+                              setPreviewTarget({
+                                versionId: version.id,
+                                processingId: processing.id,
+                              });
+                            }}
+                            variant="secondary"
+                          >
+                            Preview
+                          </Button>
+                          {publishable && (
+                            <Button
+                              onClick={() => {
+                                openAction({
+                                  kind: "PUBLISH",
+                                  processingVersionId: processing.id,
+                                });
+                              }}
+                            >
+                              Publish
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </article>
+            ))}
+          </div>
+          {previewTarget && (
+            <section
+              aria-labelledby="knowledge-preview-heading"
+              className="knowledge-preview"
+            >
+              <SectionHeader title="Content preview" />
+              <h2 className="sr-only" id="knowledge-preview-heading">
+                Content preview
+              </h2>
+              {preview.isPending && (
+                <LoadingSkeleton label="Loading content preview" />
+              )}
+              {preview.error && <ErrorSummary error={preview.error} />}
+              {preview.data && preview.data.items.length === 0 && (
+                <EmptyState description="This processing version contains no preview sections." />
+              )}
+              {preview.data?.items.map((section) => (
+                <article
+                  className="knowledge-preview-section"
+                  key={section.sequence}
+                >
+                  <h3>
+                    {section.section_title ??
+                      section.heading_path ??
+                      `Section ${String(section.sequence)}`}
+                  </h3>
+                  <p>{section.content}</p>
+                </article>
+              ))}
+            </section>
+          )}
+          <SectionHeader title="Publication history" />
+          {data.publication_events.length === 0 ? (
+            <EmptyState description="No publication or retirement events are available." />
+          ) : (
+            <ol className="knowledge-publication-history">
+              {data.publication_events.map((event) => (
+                <li key={event.id}>
+                  <strong>{humanizeCode(event.action_code)}</strong>
+                  <span>
+                    {formatDateTime(event.occurred_at)} by {event.actor_name}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+          <ConfirmationDialog
+            confirmDisabled={reason.trim().length < 3}
+            confirmLabel={
+              action == null ? "Confirm" : humanizeCode(action.kind)
+            }
+            confirmVariant={
+              action?.kind === "REJECT" || action?.kind === "RETIRE"
+                ? "danger"
+                : "primary"
+            }
+            onCancel={() => {
+              setAction(null);
+              setReason("");
+            }}
+            onConfirm={() => {
+              if (action != null && reason.trim().length >= 3)
+                actionMutation.mutate({ ...action, reason: reason.trim() });
+            }}
+            open={action != null}
+            pending={actionMutation.isPending}
+            title={`${action == null ? "Update" : humanizeCode(action.kind)} ${data.title}?`}
+          >
+            <TextArea
+              description="Recorded in the immutable knowledge audit history."
+              id="knowledge-action-reason"
+              label="Reason"
+              maxLength={2000}
+              minLength={3}
+              onChange={(event) => {
+                setReason(event.target.value);
+              }}
+              required
+              rows={4}
+              value={reason}
+            />
+          </ConfirmationDialog>
+        </>
+      )}
     </div>
   );
 }
@@ -5759,6 +6450,26 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="ADMIN_CONFIG_READ">
                 <AdminCatalogueDetailPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
+                <AdminKnowledgePage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge/:documentId"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
+                <AdminKnowledgeDetailPage />
               </RequirePermission>
             </RequireSession>
           }

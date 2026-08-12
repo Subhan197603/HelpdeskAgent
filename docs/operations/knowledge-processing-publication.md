@@ -46,3 +46,18 @@ removes all versions of the document from the active view and records immutable 
 If authorization or source rights become uncertain, retire the document and disable or reject its
 source. Do not edit publication evidence, chunks, or embeddings directly; correct the source or
 configuration, create a new processing version, review it, and publish that version.
+
+## Knowledge Administration
+
+Task 11.5D exposes tenant documents, version history, redacted ACL summaries,
+publication history, and bounded plaintext processing previews under
+`/api/v1/admin/knowledge/documents`. All reads require
+`KNOWLEDGE_DOCUMENT_READ_ADMIN` and enforce an exact tenant predicate before
+reading version, permission, event, or chunk children. Global documents are not
+administered through this surface.
+
+The interface invokes only the existing approve/reject, publication, and
+retirement operations. Direct document creation, revision editing, restore,
+category administration, and ACL/audience mutation remain unavailable. Use the
+governed source, manifest, and manual-upload flow to acquire new content. Never
+repair lifecycle state with direct SQL or physically delete knowledge records.

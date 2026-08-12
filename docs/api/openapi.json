@@ -4801,6 +4801,28 @@
         "title": "DependencyStatusItem",
         "type": "object"
       },
+      "DocumentAdminListResponse": {
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentAdminSummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": ["items", "total", "has_more"],
+        "title": "DocumentAdminListResponse",
+        "type": "object"
+      },
       "DocumentAdminResponse": {
         "properties": {
           "active": {
@@ -4844,6 +4866,17 @@
             "title": "Created At",
             "type": "string"
           },
+          "current_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Number"
+          },
           "document_type": {
             "title": "Document Type",
             "type": "string"
@@ -4852,6 +4885,48 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "owner_group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Group Name"
+          },
+          "permission_summary": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentPermissionSummaryResponse"
+            },
+            "title": "Permission Summary",
+            "type": "array"
+          },
+          "publication_events": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentPublicationEventResponse"
+            },
+            "title": "Publication Events",
+            "type": "array"
+          },
+          "publication_state": {
+            "enum": ["UNPUBLISHED", "PUBLISHED", "RETIRED"],
+            "title": "Publication State",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
           },
           "replayed": {
             "default": false,
@@ -4876,6 +4951,10 @@
             "title": "Source Id",
             "type": "string"
           },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -4897,6 +4976,7 @@
           "id",
           "scope",
           "source_id",
+          "source_name",
           "title",
           "document_type",
           "audience_code",
@@ -4905,12 +4985,133 @@
           "approved_by",
           "approved_at",
           "active",
+          "owner_group_name",
+          "publication_state",
+          "current_version_number",
+          "published_at",
           "row_version",
           "created_at",
           "updated_at",
-          "versions"
+          "versions",
+          "permission_summary",
+          "publication_events"
         ],
         "title": "DocumentAdminResponse",
+        "type": "object"
+      },
+      "DocumentAdminSummaryResponse": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "approval_status": {
+            "title": "Approval Status",
+            "type": "string"
+          },
+          "audience_code": {
+            "title": "Audience Code",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "current_version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Version Number"
+          },
+          "document_type": {
+            "title": "Document Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "owner_group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Group Name"
+          },
+          "publication_state": {
+            "enum": ["UNPUBLISHED", "PUBLISHED", "RETIRED"],
+            "title": "Publication State",
+            "type": "string"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "security_classification": {
+            "title": "Security Classification",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_name": {
+            "title": "Source Name",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "source_name",
+          "title",
+          "document_type",
+          "audience_code",
+          "security_classification",
+          "approval_status",
+          "publication_state",
+          "active",
+          "owner_group_name",
+          "current_version_number",
+          "published_at",
+          "row_version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DocumentAdminSummaryResponse",
         "type": "object"
       },
       "DocumentApprovalCommand": {
@@ -4934,6 +5135,178 @@
         },
         "required": ["decision", "expected_version", "reason"],
         "title": "DocumentApprovalCommand",
+        "type": "object"
+      },
+      "DocumentPermissionSummaryResponse": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "permission_code": {
+            "title": "Permission Code",
+            "type": "string"
+          },
+          "principal_type": {
+            "title": "Principal Type",
+            "type": "string"
+          }
+        },
+        "required": ["principal_type", "permission_code", "count"],
+        "title": "DocumentPermissionSummaryResponse",
+        "type": "object"
+      },
+      "DocumentPreviewResponse": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "document_version_id": {
+            "format": "uuid",
+            "title": "Document Version Id",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentPreviewSectionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "processing_version_id": {
+            "format": "uuid",
+            "title": "Processing Version Id",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "document_version_id",
+          "processing_version_id",
+          "items",
+          "total",
+          "has_more"
+        ],
+        "title": "DocumentPreviewResponse",
+        "type": "object"
+      },
+      "DocumentPreviewSectionResponse": {
+        "properties": {
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "heading_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading Path"
+          },
+          "page_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Number"
+          },
+          "section_anchor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Anchor"
+          },
+          "section_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Title"
+          },
+          "sequence": {
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "heading_path",
+          "section_title",
+          "section_anchor",
+          "page_number",
+          "content"
+        ],
+        "title": "DocumentPreviewSectionResponse",
+        "type": "object"
+      },
+      "DocumentPublicationEventResponse": {
+        "properties": {
+          "action_code": {
+            "enum": ["PUBLISHED", "RETIRED"],
+            "title": "Action Code",
+            "type": "string"
+          },
+          "actor_name": {
+            "title": "Actor Name",
+            "type": "string"
+          },
+          "document_version_id": {
+            "format": "uuid",
+            "title": "Document Version Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "processing_version_id": {
+            "format": "uuid",
+            "title": "Processing Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "document_version_id",
+          "processing_version_id",
+          "action_code",
+          "actor_name",
+          "occurred_at"
+        ],
+        "title": "DocumentPublicationEventResponse",
         "type": "object"
       },
       "DocumentVersionResponse": {
@@ -11456,6 +11829,255 @@
         "tags": ["knowledge-ingestion"]
       }
     },
+    "/api/v1/admin/knowledge/documents": {
+      "get": {
+        "operationId": "list_documents_api_v1_admin_knowledge_documents_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "approval_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "DRAFT",
+                    "UNDER_REVIEW",
+                    "APPROVED",
+                    "REJECTED",
+                    "RETIRED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Approval Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "publication_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["UNPUBLISHED", "PUBLISHED", "RETIRED"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Publication State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audience_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "EMPLOYEE",
+                    "ANALYST",
+                    "TECHNICAL_SPECIALIST",
+                    "ADMIN",
+                    "ALL"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Audience Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "security_classification",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Security Classification"
+            }
+          },
+          {
+            "in": "query",
+            "name": "document_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z][A-Z0-9_]{0,59}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Document Type"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_group_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Group Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentAdminListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Publication permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Publication lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Publication validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Documents",
+        "tags": ["knowledge-publication"]
+      }
+    },
     "/api/v1/admin/knowledge/documents/{document_id}": {
       "get": {
         "operationId": "get_document_api_v1_admin_knowledge_documents__document_id__get",
@@ -11863,6 +12485,136 @@
           }
         ],
         "summary": "Retire Document",
+        "tags": ["knowledge-publication"]
+      }
+    },
+    "/api/v1/admin/knowledge/documents/{document_id}/versions/{version_id}/preview": {
+      "get": {
+        "operationId": "preview_document_version_api_v1_admin_knowledge_documents__document_id__versions__version_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "processing_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Processing Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Publication permission denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Publication lifecycle conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Publication validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Preview Document Version",
         "tags": ["knowledge-publication"]
       }
     },

@@ -155,6 +155,19 @@ describe("application shell", () => {
     expect(dashboard).toHaveAttribute("aria-current", "page");
   });
 
+  it("shows knowledge administration only with its dedicated permission", async () => {
+    renderShell("/portal");
+    await screen.findByRole("link", { name: "Home" });
+    expect(
+      screen.queryByRole("link", { name: /^Knowledge$/ }),
+    ).not.toBeInTheDocument();
+    permissions.push("KNOWLEDGE_DOCUMENT_READ_ADMIN");
+    renderShell("/admin/knowledge");
+    expect(
+      await screen.findByRole("link", { name: /^Knowledge$/ }),
+    ).toHaveAttribute("href", "/admin/knowledge");
+  });
+
   it("persists sidebar collapse and supports the mobile drawer", async () => {
     const user = userEvent.setup();
     renderShell();

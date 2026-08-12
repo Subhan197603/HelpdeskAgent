@@ -27,6 +27,7 @@ type PermissionCode =
   | "CATALOG_PROJECT_LIST"
   | "KNOWLEDGE_READ_ANALYST"
   | "KNOWLEDGE_READ_EMPLOYEE"
+  | "KNOWLEDGE_DOCUMENT_READ_ADMIN"
   | "SYSTEM_HEALTH_READ"
   | "TICKET_ANALYST_READ"
   | "TICKET_DRAFT_CREATE"
@@ -96,6 +97,12 @@ const administrationNavigation: readonly NavigationItem[] = [
     label: "Users",
     permission: "ADMIN_IDENTITY_READ",
     to: "/admin/users",
+  },
+  {
+    icon: "book",
+    label: "Knowledge",
+    permission: "KNOWLEDGE_DOCUMENT_READ_ADMIN",
+    to: "/admin/knowledge",
   },
   {
     icon: "shield",

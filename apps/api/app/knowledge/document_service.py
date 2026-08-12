@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections.abc import Callable
+from typing import Literal
 from uuid import UUID
 
 from apps.api.app.core.context import RequestContext
@@ -19,8 +20,14 @@ from apps.api.app.ingestion.repository import IngestionRepository
 from apps.api.app.knowledge.document_models import ProcessingRecord
 from apps.api.app.knowledge.document_repository import KnowledgeDocumentRepository
 from apps.api.app.knowledge.document_schemas import (
+    DocumentAdminListResponse,
     DocumentAdminResponse,
+    DocumentAdminSummaryResponse,
     DocumentApprovalCommand,
+    DocumentPermissionSummaryResponse,
+    DocumentPreviewResponse,
+    DocumentPreviewSectionResponse,
+    DocumentPublicationEventResponse,
     DocumentVersionResponse,
     ProcessingVersionResponse,
     PublishDocumentCommand,
@@ -44,11 +51,117 @@ class KnowledgeDocumentService:
         self._authorization = authorization
         self._settings = settings
 
+    async def list(
+        self,
+        context: RequestContext,
+        *,
+        search: str | None,
+        approval_status: str | None,
+        publication_state: str | None,
+        audience_code: str | None,
+        security_classification: str | None,
+        document_type: str | None,
+        source_id: UUID | None,
+        owner_group_id: UUID | None,
+        limit: int,
+        offset: int,
+    ) -> DocumentAdminListResponse:
+        self._require(context, Permission.KNOWLEDGE_DOCUMENT_READ_ADMIN)
+        tenant_id, _ = _identity(context)
+        normalized_search = " ".join(search.split()) if search else None
+        async with self._factory(context) as uow:
+            rows, total = await KnowledgeDocumentRepository(uow.session).documents(
+                tenant_id,
+                search=normalized_search,
+                approval_status=approval_status,
+                publication_state=publication_state,
+                audience_code=audience_code,
+                security_classification=security_classification,
+                document_type=document_type,
+                source_id=source_id,
+                owner_group_id=owner_group_id,
+                limit=limit,
+                offset=offset,
+            )
+        return DocumentAdminListResponse(
+            items=[
+                DocumentAdminSummaryResponse(
+                    id=row.document_id,
+                    source_id=row.source_id,
+                    source_name=row.source_name,
+                    title=row.title,
+                    document_type=row.document_type,
+                    audience_code=row.audience_code,
+                    security_classification=row.security_classification,
+                    approval_status=row.approval_status,
+                    publication_state=_publication_state(
+                        row.approval_status, row.current_version_number
+                    ),
+                    active=row.active,
+                    owner_group_name=row.owner_group_name,
+                    current_version_number=row.current_version_number,
+                    published_at=row.published_at,
+                    row_version=row.row_version,
+                    created_at=row.created_at,
+                    updated_at=row.updated_at,
+                )
+                for row in rows
+            ],
+            total=total,
+            has_more=offset + len(rows) < total,
+        )
+
     async def get(self, context: RequestContext, document_id: UUID) -> DocumentAdminResponse:
         self._require(context, Permission.KNOWLEDGE_DOCUMENT_READ_ADMIN)
         tenant_id, _ = _identity(context)
         async with self._factory(context) as uow:
             return await _response(KnowledgeDocumentRepository(uow.session), tenant_id, document_id)
+
+    async def preview(
+        self,
+        context: RequestContext,
+        document_id: UUID,
+        version_id: UUID,
+        processing_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> DocumentPreviewResponse:
+        self._require(context, Permission.KNOWLEDGE_DOCUMENT_READ_ADMIN)
+        tenant_id, _ = _identity(context)
+        async with self._factory(context) as uow:
+            repo = KnowledgeDocumentRepository(uow.session)
+            if not await repo.preview_target_exists(
+                tenant_id, document_id, version_id, processing_id
+            ):
+                raise NotFoundError("Knowledge document processing version was not found.")
+            rows = await repo.preview(
+                tenant_id,
+                document_id,
+                version_id,
+                processing_id,
+                limit=limit,
+                offset=offset,
+            )
+        total = rows[0].total if rows else 0
+        return DocumentPreviewResponse(
+            document_id=document_id,
+            document_version_id=version_id,
+            processing_version_id=processing_id,
+            items=[
+                DocumentPreviewSectionResponse(
+                    sequence=row.sequence,
+                    heading_path=row.heading_path,
+                    section_title=row.section_title,
+                    section_anchor=row.section_anchor,
+                    page_number=row.page_number,
+                    content=row.content,
+                )
+                for row in rows
+            ],
+            total=total,
+            has_more=offset + len(rows) < total,
+        )
 
     async def approve(
         self,
@@ -210,7 +323,7 @@ class KnowledgeDocumentService:
             )
             if published is None and not any(
                 version.document_version_id == document_version_id and version.current
-                for version in await repo.versions(document_id)
+                for version in await repo.versions(tenant_id, document_id)
             ):
                 raise ConflictError("Document publication failed.")
             await repo.audit(
@@ -300,15 +413,19 @@ async def _response(
     document = await repo.get(tenant_id, document_id)
     if document is None:
         raise NotFoundError("Knowledge document was not found.")
-    versions = await repo.versions(document_id)
-    processing = await repo.processing_versions(document_id)
+    versions = await repo.versions(tenant_id, document_id)
+    processing = await repo.processing_versions(tenant_id, document_id)
+    permission_summary = await repo.permission_summary(tenant_id, document_id)
+    publication_events = await repo.publication_events(tenant_id, document_id)
     by_version: dict[UUID, list[ProcessingRecord]] = {}
     for record in processing:
         by_version.setdefault(record.document_version_id, []).append(record)
+    current = next((version for version in versions if version.current), None)
     return DocumentAdminResponse(
         id=document.document_id,
         scope="GLOBAL" if document.tenant_id is None else "TENANT",
         source_id=document.source_id,
+        source_name=document.source_name,
         title=document.title,
         document_type=document.document_type,
         audience_code=document.audience_code,
@@ -317,6 +434,12 @@ async def _response(
         approved_by=document.approved_by,
         approved_at=document.approved_at,
         active=document.active,
+        owner_group_name=document.owner_group_name,
+        publication_state=_publication_state(
+            document.approval_status, current.version_number if current else None
+        ),
+        current_version_number=current.version_number if current else None,
+        published_at=current.published_at if current else None,
         row_version=document.row_version,
         created_at=document.created_at,
         updated_at=document.updated_at,
@@ -340,8 +463,35 @@ async def _response(
             )
             for version in versions
         ],
+        permission_summary=[
+            DocumentPermissionSummaryResponse(
+                principal_type=item.principal_type,
+                permission_code=item.permission_code,
+                count=item.count,
+            )
+            for item in permission_summary
+        ],
+        publication_events=[
+            DocumentPublicationEventResponse(
+                id=item.publication_event_id,
+                document_version_id=item.document_version_id,
+                processing_version_id=item.processing_version_id,
+                action_code=item.action_code,
+                actor_name=item.actor_name,
+                occurred_at=item.occurred_at,
+            )
+            for item in publication_events
+        ],
         replayed=replayed,
     )
+
+
+def _publication_state(
+    approval_status: str, current_version: int | None
+) -> Literal["UNPUBLISHED", "PUBLISHED", "RETIRED"]:
+    if approval_status == "RETIRED":
+        return "RETIRED"
+    return "PUBLISHED" if current_version is not None else "UNPUBLISHED"
 
 
 def _processing_response(value: ProcessingRecord) -> ProcessingVersionResponse:

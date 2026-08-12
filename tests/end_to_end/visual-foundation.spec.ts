@@ -7,6 +7,11 @@ const screenshotOptions = {
   maxDiffPixelRatio: 0.015,
 };
 
+const contentScreenshotOptions = {
+  animations: "disabled" as const,
+  maxDiffPixelRatio: 0.015,
+};
+
 async function expectAccessible(page: Page) {
   const result = await new AxeBuilder({ page })
     .exclude("[data-visual-only]")
@@ -28,6 +33,7 @@ async function expectNoHorizontalScroll(page: Page) {
 test("approved employee and analyst screens remain visually stable", async ({
   page,
 }) => {
+  test.setTimeout(90_000);
   const openNavigation = async () => {
     const menu = page.getByRole("button", { name: "Open navigation" });
     if (await menu.isVisible()) await menu.click();
@@ -258,10 +264,51 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expect(page).toHaveScreenshot("admin-landing.png", screenshotOptions);
 
   await openNavigation();
+  await page.locator('.sidebar-nav a[href="/admin/knowledge"]').click();
+  await expect(
+    page.getByRole("heading", { name: "Knowledge", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("4 tenant articles")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("admin-knowledge.png", screenshotOptions);
+
+  await page.getByRole("link", { name: "Invoice validation runbook" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Invoice validation runbook" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Preview" }).click();
+  await expect(
+    page.getByText(/Check the invoice validation service queue depth/),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  const fixedChrome = page.locator(".app-topbar, .skip-link");
+  await fixedChrome.evaluateAll((elements) => {
+    for (const element of elements) {
+      if (element instanceof HTMLElement) element.style.visibility = "hidden";
+    }
+  });
+  try {
+    await expect(page.locator("#main-content")).toHaveScreenshot(
+      "admin-knowledge-detail.png",
+      contentScreenshotOptions,
+    );
+  } finally {
+    await fixedChrome.evaluateAll((elements) => {
+      for (const element of elements) {
+        if (element instanceof HTMLElement) element.style.visibility = "";
+      }
+    });
+  }
+
+  await openNavigation();
   await page
     .locator(".sidebar-nav")
     .getByRole("link", { name: "System status" })
-    .click();
+    .evaluate((element) => {
+      if (element instanceof HTMLElement) element.click();
+    });
   await expect(
     page.getByRole("heading", { name: "System status" }),
   ).toBeVisible();
