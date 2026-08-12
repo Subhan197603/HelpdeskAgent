@@ -6,14 +6,25 @@ import subprocess
 from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
+from typing import Any, cast
 from uuid import UUID
 
 import pytest
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from pydantic import SecretStr
+from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
 
-from apps.api.app.ai.models import LLMResult, ModelUsage, ToolRequest
+from apps.api.app.ai.models import LLMResult, ModelUsage, ProviderRequest, ToolRequest
 from apps.api.app.ai.repository import AIRepository, ToolAuditRecord
+from apps.api.app.ai.resilience import CircuitBreaker, ResilientProviderExecutor
+from apps.api.app.ai.service import AIDisabledError, AIGateway
 from apps.api.app.core.context import RequestContext
+from apps.api.app.core.settings import Settings
+from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
+from apps.api.app.identity.authorization import (
+    AuthorizationResource,
+    AuthorizationService,
+    Permission,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 PROJECT = "fusion-helpdesk-ai-runtime-test"
@@ -22,6 +33,7 @@ DATABASE = "ai_runtime"
 TENANT_ID = "20000000-0000-0000-0000-000000000001"
 USER_ID = "22000000-0000-0000-0000-000000000005"
 CONVERSATION_ID = "81000000-0000-0000-0000-000000000011"
+OTHER_TENANT_ID = "20000000-0000-0000-0000-000000000099"
 
 
 def _environment() -> dict[str, str]:
@@ -134,9 +146,11 @@ def _seed_policy() -> None:
         INSERT INTO ai.model_policy(model_policy_id,tenant_id,policy_code,policy_name)
         VALUES ('81000000-0000-0000-0000-000000000007','{TENANT_ID}','EMPLOYEE','Employee');
         INSERT INTO ai.model_policy_version(model_policy_version_id,model_policy_id,version_number,
-          version_status,provider_alias,model_alias,published_at)
+          version_status,provider_alias,model_alias,fallback_provider_alias,
+          fallback_model_alias,published_at)
         VALUES ('81000000-0000-0000-0000-000000000008',
-          '81000000-0000-0000-0000-000000000007',1,'PUBLISHED','fake','fake-model',now());
+          '81000000-0000-0000-0000-000000000007',1,'PUBLISHED','fake','fake-model',
+          'fake','fallback-model',now());
         INSERT INTO ai.agent_configuration(agent_configuration_id,tenant_id,agent_code,agent_name)
         VALUES ('81000000-0000-0000-0000-000000000009','{TENANT_ID}',
           'EMPLOYEE_HELPDESK','Employee');
@@ -242,3 +256,191 @@ def test_policy_run_usage_version_references_and_tool_audit_are_durable() -> Non
         )
         == "0"
     )
+
+
+class _ExplodingProvider:
+    provider_alias = "fake"
+
+    def __init__(self, model_alias: str) -> None:
+        self.model_alias = model_alias
+        self.calls = 0
+
+    async def generate(self, request: ProviderRequest) -> LLMResult:
+        del request
+        self.calls += 1
+        raise AssertionError("an exhausted hard budget must not invoke a provider")
+
+
+class _RecordingRegistry:
+    def __init__(self, *providers: _ExplodingProvider) -> None:
+        self._providers = {
+            (provider.provider_alias, provider.model_alias): provider for provider in providers
+        }
+        self.resolutions: list[tuple[str, str]] = []
+
+    def resolve(self, provider_alias: str, model_alias: str) -> _ExplodingProvider:
+        self.resolutions.append((provider_alias, model_alias))
+        return self._providers[(provider_alias, model_alias)]
+
+
+def _enable_r2_ai_rls() -> None:
+    _psql(
+        """
+        CREATE POLICY r2_tenant_or_global_ai_feature_policy ON ai.feature_policy
+          USING (tenant_id IS NULL OR tenant_id = util.current_tenant_id());
+        CREATE POLICY r2_tenant_isolation_ai_usage_ledger ON ai.usage_ledger
+          USING (tenant_id = util.current_tenant_id())
+          WITH CHECK (tenant_id = util.current_tenant_id());
+        ALTER TABLE ai.feature_policy ENABLE ROW LEVEL SECURITY;
+        ALTER TABLE ai.usage_ledger ENABLE ROW LEVEL SECURITY;
+        """
+    )
+
+
+def _disable_r2_ai_rls() -> None:
+    _psql(
+        """
+        ALTER TABLE ai.feature_policy DISABLE ROW LEVEL SECURITY;
+        ALTER TABLE ai.usage_ledger DISABLE ROW LEVEL SECURITY;
+        DROP POLICY r2_tenant_or_global_ai_feature_policy ON ai.feature_policy;
+        DROP POLICY r2_tenant_isolation_ai_usage_ledger ON ai.usage_ledger;
+        """
+    )
+
+
+@pytest.mark.integration
+def test_exhausted_hard_budget_prevents_provider_execution_and_usage_charge() -> None:
+    _psql(
+        f"""
+        INSERT INTO identity.tenant(tenant_id,tenant_code,tenant_name)
+        VALUES ('{OTHER_TENANT_ID}','AI_RUNTIME_OTHER','Other AI runtime tenant')
+        ON CONFLICT (tenant_id) DO NOTHING;
+        UPDATE ai.feature_policy
+        SET daily_budget=1,budget_currency='USD',hard_stop_threshold_percent=100
+        WHERE scope_type='GLOBAL';
+        INSERT INTO ai.usage_ledger(
+          tenant_id,provider_alias,model_alias,use_case_code,estimated_cost,currency_code)
+        VALUES ('{OTHER_TENANT_ID}','fake','foreign-model','PROVIDER_CALL',1000,'USD');
+        """
+    )
+    _enable_r2_ai_rls()
+    engine: AsyncEngine = create_async_engine(
+        f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"
+    )
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    context = RequestContext(
+        UUID(TENANT_ID),
+        UUID(USER_ID),
+        "customer",
+        frozenset({"CUSTOMER"}),
+        frozenset(),
+        None,
+        "92000000-0000-0000-0000-000000000001",
+        "ai-hard-budget-stop-test",
+    )
+
+    def factory(request_context: RequestContext) -> SqlAlchemyUnitOfWork:
+        return SqlAlchemyUnitOfWork(sessions, request_context, rls_enabled=True)
+
+    primary = _ExplodingProvider("fake-model")
+    fallback = _ExplodingProvider("fallback-model")
+    registry = _RecordingRegistry(primary, fallback)
+
+    async def forbidden_sleep(_: float) -> None:
+        raise AssertionError("an exhausted hard budget must not retry")
+
+    gateway = AIGateway(
+        factory,
+        Settings(
+            ai_globally_enabled=True,
+            openai_api_key=SecretStr("configuration-validation-only"),
+            openai_model_aliases={"configured": "deployment"},
+        ),
+        cast("Any", registry),
+        ResilientProviderExecutor(
+            timeout_seconds=1,
+            maximum_attempts=3,
+            circuit_breaker=CircuitBreaker(2, 60),
+            sleeper=forbidden_sleep,
+        ),
+    )
+
+    async def exercise() -> tuple[str, str, str, str]:
+        authorization = AuthorizationService()
+        assert authorization.is_allowed(
+            context,
+            Permission.AI_EMPLOYEE_USE,
+            AuthorizationResource(tenant_id=context.tenant_id),
+        )
+        async with factory(context) as uow:
+            before_exhaustion = await AIRepository(uow.session).effective_policy(
+                context,
+                agent_code="EMPLOYEE_HELPDESK",
+                use_case_code="HELPDESK_CHAT",
+                environment_id=None,
+            )
+            await uow.commit()
+        assert before_exhaustion.budget_remaining is True
+
+        _psql(
+            f"""
+            INSERT INTO ai.usage_ledger(
+              tenant_id,agent_configuration_id,user_id,provider_alias,model_alias,
+              use_case_code,estimated_cost,currency_code)
+            VALUES ('{TENANT_ID}','81000000-0000-0000-0000-000000000009','{USER_ID}',
+              'fake','fake-model','PROVIDER_CALL',1,'USD');
+            """
+        )
+        async with factory(context) as uow:
+            exhausted = await AIRepository(uow.session).effective_policy(
+                context,
+                agent_code="EMPLOYEE_HELPDESK",
+                use_case_code="HELPDESK_CHAT",
+                environment_id=None,
+            )
+            await uow.commit()
+        assert exhausted.budget_remaining is False
+
+        snapshot = (
+            _psql(f"SELECT count(*) FROM ai.agent_run WHERE conversation_id='{CONVERSATION_ID}'"),
+            _psql(f"SELECT count(*) FROM ai.usage_ledger WHERE tenant_id='{TENANT_ID}'"),
+            _psql(f"SELECT count(*) FROM audit.audit_event WHERE tenant_id='{TENANT_ID}'"),
+            _psql(f"SELECT count(*) FROM audit.security_event WHERE tenant_id='{TENANT_ID}'"),
+        )
+        with pytest.raises(AIDisabledError, match="effective policy"):
+            await gateway.generate_with_run(
+                context,
+                conversation_id=UUID(CONVERSATION_ID),
+                agent_code="EMPLOYEE_HELPDESK",
+                use_case_code="HELPDESK_CHAT",
+                request=ProviderRequest("approved request", ()),
+            )
+        return snapshot
+
+    try:
+        runs_before, usage_before, audit_before, security_before = asyncio.run(
+            exercise(), loop_factory=asyncio.SelectorEventLoop
+        )
+
+        assert registry.resolutions == []
+        assert primary.calls == 0
+        assert fallback.calls == 0
+        assert (
+            _psql(f"SELECT count(*) FROM ai.agent_run WHERE conversation_id='{CONVERSATION_ID}'")
+            == runs_before
+        )
+        assert (
+            _psql(f"SELECT count(*) FROM ai.usage_ledger WHERE tenant_id='{TENANT_ID}'")
+            == usage_before
+        )
+        assert (
+            _psql(f"SELECT count(*) FROM audit.audit_event WHERE tenant_id='{TENANT_ID}'")
+            == audit_before
+        )
+        assert (
+            _psql(f"SELECT count(*) FROM audit.security_event WHERE tenant_id='{TENANT_ID}'")
+            == security_before
+        )
+    finally:
+        asyncio.run(engine.dispose(), loop_factory=asyncio.SelectorEventLoop)
+        _disable_r2_ai_rls()

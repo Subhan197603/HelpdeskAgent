@@ -370,6 +370,107 @@ def test_disabled_gateway_never_opens_a_unit_of_work() -> None:
     assert touched is False
 
 
+def test_exhausted_budget_never_resolves_or_invokes_a_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identifiers = [uuid4() for _ in range(7)]
+    policy = EffectiveAIPolicy(
+        feature_policy_id=identifiers[0],
+        agent_configuration_id=identifiers[1],
+        agent_configuration_version_id=identifiers[2],
+        prompt_version_id=identifiers[3],
+        prompt_text="Approved instructions.",
+        tool_set_version_id=identifiers[4],
+        retrieval_configuration_version_id=identifiers[5],
+        model_policy_version_id=identifiers[6],
+        provider_alias="primary",
+        model_alias="primary-model",
+        fallback_provider_alias="fallback",
+        fallback_model_alias="fallback-model",
+        maximum_input_tokens=100,
+        maximum_output_tokens=50,
+        maximum_tool_calls=0,
+        per_user_requests_per_minute=None,
+        budget_remaining=False,
+    )
+
+    class BudgetStoppedRepository:
+        start_calls: ClassVar[int] = 0
+
+        def __init__(self, session: object) -> None:
+            del session
+
+        async def effective_policy(self, *args: object, **kwargs: object) -> EffectiveAIPolicy:
+            del args, kwargs
+            return policy
+
+        async def start_run(self, *args: object, **kwargs: object) -> Any:
+            del args, kwargs
+            BudgetStoppedRepository.start_calls += 1
+            raise AssertionError("an exhausted budget must not create an AI run")
+
+    class FakeUnitOfWork:
+        session = object()
+        commits = 0
+
+        async def __aenter__(self) -> "FakeUnitOfWork":
+            return self
+
+        async def __aexit__(self, *args: object) -> None:
+            del args
+
+        async def commit(self) -> None:
+            self.commits += 1
+
+    class ForbiddenRegistry:
+        resolutions = 0
+
+        def resolve(self, provider_alias: str, model_alias: str) -> Any:
+            del provider_alias, model_alias
+            self.resolutions += 1
+            raise AssertionError("an exhausted budget must not resolve a provider")
+
+    class ForbiddenExecutor:
+        calls = 0
+
+        async def generate(self, *args: object, **kwargs: object) -> Any:
+            del args, kwargs
+            self.calls += 1
+            raise AssertionError("an exhausted budget must not invoke a provider")
+
+    unit_of_work = FakeUnitOfWork()
+    registry = ForbiddenRegistry()
+    executor = ForbiddenExecutor()
+    monkeypatch.setattr(ai_service_module, "AIRepository", BudgetStoppedRepository)
+    settings = Settings(
+        ai_globally_enabled=True,
+        openai_api_key=SecretStr("configuration-validation-only"),
+        openai_model_aliases={"configured": "deployment"},
+    )
+    gateway = AIGateway(
+        cast("Any", lambda context: unit_of_work),
+        settings,
+        cast("Any", registry),
+        cast("Any", executor),
+    )
+
+    with pytest.raises(AIDisabledError, match="effective policy"):
+        asyncio.run(
+            gateway.generate_with_run(
+                _context("CUSTOMER"),
+                conversation_id=uuid4(),
+                agent_code="EMPLOYEE_HELPDESK",
+                use_case_code="HELPDESK_CHAT",
+                request=ProviderRequest("instructions", ()),
+            )
+        )
+
+    assert BudgetStoppedRepository.start_calls == 0
+    assert registry.resolutions == 0
+    assert executor.calls == 0
+    assert unit_of_work.commits == 0
+
+
 def test_gateway_records_policy_versions_and_configured_cost(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
