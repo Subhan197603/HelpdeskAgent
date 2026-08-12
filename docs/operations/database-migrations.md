@@ -20,8 +20,8 @@ Production `main` and `v1.0.0` are frozen at commit
 `cc9d76885e181230bd91f5b9bfd0605a9b23fb07`. Their historical Alembic head is
 `0020_reporting_views`.
 
-Task 11.5D implementation starts from the reconciled `develop` baseline at
-`45e60256fc99ac4770080bfad6a92ee63d3d69ad`. Its pending Alembic head is
+Current `develop` at the completed Milestone 11 implementation baseline
+`dbd3cb537bf0a54099c81f1b27a579977774b7ab` has Alembic head
 `0023_knowledge_admin_index`.
 
 The only post-v1 revisions currently present are:
@@ -37,11 +37,12 @@ Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
 for access-administration mutations. Revision
 `0022_admin_config_privileges` grants only
 `UPDATE(active_flag, employee_visible_flag)` on `config.request_type` to the
-application runtime role. Revision `0023_knowledge_admin_index` adds
-only the GIN trigram index used by tenant-scoped knowledge-administration title
-search. It grants no new document, version, ACL, or delete privileges and does
-not alter public retrieval eligibility. Never rewrite production history to
-imply that `v1.0.0` contains any post-v1 revision.
+application runtime role. Task 11.5D introduced revision
+`0023_knowledge_admin_index`. It adds only the GIN trigram index used by
+tenant-scoped knowledge-administration title search. It grants no new document,
+version, ACL, or delete privileges and does not alter public retrieval
+eligibility. Never rewrite production history to imply that `v1.0.0` contains
+any post-v1 revision.
 
 Task 11.5E adds read-only AI governance over existing AI policy, usage, and
 configuration tables. It reuses `AI_OVERSIGHT` and existing runtime `SELECT`

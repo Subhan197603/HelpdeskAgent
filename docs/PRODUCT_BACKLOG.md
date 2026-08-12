@@ -99,17 +99,24 @@ The following work is complete, as verified by its Git tag and commit:
 | 11.5B | Read-only identity, role, queue, and ticket-view administration | `milestone-11-task-11.5b` | `a8556e9f67623891a0663c2b80dfa295f5f98b82` |
 | 11.5F | Access-administration mutations                                 | `milestone-11-task-11.5f` | `b461fa86e7616ed95d3f04009e46255895569b97` |
 | 11.5C | Workflow, SLA, calendar, and catalogue administration           | `milestone-11-task-11.5c` | `cc47d12fb716b3f4bd659931e19aabda8d1ea494` |
+| 11.5D | Knowledge administration                                        | `milestone-11-task-11.5d` | `d5eaeac44d9cd798dd18c379ea72d0f5be5a555d` |
+| 11.5E | Read-only AI governance administration                          | `milestone-11-task-11.5e` | `dbd3cb537bf0a54099c81f1b27a579977774b7ab` |
 
 Git ancestry places Task 11.5F before Task 11.5C. Preserve that history.
 
 ### Task 11.5D — Knowledge Administration
 
-Status: `NOT_STARTED_UNAUTHORIZED`.
+Status: `COMPLETED`.
 
-This is a planning candidate for administration of the existing governed
-knowledge lifecycle. Exact APIs, mutations, permissions, migrations,
-acceptance criteria, and tests must be established in a separately approved
-task plan. This entry does not authorize implementation.
+The approved implementation provides tenant-scoped knowledge-administration
+list and detail views, version and publication history, redacted ACL summaries,
+bounded plaintext processing previews, and the existing approve, reject,
+publish, and retire lifecycle operations behind dedicated permissions. Direct
+document creation, revision editing, restore, category administration, and ACL
+or audience mutation remain deferred. Migration `0023_knowledge_admin_index`
+adds only the bounded GIN trigram title-search index and no runtime grant. Git
+tag `milestone-11-task-11.5d` resolves to
+`d5eaeac44d9cd798dd18c379ea72d0f5be5a555d`.
 
 ### Task 11.5E — AI Governance
 
@@ -124,9 +131,28 @@ migration is required; development head remains
 `0023_knowledge_admin_index`. Commit, tag, verification, and push were
 authorized by `APPROVE MILESTONE 11 TASK 11.5E COMMIT`.
 
-Both tasks must preserve tenant isolation, authorization, auditability,
-knowledge access controls, AI kill switches and budgets, tool controls, and
-evidence requirements. Each task must follow:
+Git tag `milestone-11-task-11.5e` resolves to
+`dbd3cb537bf0a54099c81f1b27a579977774b7ab`.
+
+### Milestone 11 Closure State
+
+Milestone 11 implementation is `COMPLETE`. Formal closure is
+`PENDING_VALIDATION` until a separate closure gate establishes acceptable full
+regression and CI evidence. Known unresolved evidence remains visible:
+
+- three Copilot integration failures;
+- five JavaScript dependency advisories; and
+- no current green full-CI evidence.
+
+This documentation reconciliation does not fix those issues or characterize
+the advisories as exploitable. No Milestone 11 work has been promoted to the
+frozen production `main` or `v1.0.0`, and no production deployment or image
+publication is authorized.
+
+The completed bounded tasks preserve tenant isolation, authorization,
+auditability, knowledge access controls, AI kill switches and budgets, tool
+controls, and evidence requirements. Broader functionality remains subject to
+the standard approval workflow:
 
 ```text
 PLAN
@@ -157,6 +183,7 @@ PLAN
 
 ## Future Milestone — Knowledge Operations
 
+- Governed knowledge authoring and administration designers
 - Oracle documentation refresh lifecycle
 - Approved-source inventory
 - New-release discovery
@@ -176,6 +203,8 @@ PLAN
 
 ## Future Milestone — Advanced AI Operations
 
+- Mutable provider, model, policy, budget, and retrieval controls
+- Active provider probing and manual circuit reset
 - AI budget dashboard
 - Model and prompt approval workflow
 - Prompt regression testing
@@ -235,6 +264,7 @@ PLAN
 
 ## Future Milestone — Production Operations
 
+- Separately authorized production deployment and image publication
 - PgBouncer and production pool sizing
 - Primary and replica topology
 - Point-in-time recovery

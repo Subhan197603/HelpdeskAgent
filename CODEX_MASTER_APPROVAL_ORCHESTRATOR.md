@@ -53,9 +53,10 @@ frozen as `v1.0.0` at commit
 `cc9d76885e181230bd91f5b9bfd0605a9b23fb07`. Milestone 11 is post-v1
 development on `develop`; none of it is part of `v1.0.0`.
 
-Items listed as Future Milestones in `docs/PRODUCT_BACKLOG.md`, including the
-remaining Milestone 11 administration tasks, remain deferred unless the owner
-separately assigns and approves a task-specific plan.
+Items listed as Future Milestones in `docs/PRODUCT_BACKLOG.md` remain deferred
+unless the owner separately assigns and approves a task-specific plan. The
+bounded Milestone 11 administration Tasks 11.5D and 11.5E have completed that
+workflow; broader knowledge and AI operations remain deferred.
 
 ---
 
@@ -224,21 +225,25 @@ Use this when:
 
 ## 2.2 Current Verified Status
 
-This snapshot records repository evidence as of the Milestone 11 governance
-reconciliation. Codex must still reverify it before every task.
+This snapshot records the Milestone 11 implementation baseline verified by the
+closure audit. Codex must still reverify repository evidence before every task.
 
 ```yaml
 branch: develop
-develop_commit: cc47d12fb716b3f4bd659931e19aabda8d1ea494
-origin_develop_commit: cc47d12fb716b3f4bd659931e19aabda8d1ea494
-development_migration_head: 0022_admin_config_privileges
+develop_commit: dbd3cb537bf0a54099c81f1b27a579977774b7ab
+origin_develop_commit: dbd3cb537bf0a54099c81f1b27a579977774b7ab
+development_migration_head: 0023_knowledge_admin_index
 production_commit: cc9d76885e181230bd91f5b9bfd0605a9b23fb07
 production_tag: v1.0.0
 production_migration_head: 0020_reporting_views
-latest_completed_task: milestone-11-task-11.5c
-remaining_tasks:
-  - milestone-11-task-11.5d: NOT_STARTED_UNAUTHORIZED
-  - milestone-11-task-11.5e: NOT_STARTED_UNAUTHORIZED
+latest_completed_task: milestone-11-task-11.5e
+milestone_11_implementation_state: COMPLETE
+milestone_11_formal_closure_state: PENDING_VALIDATION
+remaining_milestone_11_tasks: []
+known_unresolved_issues:
+  - three Copilot integration failures
+  - five JavaScript dependency advisories
+  - no current green full-CI evidence
 tracked_working_tree: clean
 ```
 
@@ -429,6 +434,8 @@ commits. They are post-v1 development and are not part of `v1.0.0`.
 | 11.5B | Read-only identity, role, queue, and ticket-view administration | `milestone-11-task-11.5b` | `a8556e9f67623891a0663c2b80dfa295f5f98b82` |
 | 11.5F | Access-administration mutations                                 | `milestone-11-task-11.5f` | `b461fa86e7616ed95d3f04009e46255895569b97` |
 | 11.5C | Workflow, SLA, calendar, and catalogue administration           | `milestone-11-task-11.5c` | `cc47d12fb716b3f4bd659931e19aabda8d1ea494` |
+| 11.5D | Knowledge administration                                        | `milestone-11-task-11.5d` | `d5eaeac44d9cd798dd18c379ea72d0f5be5a555d` |
+| 11.5E | Read-only AI governance administration                          | `milestone-11-task-11.5e` | `dbd3cb537bf0a54099c81f1b27a579977774b7ab` |
 
 Git ancestry places 11.5F before 11.5C. Preserve the recorded history; do not
 renumber, recreate, or move these tags.
@@ -1390,12 +1397,17 @@ definitive completion evidence for the following tasks:
 
 ### Task 11.5D — Knowledge Administration
 
-Status: `NOT_STARTED_UNAUTHORIZED`.
+Status: `COMPLETED`.
 
-This is a planning candidate for administration of the existing governed
-knowledge lifecycle. Exact APIs, mutations, permissions, migrations,
-acceptance criteria, and tests require a separate task-specific plan and human
-approval. This entry does not authorize implementation.
+The approved implementation adds tenant-scoped knowledge-administration list
+and detail views, version and publication history, redacted ACL summaries, and
+bounded plaintext processing previews behind
+`KNOWLEDGE_DOCUMENT_READ_ADMIN`. It invokes the existing approve, reject,
+publish, and retire lifecycle operations through their dedicated permissions.
+Direct document creation, revision editing, restore, category administration,
+and ACL or audience mutation remain deferred. Migration
+`0023_knowledge_admin_index` adds only the bounded GIN trigram title-search
+index and grants no new runtime privileges.
 
 Required workflow:
 
@@ -1410,6 +1422,12 @@ PLAN
 → push
 → stop
 ```
+
+Task 11.5D implementation was authorized by
+`APPROVE MILESTONE 11 TASK 11.5D IMPLEMENTATION`. Commit, tag, verification,
+and push were authorized by `APPROVE MILESTONE 11 TASK 11.5D COMMIT`. Git tag
+`milestone-11-task-11.5d` resolves to
+`d5eaeac44d9cd798dd18c379ea72d0f5be5a555d`.
 
 ### Task 11.5E — AI Governance
 
@@ -1441,7 +1459,23 @@ PLAN
 Task 11.5E implementation was authorized by
 `APPROVE MILESTONE 11 TASK 11.5E IMPLEMENTATION`. Commit, tag, verification,
 and push were authorized by
-`APPROVE MILESTONE 11 TASK 11.5E COMMIT`.
+`APPROVE MILESTONE 11 TASK 11.5E COMMIT`. Git tag
+`milestone-11-task-11.5e` resolves to
+`dbd3cb537bf0a54099c81f1b27a579977774b7ab`.
+
+## Milestone 11 Closure State
+
+Milestone 11 implementation is complete. Formal closure remains pending a
+separate validation gate that establishes acceptable full regression and CI
+evidence. The known unresolved evidence is three Copilot integration failures,
+five JavaScript dependency advisories, and no current green full-CI evidence.
+These issues remain visible for closure review; this governance reconciliation
+does not fix them or establish that the advisories are exploitable.
+
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
+`0020_reporting_views`. No Milestone 11 work has been promoted to production,
+and no production deployment or image publication is authorized.
 
 ---
 
@@ -1491,12 +1525,15 @@ The following remain outside the initial completion gate unless separately
 approved and assigned:
 
 - Email channel
+- Broader knowledge authoring and configuration designers
 - Advanced knowledge operations
+- Mutable AI control-plane operations, provider probing, and circuit reset
 - Advanced AI operations
 - Analyst productivity enhancements
 - Extended ITSM
 - Assets and full CMDB
 - Additional production operations beyond Milestone 10 commitments
+- Production deployment and image publication
 
 Broader advanced knowledge and AI operations beyond the completed bounded
 Tasks 11.5D and 11.5E remain deferred.
