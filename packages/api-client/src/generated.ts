@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+  "/api/v1/admin/ai": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Overview */
+    get: operations["overview_api_v1_admin_ai_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/ai/copilot/evaluation-dataset": {
     parameters: {
       query?: never;
@@ -30,6 +47,57 @@ export interface paths {
     };
     /** Copilot Usage Metrics */
     get: operations["copilot_usage_metrics_api_v1_admin_ai_copilot_metrics_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/ai/policies": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Policies */
+    get: operations["policies_api_v1_admin_ai_policies_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/ai/policies/{feature_policy_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Policy */
+    get: operations["policy_api_v1_admin_ai_policies__feature_policy_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/ai/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Usage */
+    get: operations["usage_api_v1_admin_ai_usage_get"];
     put?: never;
     post?: never;
     delete?: never;
@@ -1648,6 +1716,158 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AIGovernanceOverviewResponse */
+    AIGovernanceOverviewResponse: {
+      /**
+       * As Of
+       * Format: date-time
+       */
+      as_of: string;
+      /** Circuits */
+      circuits: components["schemas"]["CircuitStatusResponse"][];
+      global_switch: components["schemas"]["GlobalAISwitchResponse"];
+      /** Model Assignments */
+      model_assignments: components["schemas"]["ModelAssignmentResponse"][];
+      /** Operational Explanation */
+      operational_explanation: string;
+      /**
+       * Operational State
+       * @enum {string}
+       */
+      operational_state:
+        | "platform_disabled"
+        | "provider_configuration_incomplete"
+        | "retrieval_configuration_unavailable"
+        | "ready_to_attempt";
+      /** Providers */
+      providers: components["schemas"]["ProviderStatusResponse"][];
+      retrieval: components["schemas"]["RetrievalGovernanceResponse"];
+    };
+    /** AIPolicyListResponse */
+    AIPolicyListResponse: {
+      /**
+       * As Of
+       * Format: date-time
+       */
+      as_of: string;
+      /** Has More */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["AIPolicySummaryResponse"][];
+    };
+    /** AIPolicySummaryResponse */
+    AIPolicySummaryResponse: {
+      /** Agent Code */
+      agent_code: string | null;
+      /** Approval Status */
+      approval_status: string;
+      /** Budget Currency */
+      budget_currency: string | null;
+      /**
+       * Budget State
+       * @enum {string}
+       */
+      budget_state:
+        "not_configured" | "within_budget" | "warning" | "hard_stop";
+      /** Daily Budget */
+      daily_budget: string | null;
+      /** Daily Enforcement Spend */
+      daily_enforcement_spend: string;
+      /** Effective From */
+      effective_from: string | null;
+      /** Effective To */
+      effective_to: string | null;
+      /** Enabled */
+      enabled: boolean;
+      /** Environment Code */
+      environment_code: string | null;
+      /**
+       * Feature Policy Id
+       * Format: uuid
+       */
+      feature_policy_id: string;
+      /** Hard Stop Threshold Percent */
+      hard_stop_threshold_percent: string | null;
+      /** Ledger Currency Count */
+      ledger_currency_count: number;
+      /** Maximum Context Tokens */
+      maximum_context_tokens: number | null;
+      /** Maximum Input Tokens */
+      maximum_input_tokens: number | null;
+      /** Maximum Output Tokens */
+      maximum_output_tokens: number | null;
+      /** Maximum Retrieved Chunks */
+      maximum_retrieved_chunks: number | null;
+      /** Maximum Tool Calls */
+      maximum_tool_calls: number | null;
+      /** Monthly Budget */
+      monthly_budget: string | null;
+      /** Monthly Enforcement Spend */
+      monthly_enforcement_spend: string;
+      /** Per User Requests Per Minute */
+      per_user_requests_per_minute: number | null;
+      /** Row Version */
+      row_version: number;
+      /** Scope Type */
+      scope_type: string;
+      /** Tenant Specific */
+      tenant_specific: boolean;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Use Case Code */
+      use_case_code: string | null;
+      /** Warning Threshold Percent */
+      warning_threshold_percent: string | null;
+    };
+    /** AIUsageResponse */
+    AIUsageResponse: {
+      /** Agents */
+      agents: components["schemas"]["UsageAgentResponse"][];
+      /**
+       * As Of
+       * Format: date-time
+       */
+      as_of: string;
+      /**
+       * Bucket
+       * @default day
+       * @constant
+       */
+      bucket: "day";
+      /**
+       * Completed Calls Only
+       * @default true
+       * @constant
+       */
+      completed_calls_only: true;
+      /**
+       * Costs Are Estimates
+       * @default true
+       * @constant
+       */
+      costs_are_estimates: true;
+      /** Daily */
+      daily: components["schemas"]["UsageDailyResponse"][];
+      /**
+       * Occurred From
+       * Format: date-time
+       */
+      occurred_from: string;
+      /**
+       * Occurred To
+       * Format: date-time
+       */
+      occurred_to: string;
+      /** Providers */
+      providers: components["schemas"]["UsageProviderResponse"][];
+      /** Run Outcomes */
+      run_outcomes: components["schemas"]["RunOutcomeResponse"][];
+      /** Totals By Currency */
+      totals_by_currency: components["schemas"]["UsageCurrencyTotalResponse"][];
+    };
     /** AcquisitionAuthorizationCommand */
     AcquisitionAuthorizationCommand: {
       /**
@@ -3108,6 +3328,28 @@ export interface components {
        */
       turn_id: string;
     };
+    /** CircuitStatusResponse */
+    CircuitStatusResponse: {
+      /** Model Alias */
+      model_alias: string;
+      /** Provider Alias */
+      provider_alias: string;
+      /** Recent Failures */
+      recent_failures: number;
+      /** Recovery Seconds Remaining */
+      recovery_seconds_remaining: number | null;
+      /**
+       * Scope
+       * @default current_process
+       * @constant
+       */
+      scope: "current_process";
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "not_observed" | "closed" | "open";
+    };
     /** ClassifiedActivity */
     ClassifiedActivity: {
       /** Body */
@@ -4160,6 +4402,31 @@ export interface components {
       required: boolean;
       validation: components["schemas"]["FieldValidationResponse"];
     };
+    /** GlobalAISwitchResponse */
+    GlobalAISwitchResponse: {
+      /** Calls Blocked */
+      calls_blocked: boolean;
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * Mutable At Runtime
+       * @default false
+       * @constant
+       */
+      mutable_at_runtime: false;
+      /**
+       * Restart Required To Change
+       * @default true
+       * @constant
+       */
+      restart_required_to_change: true;
+      /**
+       * Source
+       * @default environment
+       * @constant
+       */
+      source: "environment";
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -4620,6 +4887,52 @@ export interface components {
       /** Content */
       content: string;
     };
+    /** ModelAssignmentResponse */
+    ModelAssignmentResponse: {
+      /** Agent Code */
+      agent_code: string;
+      /**
+       * Agent Configuration Version Id
+       * Format: uuid
+       */
+      agent_configuration_version_id: string;
+      /** Agent Name */
+      agent_name: string;
+      /** Fallback Deployed */
+      fallback_deployed: boolean | null;
+      /** Fallback Model Alias */
+      fallback_model_alias: string | null;
+      /** Fallback Provider Alias */
+      fallback_provider_alias: string | null;
+      /** Model Alias */
+      model_alias: string;
+      /**
+       * Model Policy Version Id
+       * Format: uuid
+       */
+      model_policy_version_id: string;
+      /**
+       * Prompt Version Id
+       * Format: uuid
+       */
+      prompt_version_id: string;
+      /** Provider Alias */
+      provider_alias: string;
+      /** Provider Deployed */
+      provider_deployed: boolean;
+      /**
+       * Retrieval Configuration Version Id
+       * Format: uuid
+       */
+      retrieval_configuration_version_id: string;
+      /** Tenant Specific */
+      tenant_specific: boolean;
+      /**
+       * Tool Set Version Id
+       * Format: uuid
+       */
+      tool_set_version_id: string;
+    };
     /** NormalizedField */
     NormalizedField: {
       /** Data Type */
@@ -4775,6 +5088,23 @@ export interface components {
       id: string;
       /** Name */
       name: string;
+    };
+    /** ProviderStatusResponse */
+    ProviderStatusResponse: {
+      /**
+       * Availability
+       * @default not_probed
+       * @constant
+       */
+      availability: "not_probed";
+      /** Configured */
+      configured: boolean;
+      /** Enabled */
+      enabled: boolean;
+      /** Model Aliases */
+      model_aliases: string[];
+      /** Provider Alias */
+      provider_alias: string;
     };
     /** PublicCommentCreateRequest */
     PublicCommentCreateRequest: {
@@ -5025,6 +5355,38 @@ export interface components {
       /** Reason */
       reason: string;
     };
+    /** RetrievalGovernanceResponse */
+    RetrievalGovernanceResponse: {
+      /** Effective From */
+      effective_from: string | null;
+      /** Effective To */
+      effective_to: string | null;
+      /** Embedding Configuration Version Id */
+      embedding_configuration_version_id: string | null;
+      /** Published Configuration Available */
+      published_configuration_available: boolean;
+      /** Query Embedding Configured */
+      query_embedding_configured: boolean;
+      /** Query Embedding Model Code */
+      query_embedding_model_code: string;
+      /**
+       * Query Embedding Provider
+       * @enum {string}
+       */
+      query_embedding_provider: "deterministic" | "http";
+      /** Reranker Configured */
+      reranker_configured: boolean;
+      /** Reranker Enabled */
+      reranker_enabled: boolean;
+      /** Reranker Model Code */
+      reranker_model_code: string | null;
+      /** Retrieval Configuration Version Id */
+      retrieval_configuration_version_id: string | null;
+      /** Tenant Specific */
+      tenant_specific: boolean | null;
+      /** Version Number */
+      version_number: number | null;
+    };
     /** RouteCommand */
     RouteCommand: {
       /** Row Version */
@@ -5081,6 +5443,13 @@ export interface components {
        * Format: date-time
        */
       updated_at: string;
+    };
+    /** RunOutcomeResponse */
+    RunOutcomeResponse: {
+      /** Run Status */
+      run_status: string;
+      /** Runs */
+      runs: number;
     };
     /** RunResponse */
     RunResponse: {
@@ -5682,6 +6051,85 @@ export interface components {
        */
       visibility: "PUBLIC" | "INTERNAL";
     };
+    /** UsageAgentResponse */
+    UsageAgentResponse: {
+      /** Agent Code */
+      agent_code: string;
+      /** Cached Tokens */
+      cached_tokens: number;
+      /** Currency Code */
+      currency_code: string;
+      /** Estimated Cost */
+      estimated_cost: string;
+      /** Input Tokens */
+      input_tokens: number;
+      /** Output Tokens */
+      output_tokens: number;
+      /** Requests */
+      requests: number;
+      /** Tool Calls */
+      tool_calls: number;
+    };
+    /** UsageCurrencyTotalResponse */
+    UsageCurrencyTotalResponse: {
+      /** Cached Tokens */
+      cached_tokens: number;
+      /** Currency Code */
+      currency_code: string;
+      /** Estimated Cost */
+      estimated_cost: string;
+      /** Input Tokens */
+      input_tokens: number;
+      /** Output Tokens */
+      output_tokens: number;
+      /** Requests */
+      requests: number;
+      /** Tool Calls */
+      tool_calls: number;
+    };
+    /** UsageDailyResponse */
+    UsageDailyResponse: {
+      /** Cached Tokens */
+      cached_tokens: number;
+      /** Currency Code */
+      currency_code: string;
+      /**
+       * Day
+       * Format: date-time
+       */
+      day: string;
+      /** Estimated Cost */
+      estimated_cost: string;
+      /** Input Tokens */
+      input_tokens: number;
+      /** Output Tokens */
+      output_tokens: number;
+      /** Requests */
+      requests: number;
+      /** Tool Calls */
+      tool_calls: number;
+    };
+    /** UsageProviderResponse */
+    UsageProviderResponse: {
+      /** Cached Tokens */
+      cached_tokens: number;
+      /** Currency Code */
+      currency_code: string;
+      /** Estimated Cost */
+      estimated_cost: string;
+      /** Input Tokens */
+      input_tokens: number;
+      /** Model Alias */
+      model_alias: string;
+      /** Output Tokens */
+      output_tokens: number;
+      /** Provider Alias */
+      provider_alias: string;
+      /** Requests */
+      requests: number;
+      /** Tool Calls */
+      tool_calls: number;
+    };
     /** ValidationError */
     ValidationError: {
       /** Context */
@@ -5711,6 +6159,71 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  overview_api_v1_admin_ai_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIGovernanceOverviewResponse"];
+        };
+      };
+      /** @description Invalid reporting range */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   evaluation_dataset_api_v1_admin_ai_copilot_evaluation_dataset_get: {
     parameters: {
       query?: {
@@ -5852,6 +6365,210 @@ export interface operations {
       };
       /** @description AI or retrieval unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  policies_api_v1_admin_ai_policies_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIPolicyListResponse"];
+        };
+      };
+      /** @description Invalid reporting range */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  policy_api_v1_admin_ai_policies__feature_policy_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        feature_policy_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIPolicySummaryResponse"];
+        };
+      };
+      /** @description Invalid reporting range */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  usage_api_v1_admin_ai_usage_get: {
+    parameters: {
+      query?: {
+        occurred_from?: string | null;
+        occurred_to?: string | null;
+        bucket?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIUsageResponse"];
+        };
+      };
+      /** @description Invalid reporting range */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description AI governance resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Request validation failed */
+      422: {
         headers: {
           [name: string]: unknown;
         };

@@ -23,6 +23,7 @@ type Identity = components["schemas"]["CurrentIdentityResponse"];
 type PermissionCode =
   | "ADMIN_CONFIG_READ"
   | "ADMIN_IDENTITY_READ"
+  | "AI_OVERSIGHT"
   | "AUDIT_EVENT_READ"
   | "CATALOG_PROJECT_LIST"
   | "KNOWLEDGE_READ_ANALYST"
@@ -103,6 +104,12 @@ const administrationNavigation: readonly NavigationItem[] = [
     label: "Knowledge",
     permission: "KNOWLEDGE_DOCUMENT_READ_ADMIN",
     to: "/admin/knowledge",
+  },
+  {
+    icon: "activity",
+    label: "AI governance",
+    permission: "AI_OVERSIGHT",
+    to: "/admin/ai",
   },
   {
     icon: "shield",

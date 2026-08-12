@@ -168,6 +168,19 @@ describe("application shell", () => {
     ).toHaveAttribute("href", "/admin/knowledge");
   });
 
+  it("shows AI governance only with oversight permission", async () => {
+    renderShell("/portal");
+    await screen.findByRole("link", { name: "Home" });
+    expect(
+      screen.queryByRole("link", { name: "AI governance" }),
+    ).not.toBeInTheDocument();
+    permissions.push("AI_OVERSIGHT");
+    renderShell("/admin/ai");
+    expect(
+      await screen.findByRole("link", { name: "AI governance" }),
+    ).toHaveAttribute("aria-current", "page");
+  });
+
   it("persists sidebar collapse and supports the mobile drawer", async () => {
     const user = userEvent.setup();
     renderShell();

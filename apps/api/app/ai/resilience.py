@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass
 
 from apps.api.app.ai.models import LLMResult, ProviderRequest
@@ -18,6 +18,15 @@ class CircuitOpenError(ProviderError):
 class _CircuitState:
     failures: int = 0
     opened_at: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CircuitObservation:
+    provider_alias: str
+    model_alias: str
+    state: str
+    recent_failures: int
+    recovery_seconds_remaining: float | None
 
 
 class CircuitBreaker:
@@ -53,6 +62,37 @@ class CircuitBreaker:
             state.failures += 1
             if state.failures >= self._failure_threshold:
                 state.opened_at = self._clock()
+
+    async def snapshot(
+        self, known_models: Iterable[tuple[str, str]] = ()
+    ) -> tuple[CircuitObservation, ...]:
+        """Return a current-process observation without probing or resetting a provider."""
+        async with self._lock:
+            now = self._clock()
+            keys = set(known_models) | set(self._states)
+            observations: list[CircuitObservation] = []
+            for provider_alias, model_alias in sorted(keys):
+                state = self._states.get((provider_alias, model_alias))
+                if state is None:
+                    observations.append(
+                        CircuitObservation(provider_alias, model_alias, "not_observed", 0, None)
+                    )
+                    continue
+                remaining = (
+                    max(0.0, self._recovery_seconds - (now - state.opened_at))
+                    if state.opened_at is not None
+                    else None
+                )
+                observations.append(
+                    CircuitObservation(
+                        provider_alias,
+                        model_alias,
+                        "open" if remaining is not None and remaining > 0 else "closed",
+                        state.failures if remaining is None or remaining > 0 else 0,
+                        remaining if remaining is not None and remaining > 0 else None,
+                    )
+                )
+            return tuple(observations)
 
 
 class ResilientProviderExecutor:

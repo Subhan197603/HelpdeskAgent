@@ -3,6 +3,7 @@
 from fastapi import APIRouter
 
 from apps.api.app.admin.api import router as admin_router
+from apps.api.app.ai.governance_api import router as ai_governance_router
 from apps.api.app.analyst_copilot.api import oversight_router as ai_oversight_router
 from apps.api.app.analyst_copilot.api import router as analyst_copilot_router
 from apps.api.app.api.health import router as health_router
@@ -44,5 +45,6 @@ api_router.include_router(retrieval_router)
 api_router.include_router(employee_agent_router)
 api_router.include_router(analyst_copilot_router)
 api_router.include_router(ai_oversight_router)
+api_router.include_router(ai_governance_router)
 api_router.include_router(admin_router)
 api_router.include_router(observability_router)

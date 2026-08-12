@@ -113,12 +113,16 @@ task plan. This entry does not authorize implementation.
 
 ### Task 11.5E — AI Governance
 
-Status: `NOT_STARTED_UNAUTHORIZED`.
+Status: `COMPLETED`.
 
-This is a planning candidate for administration of existing AI governance and
-oversight controls. Exact configuration operations, permissions, migrations,
-acceptance criteria, and tests must be established in a separately approved
-task plan. This entry does not authorize implementation.
+The approved read-only implementation exposes secret-safe platform state,
+provider/model aliases, process-local circuit observations, effective policies
+and budgets, bounded tenant usage, and retrieval/embedding metadata behind
+`AI_OVERSIGHT`. Runtime edits, provider probing, circuit reset, credentials,
+deployment identifiers, and policy or budget mutations remain deferred. No
+migration is required; development head remains
+`0023_knowledge_admin_index`. Commit, tag, verification, and push were
+authorized by `APPROVE MILESTONE 11 TASK 11.5E COMMIT`.
 
 Both tasks must preserve tenant isolation, authorization, auditability,
 knowledge access controls, AI kill switches and budgets, tool controls, and

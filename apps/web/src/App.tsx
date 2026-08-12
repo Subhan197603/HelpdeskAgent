@@ -20,8 +20,11 @@ import {
 
 import {
   ActiveBadge,
+  aiSafetyPresentation,
   CodeChips,
+  formatEstimatedCost,
   formatMinutes,
+  formatTokenCount,
   humanizeCode,
   isoDayName,
   OutcomeBadge,
@@ -91,6 +94,7 @@ type FormField = components["schemas"]["FormFieldResponse"];
 type RequestForm = components["schemas"]["RequestFormResponse"];
 type Draft = components["schemas"]["DraftResponse"];
 type FieldValue = string | string[] | boolean;
+type AIPolicy = components["schemas"]["AIPolicySummaryResponse"];
 
 function RequireSession({ children }: { children: ReactNode }) {
   const { session } = useSession();
@@ -2363,6 +2367,456 @@ function AdminLandingPage() {
         versions are authored in a later milestone. Catalogue portal visibility
         can be changed here.
       </p>
+    </div>
+  );
+}
+
+function AISafetyBadge({ code }: { code: string }) {
+  const presentation = aiSafetyPresentation(code);
+  return (
+    <span className={`outcome-badge outcome-badge--${presentation.tone}`}>
+      {presentation.label}
+    </span>
+  );
+}
+
+function policyScope(policy: AIPolicy): string {
+  return (
+    policy.agent_code ??
+    policy.use_case_code ??
+    policy.environment_code ??
+    (policy.tenant_specific ? "Current tenant" : "Platform")
+  );
+}
+
+function AdminAIGovernancePage() {
+  const client = useIdentityClient();
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
+  const overview = useQuery({
+    queryKey: ["admin-ai-overview"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/admin/ai")),
+  });
+  const policies = useQuery({
+    queryKey: ["admin-ai-policies"],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/ai/policies", {
+          params: { query: { limit: 50, offset: 0 } },
+        }),
+      ),
+  });
+  const usage = useQuery({
+    queryKey: ["admin-ai-usage"],
+    queryFn: async () => unwrap(await client.GET("/api/v1/admin/ai/usage")),
+  });
+  const selectedPolicy = useQuery({
+    enabled: selectedPolicyId !== null,
+    queryKey: ["admin-ai-policy", selectedPolicyId],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/ai/policies/{feature_policy_id}", {
+          params: { path: { feature_policy_id: selectedPolicyId ?? "" } },
+        }),
+      ),
+  });
+  const anyPending =
+    overview.isPending || policies.isPending || usage.isPending;
+  const firstError = overview.error ?? policies.error ?? usage.error;
+
+  return (
+    <div className="page admin-page ai-governance-page">
+      <PageHeader
+        description="Read-only safety, policy, usage, and retrieval visibility. Provider availability is not actively probed."
+        eyebrow="Operational oversight"
+        title="AI governance"
+      />
+      {anyPending && (
+        <LoadingSkeleton label="Loading AI governance" lines={5} />
+      )}
+      {firstError && <ErrorSummary error={firstError} />}
+      {overview.data && (
+        <>
+          <section
+            className={`ai-safety-banner ai-safety-banner--${aiSafetyPresentation(overview.data.operational_state).tone}`}
+            aria-labelledby="ai-effective-state"
+          >
+            <div>
+              <p className="eyebrow">Effective platform state</p>
+              <h2 id="ai-effective-state">
+                {aiSafetyPresentation(overview.data.operational_state).label}
+              </h2>
+              <p>{overview.data.operational_explanation}</p>
+            </div>
+            <AISafetyBadge code={overview.data.operational_state} />
+          </section>
+          <div className="ai-governance-grid">
+            <Panel title="Global safety switch">
+              <MetadataGrid
+                items={[
+                  {
+                    label: "Effective state",
+                    value: overview.data.global_switch.enabled
+                      ? "Enabled"
+                      : "Disabled",
+                  },
+                  { label: "Configuration source", value: "Environment" },
+                  { label: "Runtime editing", value: "Unavailable" },
+                  { label: "Change requires", value: "Service restart" },
+                ]}
+              />
+              <p className="admin-note">
+                Tenant policy cannot override an environment-level disable.
+              </p>
+            </Panel>
+            <Panel title="Retrieval and embeddings">
+              <MetadataGrid
+                items={[
+                  {
+                    label: "Embedding provider",
+                    value: humanizeCode(
+                      overview.data.retrieval.query_embedding_provider.toUpperCase(),
+                    ),
+                  },
+                  {
+                    label: "Embedding model",
+                    value: overview.data.retrieval.query_embedding_model_code,
+                  },
+                  {
+                    label: "Provider configured",
+                    value: overview.data.retrieval.query_embedding_configured
+                      ? "Yes"
+                      : "No",
+                  },
+                  {
+                    label: "Published retrieval policy",
+                    value: overview.data.retrieval
+                      .published_configuration_available
+                      ? `Version ${String(overview.data.retrieval.version_number)}`
+                      : "Unavailable",
+                  },
+                  {
+                    label: "Reranking",
+                    value: overview.data.retrieval.reranker_enabled
+                      ? overview.data.retrieval.reranker_configured
+                        ? "Enabled and configured"
+                        : "Enabled, configuration incomplete"
+                      : "Disabled",
+                  },
+                ]}
+              />
+            </Panel>
+          </div>
+          <SectionHeader
+            description="Safe aliases and deployment state only. Endpoints, credentials, and deployment identifiers are withheld."
+            title="Providers and model assignments"
+          />
+          <div className="ai-provider-grid">
+            {overview.data.providers.map((provider) => (
+              <article
+                className="ai-provider-card"
+                key={provider.provider_alias}
+              >
+                <div className="ai-card-heading">
+                  <h3>{humanizeCode(provider.provider_alias.toUpperCase())}</h3>
+                  <OutcomeBadge
+                    code={provider.configured ? "ALLOWED" : "PARTIAL"}
+                  />
+                </div>
+                <p>{provider.configured ? "Configured" : "Not configured"}</p>
+                <CodeChips
+                  codes={provider.model_aliases}
+                  label={`${provider.provider_alias} model aliases`}
+                />
+                <small>Availability not probed</small>
+              </article>
+            ))}
+          </div>
+          {overview.data.model_assignments.length === 0 ? (
+            <EmptyState
+              description="No effective published agent model assignments are available."
+              title="No model assignments"
+            />
+          ) : (
+            <ul className="ai-assignment-list">
+              {overview.data.model_assignments.map((assignment) => (
+                <li key={assignment.agent_configuration_version_id}>
+                  <div>
+                    <strong>{humanizeCode(assignment.agent_code)}</strong>
+                    <span>
+                      {assignment.provider_alias} / {assignment.model_alias}
+                    </span>
+                  </div>
+                  <AISafetyBadge
+                    code={
+                      assignment.provider_deployed
+                        ? "ready_to_attempt"
+                        : "provider_configuration_incomplete"
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+          <SectionHeader
+            description="Current-process observations reset when this API process restarts. No reset control is available."
+            title="Circuit breakers"
+          />
+          {overview.data.circuits.length === 0 ? (
+            <EmptyState
+              description="No configured model has been observed by this process."
+              title="No circuit observations"
+            />
+          ) : (
+            <ul className="ai-circuit-list">
+              {overview.data.circuits.map((circuit) => (
+                <li key={`${circuit.provider_alias}-${circuit.model_alias}`}>
+                  <div>
+                    <strong>
+                      {circuit.provider_alias} / {circuit.model_alias}
+                    </strong>
+                    <span>
+                      {circuit.recent_failures} recent failures · current
+                      process
+                    </span>
+                  </div>
+                  <AISafetyBadge
+                    code={
+                      circuit.state === "open" ? "circuit_open" : circuit.state
+                    }
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      {policies.data && (
+        <>
+          <SectionHeader
+            description="Approved policy layers combine at runtime; tenant controls can restrict but never override platform safety."
+            title="Policies and budgets"
+          />
+          {policies.data.items.length === 0 ? (
+            <EmptyState title="No visible AI policies" />
+          ) : (
+            <div className="ai-policy-list">
+              {policies.data.items.map((policy) => (
+                <article
+                  className="ai-policy-card"
+                  key={policy.feature_policy_id}
+                >
+                  <div className="ai-card-heading">
+                    <div>
+                      <p className="eyebrow">
+                        {humanizeCode(policy.scope_type)}
+                      </p>
+                      <h3>{humanizeCode(policyScope(policy))}</h3>
+                    </div>
+                    <AISafetyBadge
+                      code={
+                        policy.approval_status !== "APPROVED"
+                          ? "policy_unavailable"
+                          : !policy.enabled
+                            ? "policy_disabled"
+                            : policy.budget_state === "hard_stop"
+                              ? "budget_hard_stop"
+                              : "ready_to_attempt"
+                      }
+                    />
+                  </div>
+                  <MetadataGrid
+                    items={[
+                      {
+                        label: "Approval status",
+                        value: humanizeCode(policy.approval_status),
+                      },
+                      {
+                        label: "Daily budget",
+                        value:
+                          policy.daily_budget && policy.budget_currency
+                            ? formatEstimatedCost(
+                                policy.daily_budget,
+                                policy.budget_currency,
+                              )
+                            : "Not configured",
+                      },
+                      {
+                        label: "Monthly budget",
+                        value:
+                          policy.monthly_budget && policy.budget_currency
+                            ? formatEstimatedCost(
+                                policy.monthly_budget,
+                                policy.budget_currency,
+                              )
+                            : "Not configured",
+                      },
+                      {
+                        label: "Budget state",
+                        value: humanizeCode(policy.budget_state),
+                      },
+                      { label: "Revision", value: policy.row_version },
+                    ]}
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setSelectedPolicyId(policy.feature_policy_id);
+                    }}
+                  >
+                    View policy details
+                  </Button>
+                </article>
+              ))}
+            </div>
+          )}
+          {selectedPolicyId && (
+            <Panel className="ai-policy-detail" title="Policy detail">
+              {selectedPolicy.isPending && (
+                <LoadingSkeleton label="Loading policy detail" />
+              )}
+              {selectedPolicy.error && (
+                <ErrorSummary error={selectedPolicy.error} />
+              )}
+              {selectedPolicy.data && (
+                <MetadataGrid
+                  items={[
+                    { label: "Scope", value: selectedPolicy.data.scope_type },
+                    {
+                      label: "Approval status",
+                      value: humanizeCode(selectedPolicy.data.approval_status),
+                    },
+                    {
+                      label: "Target",
+                      value: policyScope(selectedPolicy.data),
+                    },
+                    {
+                      label: "Maximum input tokens",
+                      value:
+                        selectedPolicy.data.maximum_input_tokens == null
+                          ? "Not configured"
+                          : formatTokenCount(
+                              selectedPolicy.data.maximum_input_tokens,
+                            ),
+                    },
+                    {
+                      label: "Maximum output tokens",
+                      value:
+                        selectedPolicy.data.maximum_output_tokens == null
+                          ? "Not configured"
+                          : formatTokenCount(
+                              selectedPolicy.data.maximum_output_tokens,
+                            ),
+                    },
+                    {
+                      label: "Maximum tool calls",
+                      value:
+                        selectedPolicy.data.maximum_tool_calls ??
+                        "Not configured",
+                    },
+                    {
+                      label: "Requests per user/minute",
+                      value:
+                        selectedPolicy.data.per_user_requests_per_minute ??
+                        "Not configured",
+                    },
+                    {
+                      label: "Effective from",
+                      value:
+                        selectedPolicy.data.effective_from == null
+                          ? "Not bounded"
+                          : formatDateTime(selectedPolicy.data.effective_from),
+                    },
+                    {
+                      label: "Effective to",
+                      value:
+                        selectedPolicy.data.effective_to == null
+                          ? "Not bounded"
+                          : formatDateTime(selectedPolicy.data.effective_to),
+                    },
+                  ]}
+                />
+              )}
+            </Panel>
+          )}
+        </>
+      )}
+      {usage.data && (
+        <>
+          <SectionHeader
+            description="Completed provider calls from the last seven days. Costs are estimates and remain separated by currency."
+            title="Usage"
+          />
+          {usage.data.totals_by_currency.length === 0 ? (
+            <EmptyState
+              description="No completed AI provider calls were recorded in this period."
+              title="No recorded AI usage"
+            />
+          ) : (
+            <div className="admin-stats ai-usage-stats">
+              {usage.data.totals_by_currency.map((total) => (
+                <StatCard
+                  detail={`${formatTokenCount(total.input_tokens + total.output_tokens)} tokens`}
+                  key={total.currency_code}
+                  label={`${total.currency_code} estimated spend`}
+                  value={formatEstimatedCost(
+                    total.estimated_cost,
+                    total.currency_code,
+                  )}
+                />
+              ))}
+              <StatCard
+                label="Completed calls"
+                value={usage.data.totals_by_currency.reduce(
+                  (sum, total) => sum + total.requests,
+                  0,
+                )}
+              />
+            </div>
+          )}
+          {usage.data.providers.length > 0 && (
+            <div className="ai-usage-table-wrap">
+              <table className="ai-usage-table">
+                <caption>Usage by provider and model</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Provider and model</th>
+                    <th scope="col">Calls</th>
+                    <th scope="col">Tokens</th>
+                    <th scope="col">Estimated cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usage.data.providers.map((provider) => (
+                    <tr
+                      key={`${provider.provider_alias}-${provider.model_alias}-${provider.currency_code}`}
+                    >
+                      <th scope="row">
+                        {provider.provider_alias} / {provider.model_alias}
+                      </th>
+                      <td>{provider.requests}</td>
+                      <td>
+                        {formatTokenCount(
+                          provider.input_tokens + provider.output_tokens,
+                        )}
+                      </td>
+                      <td>
+                        {formatEstimatedCost(
+                          provider.estimated_cost,
+                          provider.currency_code,
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="admin-note">
+            Failed and in-flight runs are excluded from spend totals. Historical
+            user roles and true use-case dimensions are not stored.
+          </p>
+        </>
+      )}
     </div>
   );
 }
@@ -6300,6 +6754,16 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="ADMIN_IDENTITY_READ">
                 <AdminLandingPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/ai"
+          element={
+            <RequireSession>
+              <RequirePermission permission="AI_OVERSIGHT">
+                <AdminAIGovernancePage />
               </RequirePermission>
             </RequireSession>
           }

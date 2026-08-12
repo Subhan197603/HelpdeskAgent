@@ -1413,12 +1413,16 @@ PLAN
 
 ### Task 11.5E — AI Governance
 
-Status: `NOT_STARTED_UNAUTHORIZED`.
+Status: `COMPLETED`.
 
-This is a planning candidate for administration of existing AI governance and
-oversight controls. Exact configuration operations, permissions, migrations,
-acceptance criteria, and tests require a separate task-specific plan and human
-approval. This entry does not authorize implementation.
+The approved implementation adds read-only, tenant-scoped AI governance
+visibility behind `AI_OVERSIGHT`: effective platform safety state, safe
+provider/model aliases, current-process circuit observations, effective policy
+and budget summaries, bounded usage reporting, and retrieval/embedding
+configuration metadata. Provider secrets, deployment identifiers, active
+availability probes, reset controls, and all policy/configuration mutations are
+excluded. No migration or runtime privilege expansion is required; development
+head remains `0023_knowledge_admin_index`.
 
 Required workflow:
 
@@ -1434,8 +1438,10 @@ PLAN
 → stop
 ```
 
-Neither remaining task has an active implementation or commit approval phrase.
-Do not create one until its detailed plan is assigned and reviewed.
+Task 11.5E implementation was authorized by
+`APPROVE MILESTONE 11 TASK 11.5E IMPLEMENTATION`. Commit, tag, verification,
+and push were authorized by
+`APPROVE MILESTONE 11 TASK 11.5E COMMIT`.
 
 ---
 
@@ -1492,10 +1498,8 @@ approved and assigned:
 - Assets and full CMDB
 - Additional production operations beyond Milestone 10 commitments
 
-Milestone 11 Tasks 11.5D and 11.5E are named post-v1 planning candidates, not
-active tasks. Their bounded descriptions do not authorize implementation.
-Broader advanced knowledge and AI operations remain deferred even if one of
-those tasks is later planned.
+Broader advanced knowledge and AI operations beyond the completed bounded
+Tasks 11.5D and 11.5E remain deferred.
 
 To begin one of these, require a new approved roadmap amendment with:
 

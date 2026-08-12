@@ -43,6 +43,11 @@ search. It grants no new document, version, ACL, or delete privileges and does
 not alter public retrieval eligibility. Never rewrite production history to
 imply that `v1.0.0` contains any post-v1 revision.
 
+Task 11.5E adds read-only AI governance over existing AI policy, usage, and
+configuration tables. It reuses `AI_OVERSIGHT` and existing runtime `SELECT`
+privileges, adds no database object or write privilege, and therefore retains
+`0023_knowledge_admin_index` as the development head.
+
 ## Adopt a new local database
 
 ```sh

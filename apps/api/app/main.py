@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from apps.api.app.admin.service import AdminService
+from apps.api.app.ai.governance_service import AIGovernanceService
 from apps.api.app.ai.registry import ProviderRegistry
 from apps.api.app.ai.resilience import CircuitBreaker, ResilientProviderExecutor
 from apps.api.app.ai.service import AIGateway
@@ -138,6 +139,10 @@ def create_app(
                 "description": "Administrator AI usage metrics and evaluation datasets.",
             },
             {
+                "name": "ai-governance",
+                "description": "Secret-free AI policy, usage, and operational visibility.",
+            },
+            {
                 "name": "administration",
                 "description": "Read-only administration overview, status, and audit history.",
             },
@@ -206,6 +211,10 @@ def create_app(
         _embedding_provider(settings),
         _reranking_provider(settings),
     )
+    circuit_breaker = CircuitBreaker(
+        settings.ai_circuit_failure_threshold,
+        settings.ai_circuit_recovery_seconds,
+    )
     app.state.ai_gateway = AIGateway(
         unit_of_work_factory,
         settings,
@@ -213,11 +222,11 @@ def create_app(
         ResilientProviderExecutor(
             timeout_seconds=settings.ai_provider_timeout_seconds,
             maximum_attempts=settings.ai_provider_max_attempts,
-            circuit_breaker=CircuitBreaker(
-                settings.ai_circuit_failure_threshold,
-                settings.ai_circuit_recovery_seconds,
-            ),
+            circuit_breaker=circuit_breaker,
         ),
+    )
+    app.state.ai_governance_service = AIGovernanceService(
+        unit_of_work_factory, settings, circuit_breaker
     )
     app.state.employee_agent_service = EmployeeAgentService(
         unit_of_work_factory,

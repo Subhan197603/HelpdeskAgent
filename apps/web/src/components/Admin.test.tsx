@@ -3,11 +3,36 @@ import { describe, expect, it } from "vitest";
 
 import {
   ActiveBadge,
+  aiSafetyPresentation,
   CodeChips,
+  formatEstimatedCost,
+  formatTokenCount,
   humanizeCode,
   OutcomeBadge,
   outcomeTone,
 } from "./Admin";
+
+describe("AI governance presentation", () => {
+  it("keeps distinct safety reasons and tones", () => {
+    expect(aiSafetyPresentation("platform_disabled")).toEqual({
+      label: "Platform disabled",
+      tone: "danger",
+    });
+    expect(aiSafetyPresentation("budget_hard_stop").label).toBe(
+      "Budget hard stop",
+    );
+    expect(aiSafetyPresentation("circuit_open").label).toContain(
+      "current process",
+    );
+    expect(aiSafetyPresentation("ready_to_attempt").tone).toBe("success");
+  });
+
+  it("formats stored usage without inventing precision", () => {
+    expect(formatTokenCount(1234)).toMatch(/1.234|1,234/);
+    expect(formatEstimatedCost("8.5", "USD")).toContain("8.50");
+    expect(formatEstimatedCost("not-a-number", "USD")).toBe("—");
+  });
+});
 
 describe("humanizeCode", () => {
   it("turns event codes into readable labels", () => {

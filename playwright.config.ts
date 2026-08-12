@@ -22,7 +22,7 @@ export default defineConfig({
     {
       name: "functional-chromium",
       testMatch:
-        /(ticket-vertical-slice|admin-mutations|admin-config|knowledge-admin)\.spec\.ts/,
+        /(ticket-vertical-slice|admin-mutations|admin-config|knowledge-admin|ai-governance)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { height: 800, width: 1280 },
@@ -45,6 +45,16 @@ export default defineConfig({
     ].map(({ height, name, width }) => ({
       name,
       testMatch: /visual-foundation\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], viewport: { height, width } },
+    })),
+    ...[
+      { height: 1024, name: "ai-governance-visual-1440", width: 1440 },
+      { height: 900, name: "ai-governance-visual-1024", width: 1024 },
+      { height: 1024, name: "ai-governance-visual-768", width: 768 },
+      { height: 844, name: "ai-governance-visual-390", width: 390 },
+    ].map(({ height, name, width }) => ({
+      name,
+      testMatch: /ai-governance-visual\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { height, width } },
     })),
   ],

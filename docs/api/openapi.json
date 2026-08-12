@@ -1,6 +1,445 @@
 {
   "components": {
     "schemas": {
+      "AIGovernanceOverviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "circuits": {
+            "items": {
+              "$ref": "#/components/schemas/CircuitStatusResponse"
+            },
+            "title": "Circuits",
+            "type": "array"
+          },
+          "global_switch": {
+            "$ref": "#/components/schemas/GlobalAISwitchResponse"
+          },
+          "model_assignments": {
+            "items": {
+              "$ref": "#/components/schemas/ModelAssignmentResponse"
+            },
+            "title": "Model Assignments",
+            "type": "array"
+          },
+          "operational_explanation": {
+            "title": "Operational Explanation",
+            "type": "string"
+          },
+          "operational_state": {
+            "enum": [
+              "platform_disabled",
+              "provider_configuration_incomplete",
+              "retrieval_configuration_unavailable",
+              "ready_to_attempt"
+            ],
+            "title": "Operational State",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderStatusResponse"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "retrieval": {
+            "$ref": "#/components/schemas/RetrievalGovernanceResponse"
+          }
+        },
+        "required": [
+          "as_of",
+          "global_switch",
+          "providers",
+          "model_assignments",
+          "circuits",
+          "retrieval",
+          "operational_state",
+          "operational_explanation"
+        ],
+        "title": "AIGovernanceOverviewResponse",
+        "type": "object"
+      },
+      "AIPolicyListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AIPolicySummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["as_of", "items", "has_more"],
+        "title": "AIPolicyListResponse",
+        "type": "object"
+      },
+      "AIPolicySummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Code"
+          },
+          "approval_status": {
+            "title": "Approval Status",
+            "type": "string"
+          },
+          "budget_currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Budget Currency"
+          },
+          "budget_state": {
+            "enum": ["not_configured", "within_budget", "warning", "hard_stop"],
+            "title": "Budget State",
+            "type": "string"
+          },
+          "daily_budget": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Daily Budget"
+          },
+          "daily_enforcement_spend": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Daily Enforcement Spend",
+            "type": "string"
+          },
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "environment_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment Code"
+          },
+          "feature_policy_id": {
+            "format": "uuid",
+            "title": "Feature Policy Id",
+            "type": "string"
+          },
+          "hard_stop_threshold_percent": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hard Stop Threshold Percent"
+          },
+          "ledger_currency_count": {
+            "title": "Ledger Currency Count",
+            "type": "integer"
+          },
+          "maximum_context_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Context Tokens"
+          },
+          "maximum_input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Input Tokens"
+          },
+          "maximum_output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Output Tokens"
+          },
+          "maximum_retrieved_chunks": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Retrieved Chunks"
+          },
+          "maximum_tool_calls": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum Tool Calls"
+          },
+          "monthly_budget": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Monthly Budget"
+          },
+          "monthly_enforcement_spend": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monthly Enforcement Spend",
+            "type": "string"
+          },
+          "per_user_requests_per_minute": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Per User Requests Per Minute"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "scope_type": {
+            "title": "Scope Type",
+            "type": "string"
+          },
+          "tenant_specific": {
+            "title": "Tenant Specific",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "use_case_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Use Case Code"
+          },
+          "warning_threshold_percent": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning Threshold Percent"
+          }
+        },
+        "required": [
+          "feature_policy_id",
+          "tenant_specific",
+          "scope_type",
+          "enabled",
+          "approval_status",
+          "environment_code",
+          "agent_code",
+          "use_case_code",
+          "daily_budget",
+          "monthly_budget",
+          "budget_currency",
+          "warning_threshold_percent",
+          "hard_stop_threshold_percent",
+          "maximum_input_tokens",
+          "maximum_output_tokens",
+          "maximum_context_tokens",
+          "maximum_tool_calls",
+          "maximum_retrieved_chunks",
+          "per_user_requests_per_minute",
+          "effective_from",
+          "effective_to",
+          "row_version",
+          "updated_at",
+          "daily_enforcement_spend",
+          "monthly_enforcement_spend",
+          "ledger_currency_count",
+          "budget_state"
+        ],
+        "title": "AIPolicySummaryResponse",
+        "type": "object"
+      },
+      "AIUsageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "agents": {
+            "items": {
+              "$ref": "#/components/schemas/UsageAgentResponse"
+            },
+            "title": "Agents",
+            "type": "array"
+          },
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "bucket": {
+            "const": "day",
+            "default": "day",
+            "title": "Bucket",
+            "type": "string"
+          },
+          "completed_calls_only": {
+            "const": true,
+            "default": true,
+            "title": "Completed Calls Only",
+            "type": "boolean"
+          },
+          "costs_are_estimates": {
+            "const": true,
+            "default": true,
+            "title": "Costs Are Estimates",
+            "type": "boolean"
+          },
+          "daily": {
+            "items": {
+              "$ref": "#/components/schemas/UsageDailyResponse"
+            },
+            "title": "Daily",
+            "type": "array"
+          },
+          "occurred_from": {
+            "format": "date-time",
+            "title": "Occurred From",
+            "type": "string"
+          },
+          "occurred_to": {
+            "format": "date-time",
+            "title": "Occurred To",
+            "type": "string"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/UsageProviderResponse"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "run_outcomes": {
+            "items": {
+              "$ref": "#/components/schemas/RunOutcomeResponse"
+            },
+            "title": "Run Outcomes",
+            "type": "array"
+          },
+          "totals_by_currency": {
+            "items": {
+              "$ref": "#/components/schemas/UsageCurrencyTotalResponse"
+            },
+            "title": "Totals By Currency",
+            "type": "array"
+          }
+        },
+        "required": [
+          "as_of",
+          "occurred_from",
+          "occurred_to",
+          "totals_by_currency",
+          "daily",
+          "providers",
+          "agents",
+          "run_outcomes"
+        ],
+        "title": "AIUsageResponse",
+        "type": "object"
+      },
       "AcquisitionAuthorizationCommand": {
         "properties": {
           "acquisition_method": {
@@ -3873,6 +4312,54 @@
         "title": "CancellationResponse",
         "type": "object"
       },
+      "CircuitStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "model_alias": {
+            "title": "Model Alias",
+            "type": "string"
+          },
+          "provider_alias": {
+            "title": "Provider Alias",
+            "type": "string"
+          },
+          "recent_failures": {
+            "title": "Recent Failures",
+            "type": "integer"
+          },
+          "recovery_seconds_remaining": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Seconds Remaining"
+          },
+          "scope": {
+            "const": "current_process",
+            "default": "current_process",
+            "title": "Scope",
+            "type": "string"
+          },
+          "state": {
+            "enum": ["not_observed", "closed", "open"],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_alias",
+          "model_alias",
+          "state",
+          "recent_failures",
+          "recovery_seconds_remaining"
+        ],
+        "title": "CircuitStatusResponse",
+        "type": "object"
+      },
       "ClassifiedActivity": {
         "properties": {
           "body": {
@@ -6630,6 +7117,40 @@
         "title": "FormFieldResponse",
         "type": "object"
       },
+      "GlobalAISwitchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "calls_blocked": {
+            "title": "Calls Blocked",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "mutable_at_runtime": {
+            "const": false,
+            "default": false,
+            "title": "Mutable At Runtime",
+            "type": "boolean"
+          },
+          "restart_required_to_change": {
+            "const": true,
+            "default": true,
+            "title": "Restart Required To Change",
+            "type": "boolean"
+          },
+          "source": {
+            "const": "environment",
+            "default": "environment",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": ["enabled", "calls_blocked"],
+        "title": "GlobalAISwitchResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -7795,6 +8316,111 @@
         "title": "MessageRequest",
         "type": "object"
       },
+      "ModelAssignmentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_code": {
+            "title": "Agent Code",
+            "type": "string"
+          },
+          "agent_configuration_version_id": {
+            "format": "uuid",
+            "title": "Agent Configuration Version Id",
+            "type": "string"
+          },
+          "agent_name": {
+            "title": "Agent Name",
+            "type": "string"
+          },
+          "fallback_deployed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Deployed"
+          },
+          "fallback_model_alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Model Alias"
+          },
+          "fallback_provider_alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Provider Alias"
+          },
+          "model_alias": {
+            "title": "Model Alias",
+            "type": "string"
+          },
+          "model_policy_version_id": {
+            "format": "uuid",
+            "title": "Model Policy Version Id",
+            "type": "string"
+          },
+          "prompt_version_id": {
+            "format": "uuid",
+            "title": "Prompt Version Id",
+            "type": "string"
+          },
+          "provider_alias": {
+            "title": "Provider Alias",
+            "type": "string"
+          },
+          "provider_deployed": {
+            "title": "Provider Deployed",
+            "type": "boolean"
+          },
+          "retrieval_configuration_version_id": {
+            "format": "uuid",
+            "title": "Retrieval Configuration Version Id",
+            "type": "string"
+          },
+          "tenant_specific": {
+            "title": "Tenant Specific",
+            "type": "boolean"
+          },
+          "tool_set_version_id": {
+            "format": "uuid",
+            "title": "Tool Set Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "agent_code",
+          "agent_name",
+          "tenant_specific",
+          "agent_configuration_version_id",
+          "prompt_version_id",
+          "tool_set_version_id",
+          "retrieval_configuration_version_id",
+          "model_policy_version_id",
+          "provider_alias",
+          "model_alias",
+          "provider_deployed",
+          "fallback_provider_alias",
+          "fallback_model_alias",
+          "fallback_deployed"
+        ],
+        "title": "ModelAssignmentResponse",
+        "type": "object"
+      },
       "NormalizedField": {
         "properties": {
           "data_type": {
@@ -8192,6 +8818,44 @@
         },
         "required": ["id", "code", "name", "description", "default_timezone"],
         "title": "ProjectResponse",
+        "type": "object"
+      },
+      "ProviderStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "const": "not_probed",
+            "default": "not_probed",
+            "title": "Availability",
+            "type": "string"
+          },
+          "configured": {
+            "title": "Configured",
+            "type": "boolean"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "model_aliases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Aliases",
+            "type": "array"
+          },
+          "provider_alias": {
+            "title": "Provider Alias",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider_alias",
+          "configured",
+          "enabled",
+          "model_aliases"
+        ],
+        "title": "ProviderStatusResponse",
         "type": "object"
       },
       "PublicCommentCreateRequest": {
@@ -8836,6 +9500,134 @@
         "title": "RetireDocumentCommand",
         "type": "object"
       },
+      "RetrievalGovernanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "effective_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective From"
+          },
+          "effective_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective To"
+          },
+          "embedding_configuration_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Configuration Version Id"
+          },
+          "published_configuration_available": {
+            "title": "Published Configuration Available",
+            "type": "boolean"
+          },
+          "query_embedding_configured": {
+            "title": "Query Embedding Configured",
+            "type": "boolean"
+          },
+          "query_embedding_model_code": {
+            "title": "Query Embedding Model Code",
+            "type": "string"
+          },
+          "query_embedding_provider": {
+            "enum": ["deterministic", "http"],
+            "title": "Query Embedding Provider",
+            "type": "string"
+          },
+          "reranker_configured": {
+            "title": "Reranker Configured",
+            "type": "boolean"
+          },
+          "reranker_enabled": {
+            "title": "Reranker Enabled",
+            "type": "boolean"
+          },
+          "reranker_model_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reranker Model Code"
+          },
+          "retrieval_configuration_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieval Configuration Version Id"
+          },
+          "tenant_specific": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tenant Specific"
+          },
+          "version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Number"
+          }
+        },
+        "required": [
+          "query_embedding_provider",
+          "query_embedding_model_code",
+          "query_embedding_configured",
+          "reranker_enabled",
+          "reranker_configured",
+          "reranker_model_code",
+          "published_configuration_available",
+          "retrieval_configuration_version_id",
+          "tenant_specific",
+          "version_number",
+          "effective_from",
+          "effective_to",
+          "embedding_configuration_version_id"
+        ],
+        "title": "RetrievalGovernanceResponse",
+        "type": "object"
+      },
       "RouteCommand": {
         "additionalProperties": false,
         "properties": {
@@ -9003,6 +9795,22 @@
           "updated_at"
         ],
         "title": "RunItemResponse",
+        "type": "object"
+      },
+      "RunOutcomeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "run_status": {
+            "title": "Run Status",
+            "type": "string"
+          },
+          "runs": {
+            "title": "Runs",
+            "type": "integer"
+          }
+        },
+        "required": ["run_status", "runs"],
+        "title": "RunOutcomeResponse",
         "type": "object"
       },
       "RunResponse": {
@@ -10547,6 +11355,207 @@
         "title": "UploadRequest",
         "type": "object"
       },
+      "UsageAgentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "agent_code": {
+            "title": "Agent Code",
+            "type": "string"
+          },
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "currency_code": {
+            "title": "Currency Code",
+            "type": "string"
+          },
+          "estimated_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Estimated Cost",
+            "type": "string"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency_code",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "tool_calls",
+          "estimated_cost",
+          "agent_code"
+        ],
+        "title": "UsageAgentResponse",
+        "type": "object"
+      },
+      "UsageCurrencyTotalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "currency_code": {
+            "title": "Currency Code",
+            "type": "string"
+          },
+          "estimated_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Estimated Cost",
+            "type": "string"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency_code",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "tool_calls",
+          "estimated_cost"
+        ],
+        "title": "UsageCurrencyTotalResponse",
+        "type": "object"
+      },
+      "UsageDailyResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "currency_code": {
+            "title": "Currency Code",
+            "type": "string"
+          },
+          "day": {
+            "format": "date-time",
+            "title": "Day",
+            "type": "string"
+          },
+          "estimated_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Estimated Cost",
+            "type": "string"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency_code",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "tool_calls",
+          "estimated_cost",
+          "day"
+        ],
+        "title": "UsageDailyResponse",
+        "type": "object"
+      },
+      "UsageProviderResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cached_tokens": {
+            "title": "Cached Tokens",
+            "type": "integer"
+          },
+          "currency_code": {
+            "title": "Currency Code",
+            "type": "string"
+          },
+          "estimated_cost": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Estimated Cost",
+            "type": "string"
+          },
+          "input_tokens": {
+            "title": "Input Tokens",
+            "type": "integer"
+          },
+          "model_alias": {
+            "title": "Model Alias",
+            "type": "string"
+          },
+          "output_tokens": {
+            "title": "Output Tokens",
+            "type": "integer"
+          },
+          "provider_alias": {
+            "title": "Provider Alias",
+            "type": "string"
+          },
+          "requests": {
+            "title": "Requests",
+            "type": "integer"
+          },
+          "tool_calls": {
+            "title": "Tool Calls",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "currency_code",
+          "requests",
+          "input_tokens",
+          "output_tokens",
+          "cached_tokens",
+          "tool_calls",
+          "estimated_cost",
+          "provider_alias",
+          "model_alias"
+        ],
+        "title": "UsageProviderResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -10614,6 +11623,80 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/ai": {
+      "get": {
+        "operationId": "overview_api_v1_admin_ai_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIGovernanceOverviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Invalid reporting range"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Overview",
+        "tags": ["ai-governance"]
+      }
+    },
     "/api/v1/admin/ai/copilot/evaluation-dataset": {
       "get": {
         "operationId": "evaluation_dataset_api_v1_admin_ai_copilot_evaluation_dataset_get",
@@ -10794,6 +11877,313 @@
         ],
         "summary": "Copilot Usage Metrics",
         "tags": ["ai-oversight"]
+      }
+    },
+    "/api/v1/admin/ai/policies": {
+      "get": {
+        "operationId": "policies_api_v1_admin_ai_policies_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 10000,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIPolicyListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Invalid reporting range"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Policies",
+        "tags": ["ai-governance"]
+      }
+    },
+    "/api/v1/admin/ai/policies/{feature_policy_id}": {
+      "get": {
+        "operationId": "policy_api_v1_admin_ai_policies__feature_policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feature_policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feature Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIPolicySummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Invalid reporting range"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Policy",
+        "tags": ["ai-governance"]
+      }
+    },
+    "/api/v1/admin/ai/usage": {
+      "get": {
+        "operationId": "usage_api_v1_admin_ai_usage_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "occurred_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occurred From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "occurred_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Occurred To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bucket",
+            "required": false,
+            "schema": {
+              "default": "day",
+              "pattern": "^day$",
+              "title": "Bucket",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AIUsageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Invalid reporting range"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "AI governance resource not found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Usage",
+        "tags": ["ai-governance"]
       }
     },
     "/api/v1/admin/audit/events": {
@@ -20797,6 +22187,10 @@
     {
       "description": "Administrator AI usage metrics and evaluation datasets.",
       "name": "ai-oversight"
+    },
+    {
+      "description": "Secret-free AI policy, usage, and operational visibility.",
+      "name": "ai-governance"
     },
     {
       "description": "Read-only administration overview, status, and audit history.",

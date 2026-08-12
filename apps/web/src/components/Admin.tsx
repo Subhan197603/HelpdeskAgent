@@ -76,6 +76,59 @@ export function formatMinutes(value: number | null | undefined): string {
   return parts.join(" ");
 }
 
+const AI_SAFETY_STATES: Record<
+  string,
+  { label: string; tone: OutcomeToneName }
+> = {
+  platform_disabled: { label: "Platform disabled", tone: "danger" },
+  policy_unavailable: { label: "Policy unavailable", tone: "danger" },
+  policy_disabled: { label: "Policy disabled", tone: "danger" },
+  budget_hard_stop: { label: "Budget hard stop", tone: "danger" },
+  provider_configuration_incomplete: {
+    label: "Provider not deployed",
+    tone: "warning",
+  },
+  retrieval_configuration_unavailable: {
+    label: "Retrieval unavailable",
+    tone: "warning",
+  },
+  circuit_open: { label: "Circuit open — current process", tone: "warning" },
+  ready_to_attempt: { label: "Ready to attempt", tone: "success" },
+};
+
+export function aiSafetyPresentation(code: string) {
+  return (
+    AI_SAFETY_STATES[code] ?? {
+      label: humanizeCode(code.toUpperCase()),
+      tone: "neutral" as const,
+    }
+  );
+}
+
+export function formatTokenCount(value: number): string {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(
+    value,
+  );
+}
+
+export function formatEstimatedCost(
+  value: string | number,
+  currency: string,
+): string {
+  const amount = typeof value === "string" ? Number(value) : value;
+  if (!Number.isFinite(amount)) return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      currency,
+      maximumFractionDigits: 4,
+      minimumFractionDigits: 2,
+      style: "currency",
+    }).format(amount);
+  } catch {
+    return `${amount.toFixed(4)} ${currency}`;
+  }
+}
+
 export function CodeChips({
   codes,
   label,
