@@ -1182,6 +1182,10 @@ const DETAIL_TABS = [
 ] as const;
 type DetailTab = (typeof DETAIL_TABS)[number]["id"];
 
+export function ticketClassificationDisplay(value: string | null): string {
+  return value ?? "Not provided";
+}
+
 function AnalystTicketDetailPage() {
   const { ticketKey = "" } = useParams();
   const client = useIdentityClient();
@@ -1664,8 +1668,14 @@ function AnalystTicketDetailPage() {
                 label: "Priority",
                 value: <PriorityBadge priority={data.priority} />,
               },
-              { label: "Impact", value: data.impact_code },
-              { label: "Urgency", value: data.urgency_code },
+              {
+                label: "Impact",
+                value: ticketClassificationDisplay(data.impact_code),
+              },
+              {
+                label: "Urgency",
+                value: ticketClassificationDisplay(data.urgency_code),
+              },
               {
                 label: "Assignment group",
                 value: data.assignment_group_name ?? "Unassigned",

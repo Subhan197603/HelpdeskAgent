@@ -5,7 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DynamicField, LoginPage } from "./App";
+import { DynamicField, LoginPage, ticketClassificationDisplay } from "./App";
 import { ErrorSummary } from "./components/States";
 import { ApiProblem } from "./lib/api";
 import type { AuthConfiguration } from "./lib/auth/oidc";
@@ -137,6 +137,21 @@ describe("dynamic request fields", () => {
 });
 
 describe("portal state handling", () => {
+  it.each([
+    ["both values", "MODERATE", "HIGH", ["MODERATE", "HIGH"]],
+    ["missing impact", null, "HIGH", ["Not provided", "HIGH"]],
+    ["missing urgency", "MODERATE", null, ["MODERATE", "Not provided"]],
+    ["both missing", null, null, ["Not provided", "Not provided"]],
+  ])(
+    "presents ticket classification honestly when %s",
+    (_case, impact, urgency, expected) => {
+      expect([
+        ticketClassificationDisplay(impact),
+        ticketClassificationDisplay(urgency),
+      ]).toEqual(expected);
+    },
+  );
+
   it("announces conflict responses with recovery guidance", () => {
     render(
       <ErrorSummary

@@ -3432,8 +3432,15 @@
             "type": "string"
           },
           "impact_code": {
-            "title": "Impact Code",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact Code"
           },
           "key": {
             "title": "Key",
@@ -3538,8 +3545,15 @@
             "type": "string"
           },
           "urgency_code": {
-            "title": "Urgency Code",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Urgency Code"
           },
           "work_type": {
             "title": "Work Type",

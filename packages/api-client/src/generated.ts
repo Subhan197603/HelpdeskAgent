@@ -3010,7 +3010,7 @@ export interface components {
        */
       id: string;
       /** Impact Code */
-      impact_code: string;
+      impact_code: string | null;
       /** Key */
       key: string;
       /** Priority */
@@ -3054,7 +3054,7 @@ export interface components {
        */
       updated_at: string;
       /** Urgency Code */
-      urgency_code: string;
+      urgency_code: string | null;
       /** Work Type */
       work_type: string;
     };

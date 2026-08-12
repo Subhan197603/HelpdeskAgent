@@ -62,8 +62,8 @@ class TicketView:
 
 @dataclass(frozen=True, slots=True)
 class TicketAnalystExtras:
-    impact_code: str
-    urgency_code: str
+    impact_code: str | None
+    urgency_code: str | None
     assignment_group_id: UUID | None
     assignment_group_name: str | None
     assignee_user_id: UUID | None

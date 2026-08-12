@@ -139,8 +139,8 @@ class AgentTicketSlaSummary(BaseModel):
 class AgentTicketResponse(TicketResponse):
     """Analyst-only detail contract; the customer contract stays unchanged."""
 
-    impact_code: str
-    urgency_code: str
+    impact_code: str | None
+    urgency_code: str | None
     assignment_group_id: UUID | None
     assignment_group_name: str | None
     assignee_user_id: UUID | None

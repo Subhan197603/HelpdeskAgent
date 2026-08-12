@@ -260,6 +260,28 @@ async def test_detail_enrichment_slas_assignment_and_attachment_metadata() -> No
         assert extras.assignee_user_id == ANALYST_ID
         assert extras.assignee_name
 
+        classification_cases = [
+            ("MODERATE", "HIGH"),
+            (None, "HIGH"),
+            ("MODERATE", None),
+            (None, None),
+        ]
+        async with maker() as session:
+            tickets = TicketRepository(session)
+            for impact, urgency in classification_cases:
+                await session.execute(
+                    text("""
+                        UPDATE itsm.ticket
+                        SET impact_code=:impact, urgency_code=:urgency
+                        WHERE ticket_id=:ticket_id
+                    """),
+                    {"impact": impact, "urgency": urgency, "ticket_id": TICKET_ID},
+                )
+                current = await tickets.analyst_extras(TICKET_ID)
+                assert current.impact_code == impact
+                assert current.urgency_code == urgency
+            await session.rollback()
+
         assert len(slas) == 2
         states = {row.state_code for row in slas}
         assert states == {"RUNNING", "BREACHED"}
