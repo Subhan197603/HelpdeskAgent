@@ -62,6 +62,8 @@ jobs:
           enable-cache: true
       - name: Install Python dependencies
         run: uv sync --frozen
+      - name: Prepare integration environment
+        run: cp .env.example .env
       - name: Test PostgreSQL baseline, Alembic adoption, and API foundation
         run: make db-test
 
