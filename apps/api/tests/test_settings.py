@@ -2,6 +2,7 @@
 
 import json
 import logging
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError as PydanticValidationError
@@ -10,6 +11,15 @@ from apps.api.app.core.logging import configure_logging
 from apps.api.app.core.settings import Settings
 
 from .conftest import make_test_settings
+
+EXAMPLE_ENV = Path(__file__).resolve().parents[3] / ".env.example"
+
+
+def test_example_environment_loads_for_local_development() -> None:
+    settings = Settings(_env_file=EXAMPLE_ENV)  # type: ignore[call-arg]
+
+    assert settings.object_storage_server_side_encryption is None
+    assert settings.object_storage_sse_key_id is None
 
 
 def test_settings_reject_unknown_environment() -> None:

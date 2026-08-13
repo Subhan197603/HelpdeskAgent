@@ -1,9 +1,20 @@
 """Worker configuration safety tests."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from apps.worker.worker.settings import WorkerSettings
+
+EXAMPLE_ENV = Path(__file__).resolve().parents[3] / ".env.example"
+
+
+def test_example_environment_loads_for_local_development() -> None:
+    settings = WorkerSettings(_env_file=EXAMPLE_ENV)  # type: ignore[call-arg]
+
+    assert settings.object_storage_server_side_encryption is None
+    assert settings.object_storage_sse_key_id is None
 
 
 @pytest.mark.parametrize(
