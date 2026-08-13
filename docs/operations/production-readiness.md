@@ -63,12 +63,27 @@ each row records that the owner reviewed the named area on the stated date.
 
 ## Unresolved risks
 
+The table below preserves the evidence and decisions recorded for the frozen v1 release candidate
+on 2026-08-03. Post-v1 dependency evidence is recorded separately after the table and does not
+rewrite the historical production sign-off.
+
 | Risk                                                                                                                                             | Impact                                                                    | Owner         | Acceptance                                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ------------- | -------------------------------------------------------------------------- |
 | SEC-2026-001: three moderate pnpm dev-dependency advisories (no fixed upstream release)                                                          | Development tooling only; not shipped to production images                | Project owner | Accepted until 2026-09-30 review (findings register)                       |
 | SEC-2026-002: Starlette TestClient deprecation warning                                                                                           | Test-only; no runtime exposure                                            | Project owner | Accepted; revisit on framework upgrade                                     |
 | Continuous WAL archiving and cross-region object-storage replication are production-deployment concerns not exercisable in the local environment | Until enabled in production, RPO is bounded by the nightly logical backup | Project owner | Accepted; enable per backup-disaster-recovery.md before production go-live |
 | External load testing and third-party penetration assessment not yet performed                                                                   | Residual risk of issues only visible at production scale                  | Project owner | Accepted; scheduled per security-test-plan.md cadence                      |
+
+### Post-v1 JavaScript advisory reassessment
+
+On 2026-08-13, Milestone 11 Remediation R3 superseded the current package inventory in
+SEC-2026-001 without changing the frozen v1 production release. The High `js-yaml` and `nanoid`
+build-tool findings are resolved in post-v1 `develop` by locked patch versions. Three Moderate
+React Router advisories remain version-present: the two navigation findings are accepted as not
+reachable through current internal and same-origin-sanitized navigation inputs, and the SSR
+hydration finding is not applicable to the declarative client-only `BrowserRouter` architecture.
+See [the current findings register](../security/security-test-plan.md) for package versions,
+advisory identifiers, evidence, review triggers, and the 2026-09-30 review date.
 
 ## Deferred backlog
 
