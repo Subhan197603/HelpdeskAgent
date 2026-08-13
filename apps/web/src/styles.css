@@ -1070,6 +1070,60 @@ h3 {
 .queue-search input {
   flex: 1;
 }
+
+.saved-filters {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-subtle);
+}
+
+.saved-filters h3 {
+  margin: 0;
+}
+
+.saved-filters > select,
+.queue-filter-grid input,
+.queue-filter-grid select,
+.save-filter-form input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.saved-filter-actions,
+.save-filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: end;
+}
+
+.save-filter-form input {
+  flex: 1 1 14rem;
+}
+
+.queue-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.queue-filter-grid label,
+.save-filter-form label,
+.saved-filters > label {
+  display: grid;
+  gap: var(--space-1);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
 .ticket-list {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1654,6 +1708,10 @@ h3 {
   .queue-search > div {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .queue-filter-grid {
+    grid-template-columns: 1fr;
   }
   .ticket-header {
     display: block;

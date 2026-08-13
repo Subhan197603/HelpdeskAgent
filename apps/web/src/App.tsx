@@ -93,6 +93,7 @@ import { type Persona, sessionHome, useSession } from "./lib/session";
 type FormField = components["schemas"]["FormFieldResponse"];
 type RequestForm = components["schemas"]["RequestFormResponse"];
 type Draft = components["schemas"]["DraftResponse"];
+type SavedFilter = components["schemas"]["SavedFilterResponse"];
 type FieldValue = string | string[] | boolean;
 type AIPolicy = components["schemas"]["AIPolicySummaryResponse"];
 
@@ -1048,21 +1049,80 @@ function AnalystDashboardPage() {
 
 function AgentQueuePage() {
   const client = useIdentityClient();
-  const [queueId, setQueueId] = useState<string | null>(null);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
+  const savedFilterId = params.get("savedFilter");
+  const editingFilterId = params.get("editFilter");
+  const queueId = params.get("queue");
+  const search = params.get("q") ?? "";
+  const status = params.get("status") ?? "";
+  const priority = params.get("priority") ?? "";
+  const group = params.get("group") ?? "";
+  const assignee = params.get("assignee") ?? "";
+  const [searchInput, setSearchInput] = useState(search);
+  const [filterName, setFilterName] = useState("");
+  const [deleting, setDeleting] = useState<SavedFilter | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const queues = useQuery({
     queryKey: ["agent-queues"],
     queryFn: async () => unwrap(await client.GET("/api/v1/agent/queues")),
   });
+  const savedFilters = useQuery({
+    queryKey: ["agent-saved-filters"],
+    queryFn: async () =>
+      unwrap(await client.GET("/api/v1/agent/saved-filters")),
+  });
   useEffect(() => {
-    if (!queueId && queues.data?.items[0]) setQueueId(queues.data.items[0].id);
-  }, [queueId, queues.data]);
+    if (!queueId && !savedFilterId && queues.data?.items[0]) {
+      setParams({ queue: queues.data.items[0].id }, { replace: true });
+    }
+  }, [queueId, queues.data, savedFilterId, setParams]);
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
+  const editingFilter = savedFilters.data?.items.find(
+    (item) => item.id === editingFilterId,
+  );
+  useEffect(() => {
+    setFilterName(editingFilter?.name ?? "");
+  }, [editingFilter]);
+  const updateManualParams = (changes: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    next.delete("savedFilter");
+    for (const [key, value] of Object.entries(changes)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
+    setCursor(null);
+    setParams(next);
+  };
   const tickets = useQuery({
-    queryKey: ["agent-queue-tickets", queueId, cursor, search],
-    enabled: Boolean(queueId),
+    queryKey: [
+      "agent-queue-tickets",
+      savedFilterId,
+      queueId,
+      cursor,
+      search,
+      status,
+      priority,
+      group,
+      assignee,
+    ],
+    enabled: Boolean(savedFilterId ?? queueId),
     queryFn: async () => {
+      if (savedFilterId)
+        return unwrap(
+          await client.GET(
+            "/api/v1/agent/saved-filters/{saved_filter_id}/tickets",
+            {
+              params: {
+                path: { saved_filter_id: savedFilterId },
+                query: { cursor: cursor ?? undefined },
+              },
+            },
+          ),
+        );
       if (!queueId) throw new Error("Select an analyst queue.");
       return unwrap(
         await client.GET("/api/v1/agent/queues/{queue_id}/tickets", {
@@ -1071,13 +1131,144 @@ function AgentQueuePage() {
             query: {
               cursor: cursor ?? undefined,
               search: search || undefined,
+              status_code: status || undefined,
+              priority_code: priority || undefined,
+              assignment_group_id: group || undefined,
+              assignee:
+                assignee === "me" || assignee === "unassigned"
+                  ? assignee
+                  : undefined,
             },
           },
         }),
       );
     },
   });
-  const selected = queues.data?.items.find((queue) => queue.id === queueId);
+  const createFilter = useMutation({
+    mutationFn: async () => {
+      if (!queueId) throw new Error("Select an analyst queue.");
+      return unwrap(
+        await client.POST("/api/v1/agent/saved-filters", {
+          params: {
+            header: {
+              "Idempotency-Key": newIdempotencyKey("saved-filter"),
+            },
+          },
+          body: {
+            name: filterName.trim(),
+            queue_id: queueId,
+            search: search || null,
+            status_code: status || null,
+            priority_code: priority || null,
+            assignment_group_id: group || null,
+            assignee:
+              assignee === "me" || assignee === "unassigned" ? assignee : null,
+          },
+        }),
+      );
+    },
+    onSuccess: (item) => {
+      setFilterName("");
+      setParams({ savedFilter: item.id });
+      void queryClient.invalidateQueries({ queryKey: ["agent-saved-filters"] });
+    },
+  });
+  const updateFilter = useMutation({
+    mutationFn: async (item: SavedFilter) => {
+      if (!queueId) throw new Error("Select an analyst queue.");
+      return unwrap(
+        await client.PATCH("/api/v1/agent/saved-filters/{saved_filter_id}", {
+          params: {
+            path: { saved_filter_id: item.id },
+            header: { "If-Match": String(item.row_version) },
+          },
+          body: {
+            name: filterName.trim(),
+            queue_id: queueId,
+            search: search || null,
+            status_code: status || null,
+            priority_code: priority || null,
+            assignment_group_id: group || null,
+            assignee:
+              assignee === "me" || assignee === "unassigned" ? assignee : null,
+            row_version: item.row_version,
+          },
+        }),
+      );
+    },
+    onSuccess: (item) => {
+      setParams({ savedFilter: item.id });
+      void queryClient.invalidateQueries({ queryKey: ["agent-saved-filters"] });
+    },
+  });
+  const deleteFilter = useMutation({
+    mutationFn: async (item: SavedFilter) => {
+      const result = await client.DELETE(
+        "/api/v1/agent/saved-filters/{saved_filter_id}",
+        {
+          params: {
+            path: { saved_filter_id: item.id },
+            header: { "If-Match": String(item.row_version) },
+          },
+          body: { row_version: item.row_version },
+        },
+      );
+      if (!result.response.ok) unwrap(result);
+    },
+    onSuccess: () => {
+      setDeleting(null);
+      setFilterName("");
+      setParams(
+        queues.data?.items[0] ? { queue: queues.data.items[0].id } : {},
+      );
+      void queryClient.invalidateQueries({ queryKey: ["agent-saved-filters"] });
+    },
+  });
+  const reorderFilters = useMutation({
+    mutationFn: async (items: SavedFilter[]) =>
+      unwrap(
+        await client.PUT("/api/v1/agent/saved-filters/order", {
+          body: {
+            items: items.map((item) => ({
+              id: item.id,
+              row_version: item.row_version,
+            })),
+          },
+        }),
+      ),
+    onSuccess: (data) => {
+      queryClient.setQueryData(["agent-saved-filters"], data);
+    },
+  });
+  const selectedSaved = savedFilters.data?.items.find(
+    (item) => item.id === savedFilterId,
+  );
+  const selected = queues.data?.items.find(
+    (queue) => queue.id === (selectedSaved?.queue_id ?? queueId),
+  );
+  const editSavedFilter = (item: SavedFilter) => {
+    const next = new URLSearchParams({
+      queue: item.queue_id,
+      editFilter: item.id,
+    });
+    if (item.search) next.set("q", item.search);
+    if (item.status_code) next.set("status", item.status_code);
+    if (item.priority_code) next.set("priority", item.priority_code);
+    if (item.assignment_group_id) next.set("group", item.assignment_group_id);
+    if (item.assignee) next.set("assignee", item.assignee);
+    setParams(next);
+  };
+  const moveFilter = (item: SavedFilter, offset: number) => {
+    const items = [...(savedFilters.data?.items ?? [])];
+    const index = items.findIndex((candidate) => candidate.id === item.id);
+    const target = index + offset;
+    if (index < 0 || target < 0 || target >= items.length) return;
+    const targetItem = items[target];
+    if (!targetItem) return;
+    items[index] = targetItem;
+    items[target] = item;
+    reorderFilters.mutate(items);
+  };
   return (
     <div className="page analyst-queues">
       <PageHeader
@@ -1095,12 +1286,11 @@ function AgentQueuePage() {
           <nav aria-label="Analyst queues" className="queue-navigation">
             {queues.data.items.map((queue) => (
               <button
-                aria-current={queue.id === queueId ? "page" : undefined}
-                className={queue.id === queueId ? "active" : ""}
+                aria-current={queue.id === selected?.id ? "page" : undefined}
+                className={queue.id === selected?.id ? "active" : ""}
                 key={queue.id}
                 onClick={() => {
-                  setQueueId(queue.id);
-                  setCursor(null);
+                  updateManualParams({ queue: queue.id, editFilter: null });
                 }}
                 type="button"
               >
@@ -1112,30 +1302,213 @@ function AgentQueuePage() {
           <section aria-labelledby="queue-heading" className="queue-results">
             <h2 id="queue-heading">{selected?.name}</h2>
             {selected?.description && <p>{selected.description}</p>}
-            <form
-              className="queue-search"
-              onSubmit={(event) => {
-                event.preventDefault();
-                setSearch(searchInput.trim());
-                setCursor(null);
-              }}
-              role="search"
+            <section
+              aria-labelledby="saved-filters-heading"
+              className="saved-filters"
             >
-              <label htmlFor="queue-search">Search ticket key or summary</label>
-              <div>
+              <h3 id="saved-filters-heading">Personal saved filters</h3>
+              {savedFilters.isPending && (
+                <p role="status">Loading saved filters…</p>
+              )}
+              {savedFilters.error && (
+                <ErrorSummary error={savedFilters.error} />
+              )}
+              <label htmlFor="saved-filter-select">Apply a saved filter</label>
+              <select
+                id="saved-filter-select"
+                onChange={(event) => {
+                  const id = event.target.value;
+                  setCursor(null);
+                  if (id) setParams({ savedFilter: id });
+                  else if (queues.data.items[0])
+                    setParams({ queue: queues.data.items[0].id });
+                }}
+                value={savedFilterId ?? ""}
+              >
+                <option value="">Manual filters</option>
+                {savedFilters.data?.items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+              {selectedSaved && (
+                <div className="saved-filter-actions">
+                  <Button
+                    onClick={() => {
+                      editSavedFilter(selectedSaved);
+                    }}
+                    variant="secondary"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    disabled={
+                      savedFilters.data?.items[0]?.id === selectedSaved.id ||
+                      reorderFilters.isPending
+                    }
+                    onClick={() => {
+                      moveFilter(selectedSaved, -1);
+                    }}
+                    variant="secondary"
+                  >
+                    Move up
+                  </Button>
+                  <Button
+                    disabled={
+                      savedFilters.data?.items.at(-1)?.id ===
+                        selectedSaved.id || reorderFilters.isPending
+                    }
+                    onClick={() => {
+                      moveFilter(selectedSaved, 1);
+                    }}
+                    variant="secondary"
+                  >
+                    Move down
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setDeleting(selectedSaved);
+                    }}
+                    variant="danger"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              )}
+            </section>
+            {!savedFilterId && (
+              <div className="queue-filter-grid">
+                <label>
+                  Status code
+                  <input
+                    maxLength={50}
+                    onChange={(event) => {
+                      updateManualParams({
+                        status: event.target.value.toUpperCase(),
+                      });
+                    }}
+                    pattern="[A-Z][A-Z0-9_]*"
+                    value={status}
+                  />
+                </label>
+                <label>
+                  Priority code
+                  <input
+                    maxLength={20}
+                    onChange={(event) => {
+                      updateManualParams({
+                        priority: event.target.value.toUpperCase(),
+                      });
+                    }}
+                    pattern="[A-Z][A-Z0-9_]*"
+                    value={priority}
+                  />
+                </label>
+                <label>
+                  Assignment group
+                  <select
+                    onChange={(event) => {
+                      updateManualParams({ group: event.target.value });
+                    }}
+                    value={group}
+                  >
+                    <option value="">Any permitted group</option>
+                    {identity?.support_group_ids.map((id) => (
+                      <option key={id} value={id}>
+                        Group {id.slice(0, 8)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Assignee
+                  <select
+                    onChange={(event) => {
+                      updateManualParams({ assignee: event.target.value });
+                    }}
+                    value={assignee}
+                  >
+                    <option value="">Anyone</option>
+                    <option value="me">Assigned to me</option>
+                    <option value="unassigned">Unassigned</option>
+                  </select>
+                </label>
+              </div>
+            )}
+            {!savedFilterId && (
+              <form
+                className="queue-search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  updateManualParams({ q: searchInput.trim() });
+                }}
+                role="search"
+              >
+                <label htmlFor="queue-search">
+                  Search ticket key or summary
+                </label>
+                <div>
+                  <input
+                    id="queue-search"
+                    maxLength={100}
+                    onChange={(event) => {
+                      setSearchInput(event.target.value);
+                    }}
+                    value={searchInput}
+                  />
+                  <Button type="submit" variant="secondary">
+                    Search
+                  </Button>
+                </div>
+              </form>
+            )}
+            {!savedFilterId && (
+              <form
+                className="save-filter-form"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (editingFilter) updateFilter.mutate(editingFilter);
+                  else createFilter.mutate();
+                }}
+              >
+                <label htmlFor="saved-filter-name">
+                  {editingFilter ? "Rename saved filter" : "Saved filter name"}
+                </label>
                 <input
-                  id="queue-search"
+                  id="saved-filter-name"
                   maxLength={100}
                   onChange={(event) => {
-                    setSearchInput(event.target.value);
+                    setFilterName(event.target.value);
                   }}
-                  value={searchInput}
+                  required
+                  value={filterName}
                 />
-                <Button type="submit" variant="secondary">
-                  Search
+                <Button
+                  disabled={
+                    !filterName.trim() ||
+                    createFilter.isPending ||
+                    updateFilter.isPending
+                  }
+                  type="submit"
+                >
+                  {editingFilter
+                    ? "Update saved filter"
+                    : "Save current filter"}
                 </Button>
-              </div>
-            </form>
+              </form>
+            )}
+            {(createFilter.error ??
+              updateFilter.error ??
+              reorderFilters.error) && (
+              <ErrorSummary
+                error={
+                  createFilter.error ??
+                  updateFilter.error ??
+                  reorderFilters.error
+                }
+              />
+            )}
             {tickets.isPending && (
               <StatusPanel>Loading queue tickets…</StatusPanel>
             )}
@@ -1169,6 +1542,21 @@ function AgentQueuePage() {
           </section>
         </div>
       )}
+      <ConfirmationDialog
+        confirmLabel="Delete saved filter"
+        confirmVariant="danger"
+        onCancel={() => {
+          setDeleting(null);
+        }}
+        onConfirm={() => {
+          if (deleting) deleteFilter.mutate(deleting);
+        }}
+        open={deleting != null}
+        pending={deleteFilter.isPending}
+        title={`Delete ${deleting?.name ?? "saved filter"}?`}
+      >
+        <p>This removes only your personal filter. No tickets will change.</p>
+      </ConfirmationDialog>
     </div>
   );
 }

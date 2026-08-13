@@ -22,7 +22,7 @@ export default defineConfig({
     {
       name: "functional-chromium",
       testMatch:
-        /(ticket-vertical-slice|admin-mutations|admin-config|knowledge-admin|ai-governance)\.spec\.ts/,
+        /(ticket-vertical-slice|admin-mutations|admin-config|knowledge-admin|ai-governance|analyst-saved-filters)\.spec\.ts/,
       use: {
         ...devices["Desktop Chrome"],
         viewport: { height: 800, width: 1280 },

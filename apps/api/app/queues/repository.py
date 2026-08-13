@@ -7,12 +7,218 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apps.api.app.queues.models import ActivityItem, QueueDefinition, QueueTicket
+from apps.api.app.queues.models import ActivityItem, QueueDefinition, QueueTicket, SavedFilter
 
 
 class QueueRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def saved_filters(self, tenant_id: UUID, owner_user_id: UUID) -> list[SavedFilter]:
+        rows = (
+            await self._session.execute(
+                text("""
+                    SELECT saved_filter_id,tenant_id,owner_user_id,filter_name,queue_id,
+                      status_code,priority_code,search_text,assignment_group_id,
+                      assignee_scope,display_order,row_version,created_at,updated_at
+                    FROM config.analyst_saved_filter
+                    WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                    ORDER BY display_order,saved_filter_id
+                """),
+                {"tenant_id": tenant_id, "owner_user_id": owner_user_id},
+            )
+        ).all()
+        return [SavedFilter(*tuple(row)) for row in rows]
+
+    async def saved_filter(
+        self, tenant_id: UUID, owner_user_id: UUID, saved_filter_id: UUID
+    ) -> SavedFilter | None:
+        row = (
+            await self._session.execute(
+                text("""
+                    SELECT saved_filter_id,tenant_id,owner_user_id,filter_name,queue_id,
+                      status_code,priority_code,search_text,assignment_group_id,
+                      assignee_scope,display_order,row_version,created_at,updated_at
+                    FROM config.analyst_saved_filter
+                    WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                      AND saved_filter_id=:saved_filter_id
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "owner_user_id": owner_user_id,
+                    "saved_filter_id": saved_filter_id,
+                },
+            )
+        ).one_or_none()
+        return SavedFilter(*tuple(row)) if row is not None else None
+
+    async def saved_filter_name_exists(
+        self,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        name: str,
+        *,
+        excluding: UUID | None = None,
+    ) -> bool:
+        value = await self._session.scalar(
+            text("""
+                SELECT EXISTS (
+                  SELECT 1 FROM config.analyst_saved_filter
+                  WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                    AND lower(filter_name)=lower(:name)
+                    AND (CAST(:excluding AS uuid) IS NULL OR saved_filter_id<>:excluding)
+                )
+            """),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "name": name,
+                "excluding": excluding,
+            },
+        )
+        return bool(value)
+
+    async def create_saved_filter(
+        self,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        *,
+        name: str,
+        queue_id: UUID,
+        status_code: str | None,
+        priority_code: str | None,
+        search: str | None,
+        assignment_group_id: UUID | None,
+        assignee: str | None,
+    ) -> SavedFilter | None:
+        row = (
+            await self._session.execute(
+                text("""
+                    INSERT INTO config.analyst_saved_filter(
+                      tenant_id,owner_user_id,filter_name,queue_id,status_code,
+                      priority_code,search_text,assignment_group_id,assignee_scope,
+                      display_order)
+                    VALUES (
+                      :tenant_id,:owner_user_id,:name,:queue_id,:status_code,
+                      :priority_code,:search,:assignment_group_id,:assignee,
+                      COALESCE((SELECT max(display_order)+10
+                        FROM config.analyst_saved_filter
+                        WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id),0))
+                    ON CONFLICT DO NOTHING
+                    RETURNING saved_filter_id,tenant_id,owner_user_id,filter_name,queue_id,
+                      status_code,priority_code,search_text,assignment_group_id,
+                      assignee_scope,display_order,row_version,created_at,updated_at
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "owner_user_id": owner_user_id,
+                    "name": name,
+                    "queue_id": queue_id,
+                    "status_code": status_code,
+                    "priority_code": priority_code,
+                    "search": search,
+                    "assignment_group_id": assignment_group_id,
+                    "assignee": assignee,
+                },
+            )
+        ).one_or_none()
+        return SavedFilter(*tuple(row)) if row is not None else None
+
+    async def update_saved_filter(
+        self,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        saved_filter_id: UUID,
+        expected_version: int,
+        *,
+        name: str,
+        queue_id: UUID,
+        status_code: str | None,
+        priority_code: str | None,
+        search: str | None,
+        assignment_group_id: UUID | None,
+        assignee: str | None,
+    ) -> SavedFilter | None:
+        row = (
+            await self._session.execute(
+                text("""
+                    UPDATE config.analyst_saved_filter SET
+                      filter_name=:name,queue_id=:queue_id,status_code=:status_code,
+                      priority_code=:priority_code,search_text=:search,
+                      assignment_group_id=:assignment_group_id,assignee_scope=:assignee,
+                      row_version=row_version+1,updated_at=now()
+                    WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                      AND saved_filter_id=:saved_filter_id AND row_version=:expected_version
+                    RETURNING saved_filter_id,tenant_id,owner_user_id,filter_name,queue_id,
+                      status_code,priority_code,search_text,assignment_group_id,
+                      assignee_scope,display_order,row_version,created_at,updated_at
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "owner_user_id": owner_user_id,
+                    "saved_filter_id": saved_filter_id,
+                    "expected_version": expected_version,
+                    "name": name,
+                    "queue_id": queue_id,
+                    "status_code": status_code,
+                    "priority_code": priority_code,
+                    "search": search,
+                    "assignment_group_id": assignment_group_id,
+                    "assignee": assignee,
+                },
+            )
+        ).one_or_none()
+        return SavedFilter(*tuple(row)) if row is not None else None
+
+    async def reorder_saved_filters(
+        self,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        items: list[tuple[UUID, int, int]],
+    ) -> int:
+        changed = 0
+        for saved_filter_id, expected_version, display_order in items:
+            result = await self._session.execute(
+                text("""
+                    UPDATE config.analyst_saved_filter SET
+                      display_order=:display_order,row_version=row_version+1,updated_at=now()
+                    WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                      AND saved_filter_id=:saved_filter_id AND row_version=:expected_version
+                    RETURNING saved_filter_id
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "owner_user_id": owner_user_id,
+                    "saved_filter_id": saved_filter_id,
+                    "expected_version": expected_version,
+                    "display_order": display_order,
+                },
+            )
+            changed += len(result.all())
+        return changed
+
+    async def delete_saved_filter(
+        self,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        saved_filter_id: UUID,
+        expected_version: int,
+    ) -> bool:
+        result = await self._session.execute(
+            text("""
+                DELETE FROM config.analyst_saved_filter
+                WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                  AND saved_filter_id=:saved_filter_id AND row_version=:expected_version
+                RETURNING saved_filter_id
+            """),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "saved_filter_id": saved_filter_id,
+                "expected_version": expected_version,
+            },
+        )
+        return result.one_or_none() is not None
 
     async def definitions(
         self, tenant_id: UUID, queue_id: UUID | None = None

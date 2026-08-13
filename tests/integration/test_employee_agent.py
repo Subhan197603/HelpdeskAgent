@@ -284,7 +284,7 @@ def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
         == "1"
     )
     assert _psql("SELECT to_regnamespace('reporting')") == "reporting"
-    assert _psql("SELECT version_num FROM config.alembic_version") == "0023_knowledge_admin_index"
+    assert _psql("SELECT version_num FROM config.alembic_version") == "0024_analyst_saved_filters"
 
 
 def _api_settings() -> Settings:

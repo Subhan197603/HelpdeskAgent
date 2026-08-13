@@ -49,6 +49,60 @@ class QueueTicketPage(BaseModel):
     next_cursor: Annotated[str | None, Field(description="Opaque scoped keyset cursor")] = None
 
 
+class SavedFilterFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=100)
+    queue_id: UUID
+    status_code: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,49}$")
+    priority_code: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,19}$")
+    search: str | None = Field(default=None, min_length=2, max_length=100)
+    assignment_group_id: UUID | None = None
+    assignee: Literal["me", "unassigned"] | None = None
+
+
+class SavedFilterCreateRequest(SavedFilterFields):
+    pass
+
+
+class SavedFilterUpdateRequest(SavedFilterFields):
+    row_version: int = Field(ge=1)
+
+
+class SavedFilterOrderItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    row_version: int = Field(ge=1)
+
+
+class SavedFilterOrderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[SavedFilterOrderItem] = Field(min_length=1, max_length=100)
+
+
+class SavedFilterDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    row_version: int = Field(ge=1)
+
+
+class SavedFilterResponse(BaseModel):
+    id: UUID
+    name: str
+    queue_id: UUID
+    status_code: str | None
+    priority_code: str | None
+    search: str | None
+    assignment_group_id: UUID | None
+    assignee: Literal["me", "unassigned"] | None
+    display_order: int
+    row_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedFilterListResponse(BaseModel):
+    items: list[SavedFilterResponse]
+
+
 class ActivityItemResponse(BaseModel):
     id: str
     type: str

@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 
 from apps.api.app.catalog.schemas import ProblemResponse
 from apps.api.app.core.context import RequestContext
+from apps.api.app.core.exceptions import ValidationError
 from apps.api.app.dependencies.request_context import require_permission
 from apps.api.app.identity.authorization import Permission
 from apps.api.app.queues.schemas import (
@@ -14,6 +15,12 @@ from apps.api.app.queues.schemas import (
     AnalystCommentCreateRequest,
     QueueListResponse,
     QueueTicketPage,
+    SavedFilterCreateRequest,
+    SavedFilterDeleteRequest,
+    SavedFilterListResponse,
+    SavedFilterOrderRequest,
+    SavedFilterResponse,
+    SavedFilterUpdateRequest,
     TimelineResponse,
 )
 from apps.api.app.queues.service import QueueService
@@ -38,6 +45,133 @@ async def queues(
     context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
 ) -> QueueListResponse:
     return QueueListResponse(items=await _service(request).queues(context))
+
+
+@router.get(
+    "/api/v1/agent/saved-filters",
+    response_model=SavedFilterListResponse,
+    responses=ERRORS,
+)
+async def saved_filters(
+    request: Request,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> SavedFilterListResponse:
+    return SavedFilterListResponse(items=await _service(request).saved_filters(context))
+
+
+@router.post(
+    "/api/v1/agent/saved-filters",
+    response_model=SavedFilterResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERRORS,
+)
+async def create_saved_filter(
+    response: Response,
+    request: Request,
+    command: SavedFilterCreateRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    idempotency_key: Annotated[
+        str,
+        Header(
+            alias="Idempotency-Key",
+            min_length=8,
+            max_length=255,
+            pattern=r"^[A-Za-z0-9._:-]+$",
+        ),
+    ],
+) -> SavedFilterResponse:
+    item, replayed = await _service(request).create_saved_filter(context, command, idempotency_key)
+    if replayed:
+        response.status_code = status.HTTP_200_OK
+        response.headers["Idempotent-Replayed"] = "true"
+    return item
+
+
+@router.put(
+    "/api/v1/agent/saved-filters/order",
+    response_model=SavedFilterListResponse,
+    responses=ERRORS,
+)
+async def reorder_saved_filters(
+    request: Request,
+    command: SavedFilterOrderRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> SavedFilterListResponse:
+    return SavedFilterListResponse(
+        items=await _service(request).reorder_saved_filters(context, command)
+    )
+
+
+@router.get(
+    "/api/v1/agent/saved-filters/{saved_filter_id}",
+    response_model=SavedFilterResponse,
+    responses=ERRORS,
+)
+async def saved_filter(
+    request: Request,
+    saved_filter_id: UUID,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> SavedFilterResponse:
+    return await _service(request).saved_filter(context, saved_filter_id)
+
+
+@router.patch(
+    "/api/v1/agent/saved-filters/{saved_filter_id}",
+    response_model=SavedFilterResponse,
+    responses=ERRORS,
+)
+async def update_saved_filter(
+    request: Request,
+    saved_filter_id: UUID,
+    command: SavedFilterUpdateRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> SavedFilterResponse:
+    if if_match is not None and _version(if_match) != command.row_version:
+        raise ValidationError(
+            "If-Match and body row version must agree.",
+            field_errors={"header.If-Match": ["Version mismatch."]},
+        )
+    return await _service(request).update_saved_filter(context, saved_filter_id, command)
+
+
+@router.delete(
+    "/api/v1/agent/saved-filters/{saved_filter_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=ERRORS,
+)
+async def delete_saved_filter(
+    request: Request,
+    saved_filter_id: UUID,
+    command: SavedFilterDeleteRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> Response:
+    if if_match is not None and _version(if_match) != command.row_version:
+        raise ValidationError(
+            "If-Match and body row version must agree.",
+            field_errors={"header.If-Match": ["Version mismatch."]},
+        )
+    await _service(request).delete_saved_filter(context, saved_filter_id, command.row_version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get(
+    "/api/v1/agent/saved-filters/{saved_filter_id}/tickets",
+    response_model=QueueTicketPage,
+    responses=ERRORS,
+)
+async def saved_filter_tickets(
+    request: Request,
+    saved_filter_id: UUID,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    cursor: Annotated[str | None, Query(max_length=500)] = None,
+) -> QueueTicketPage:
+    items, next_cursor = await _service(request).saved_filter_tickets(
+        context, saved_filter_id, limit, cursor
+    )
+    return QueueTicketPage(items=items, limit=limit, next_cursor=next_cursor)
 
 
 @router.get(
@@ -126,3 +260,13 @@ async def add_analyst_comment(
         response.status_code = status.HTTP_200_OK
         response.headers["Idempotent-Replayed"] = "true"
     return item
+
+
+def _version(value: str) -> int:
+    try:
+        version = int(value.strip().strip('"'))
+    except ValueError:
+        raise ValidationError("If-Match must contain a row version.") from None
+    if version < 1:
+        raise ValidationError("If-Match must contain a positive row version.")
+    return version

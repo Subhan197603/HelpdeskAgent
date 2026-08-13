@@ -44,6 +44,24 @@ class QueueTicket:
 
 
 @dataclass(frozen=True, slots=True)
+class SavedFilter:
+    saved_filter_id: UUID
+    tenant_id: UUID
+    owner_user_id: UUID
+    name: str
+    queue_id: UUID
+    status_code: str | None
+    priority_code: str | None
+    search_text: str | None
+    assignment_group_id: UUID | None
+    assignee_scope: str | None
+    display_order: int
+    row_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ActivityItem:
     item_id: str
     item_type: str

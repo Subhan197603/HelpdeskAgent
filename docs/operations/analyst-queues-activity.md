@@ -28,6 +28,34 @@ a hash of the queue plus active request filters; using it with another queue or 
 resolution SLA targets. Migration `0007_queue_performance_indexes` adds reversible indexes for
 unassigned, assignee, group, project, and full-text queue access paths.
 
+## Personal saved ticket filters
+
+Milestone 12 Task 12.1 adds private presets over those existing queue inputs:
+
+```http
+GET    /api/v1/agent/saved-filters
+POST   /api/v1/agent/saved-filters
+GET    /api/v1/agent/saved-filters/{saved_filter_id}
+PATCH  /api/v1/agent/saved-filters/{saved_filter_id}
+DELETE /api/v1/agent/saved-filters/{saved_filter_id}
+PUT    /api/v1/agent/saved-filters/order
+GET    /api/v1/agent/saved-filters/{saved_filter_id}/tickets
+```
+
+Each record is derived from the authenticated tenant and user. Repository predicates and row-level
+security both enforce that owner boundary, and inaccessible records return not found. A preset can
+contain only a published base queue plus status, priority, bounded plain-text search, support group,
+and `me` or `unassigned` assignee values. Applying one delegates to the ordinary queue query, so
+current queue visibility, support-group scope, ticket visibility, stable pagination, and
+parameterization are rechecked rather than stored as authority.
+
+Create requires `Idempotency-Key`. Update, reorder, and delete use `row_version` for optimistic
+concurrency; update and delete also accept matching `If-Match`. Names are unique per tenant and
+owner, case-insensitively. The analyst UI keeps unsaved filters in the URL, identifies an applied
+preset with `savedFilter`, and returns to ordinary query state when a preset is edited. Saved
+filters never store SQL, regular expressions, queue expressions, sort definitions, shared scope,
+or ticket mutations.
+
 ## Activity and comments
 
 ```http

@@ -146,12 +146,19 @@ def ticket_database() -> Iterator[None]:
             VALUES ('20000000-0000-0000-0000-000000000099','OTHER','Other Tenant');
             INSERT INTO identity.app_user(
               user_id,tenant_id,external_subject,email_address,display_name)
-            VALUES ('22000000-0000-0000-0000-000000000099',
-              '20000000-0000-0000-0000-000000000099','customer',
-              'other-customer@example.invalid','Other Customer');
+            VALUES
+              ('22000000-0000-0000-0000-000000000099',
+               '20000000-0000-0000-0000-000000000099','customer',
+               'other-customer@example.invalid','Other Customer'),
+              ('22000000-0000-0000-0000-000000000098',
+               '20000000-0000-0000-0000-000000000099','agent',
+               'other-agent@example.invalid','Other Agent');
             INSERT INTO identity.user_role(tenant_id,user_id,role_code,valid_from)
-            VALUES ('20000000-0000-0000-0000-000000000099',
-              '22000000-0000-0000-0000-000000000099','CUSTOMER',now());
+            VALUES
+              ('20000000-0000-0000-0000-000000000099',
+               '22000000-0000-0000-0000-000000000099','CUSTOMER',now()),
+              ('20000000-0000-0000-0000-000000000099',
+               '22000000-0000-0000-0000-000000000098','AGENT',now());
             INSERT INTO config.request_type(
               request_type_id,tenant_id,project_id,work_type_id,workflow_id,
               request_type_code,request_type_name)
@@ -1817,3 +1824,172 @@ def test_internal_attachment_and_retry_state_fail_closed(client: TestClient) -> 
         )
         == "1"
     )
+
+
+def _first_agent_queue(client: TestClient) -> str:
+    response = client.get(
+        "/api/v1/agent/queues", headers={"X-Developer-User": "DEV/agent"}
+    )
+    assert response.status_code == 200
+    return cast("str", response.json()["items"][0]["id"])
+
+
+def _saved_filter_body(queue_id: str, name: str = "My invoice work") -> dict[str, object]:
+    return {
+        "name": name,
+        "queue_id": queue_id,
+        "status_code": "NEW",
+        "priority_code": "P3",
+        "search": "invoice",
+        "assignment_group_id": "23000000-0000-0000-0000-000000000002",
+        "assignee": "unassigned",
+    }
+
+
+@pytest.mark.integration
+def test_personal_saved_filter_crud_reorder_and_apply(client: TestClient) -> None:
+    headers = {
+        "X-Developer-User": "DEV/agent",
+        "Idempotency-Key": f"saved-filter-{uuid4()}",
+    }
+    queue_id = _first_agent_queue(client)
+    created = client.post(
+        "/api/v1/agent/saved-filters",
+        headers=headers,
+        json=_saved_filter_body(queue_id),
+    )
+    assert created.status_code == 201
+    item = created.json()
+
+    replayed = client.post(
+        "/api/v1/agent/saved-filters",
+        headers=headers,
+        json=_saved_filter_body(queue_id),
+    )
+    assert replayed.status_code == 200
+    assert replayed.headers["Idempotent-Replayed"] == "true"
+    assert replayed.json()["id"] == item["id"]
+
+    second = client.post(
+        "/api/v1/agent/saved-filters",
+        headers={
+            "X-Developer-User": "DEV/agent",
+            "Idempotency-Key": f"saved-filter-{uuid4()}",
+        },
+        json=_saved_filter_body(queue_id, "My second filter"),
+    )
+    assert second.status_code == 201
+    second_item = second.json()
+
+    listing = client.get(
+        "/api/v1/agent/saved-filters", headers={"X-Developer-User": "DEV/agent"}
+    )
+    assert listing.status_code == 200
+    assert [value["id"] for value in listing.json()["items"]] == [
+        item["id"],
+        second_item["id"],
+    ]
+
+    applied = client.get(
+        f"/api/v1/agent/saved-filters/{item['id']}/tickets",
+        headers={"X-Developer-User": "DEV/agent"},
+    )
+    assert applied.status_code == 200
+    assert all("invoice" in ticket["summary"].lower() for ticket in applied.json()["items"])
+
+    updated_body = {**_saved_filter_body(queue_id, "My urgent invoice work"), "row_version": 1}
+    updated = client.patch(
+        f"/api/v1/agent/saved-filters/{item['id']}",
+        headers={"X-Developer-User": "DEV/agent", "If-Match": '"1"'},
+        json=updated_body,
+    )
+    assert updated.status_code == 200
+    assert updated.json()["name"] == "My urgent invoice work"
+    assert updated.json()["row_version"] == 2
+
+    reordered = client.put(
+        "/api/v1/agent/saved-filters/order",
+        headers={"X-Developer-User": "DEV/agent"},
+        json={
+            "items": [
+                {"id": second_item["id"], "row_version": second_item["row_version"]},
+                {"id": item["id"], "row_version": updated.json()["row_version"]},
+            ]
+        },
+    )
+    assert reordered.status_code == 200
+    assert [value["id"] for value in reordered.json()["items"]] == [
+        second_item["id"],
+        item["id"],
+    ]
+
+    deleted_item = next(
+        value for value in reordered.json()["items"] if value["id"] == item["id"]
+    )
+    deleted = client.request(
+        "DELETE",
+        f"/api/v1/agent/saved-filters/{item['id']}",
+        headers={"X-Developer-User": "DEV/agent"},
+        json={"row_version": deleted_item["row_version"]},
+    )
+    assert deleted.status_code == 204
+    assert (
+        client.get(
+            f"/api/v1/agent/saved-filters/{item['id']}",
+            headers={"X-Developer-User": "DEV/agent"},
+        ).status_code
+        == 404
+    )
+
+
+@pytest.mark.integration
+def test_saved_filters_fail_closed_across_users_tenants_and_roles(client: TestClient) -> None:
+    queue_id = _first_agent_queue(client)
+    created = client.post(
+        "/api/v1/agent/saved-filters",
+        headers={
+            "X-Developer-User": "DEV/agent",
+            "Idempotency-Key": f"saved-filter-isolation-{uuid4()}",
+        },
+        json=_saved_filter_body(queue_id, "Private filter"),
+    )
+    assert created.status_code == 201
+    item = created.json()
+    path = f"/api/v1/agent/saved-filters/{item['id']}"
+    update_body = {**_saved_filter_body(queue_id, "Stolen filter"), "row_version": 1}
+
+    for selector in ("DEV/agent-two", "OTHER/agent"):
+        request_headers = {"X-Developer-User": selector}
+        assert client.get(path, headers=request_headers).status_code == 404
+        assert client.patch(path, headers=request_headers, json=update_body).status_code == 404
+        assert (
+            client.request(
+                "DELETE", path, headers=request_headers, json={"row_version": 1}
+            ).status_code
+            == 404
+        )
+
+    for method, path_suffix in (
+        ("GET", "/api/v1/agent/saved-filters"),
+        ("GET", path),
+    ):
+        assert (
+            client.request(
+                method, path_suffix, headers={"X-Developer-User": "DEV/customer"}
+            ).status_code
+            == 403
+        )
+
+    arbitrary_expression = {
+        **_saved_filter_body(queue_id, "Unsafe filter"),
+        "where": "1=1; DROP TABLE itsm.ticket",
+    }
+    rejected = client.post(
+        "/api/v1/agent/saved-filters",
+        headers={
+            "X-Developer-User": "DEV/agent",
+            "Idempotency-Key": f"saved-filter-invalid-{uuid4()}",
+        },
+        json=arbitrary_expression,
+    )
+    assert rejected.status_code == 422

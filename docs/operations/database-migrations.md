@@ -33,6 +33,7 @@ The only post-v1 revisions currently present are:
 → 0021_admin_access_privileges
 → 0022_admin_config_privileges
 → 0023_knowledge_admin_index
+→ 0024_analyst_saved_filters
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -50,6 +51,12 @@ Task 11.5E adds read-only AI governance over existing AI policy, usage, and
 configuration tables. It reuses `AI_OVERSIGHT` and existing runtime `SELECT`
 privileges, adds no database object or write privilege, and therefore retains
 `0023_knowledge_admin_index` as the development head.
+
+Milestone 12 Task 12.1 introduces `0024_analyst_saved_filters`, the current
+development head. It adds one private preference table with tenant-and-owner
+row-level security, narrow runtime CRUD grants, optimistic row versions, and
+owner-scoped uniqueness and ordering indexes. It follows
+`0023_knowledge_admin_index`; the physical PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database
 
