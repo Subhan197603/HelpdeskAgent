@@ -157,9 +157,19 @@ test("approved employee and analyst screens remain visually stable", async ({
   await page.getByRole("button", { name: /Sign out/ }).click();
   await page.getByRole("button", { name: "Continue as analyst" }).click();
   await expect(page.getByRole("heading", { name: "My queues" })).toBeVisible();
+  // Functional projects create tickets in the shared E2E database before the
+  // visual projects. Keep this composition independent of project order while
+  // retaining representative queue rows for responsive and accessibility QA.
+  const queueRowLimitStyle = await page.addStyleTag({
+    content:
+      ".analyst-queues .ticket-list > :nth-child(n + 3) { display: none; }",
+  });
   await expectAccessible(page);
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("analyst-queue.png", screenshotOptions);
+  await queueRowLimitStyle.evaluate((style) => {
+    style.parentNode?.removeChild(style);
+  });
 
   await openNavigation();
   await page.getByRole("link", { name: "Dashboard" }).click();

@@ -1827,9 +1827,7 @@ def test_internal_attachment_and_retry_state_fail_closed(client: TestClient) -> 
 
 
 def _first_agent_queue(client: TestClient) -> str:
-    response = client.get(
-        "/api/v1/agent/queues", headers={"X-Developer-User": "DEV/agent"}
-    )
+    response = client.get("/api/v1/agent/queues", headers={"X-Developer-User": "DEV/agent"})
     assert response.status_code == 200
     return cast("str", response.json()["items"][0]["id"])
 
@@ -1881,9 +1879,7 @@ def test_personal_saved_filter_crud_reorder_and_apply(client: TestClient) -> Non
     assert second.status_code == 201
     second_item = second.json()
 
-    listing = client.get(
-        "/api/v1/agent/saved-filters", headers={"X-Developer-User": "DEV/agent"}
-    )
+    listing = client.get("/api/v1/agent/saved-filters", headers={"X-Developer-User": "DEV/agent"})
     assert listing.status_code == 200
     assert [value["id"] for value in listing.json()["items"]] == [
         item["id"],
@@ -1923,9 +1919,7 @@ def test_personal_saved_filter_crud_reorder_and_apply(client: TestClient) -> Non
         item["id"],
     ]
 
-    deleted_item = next(
-        value for value in reordered.json()["items"] if value["id"] == item["id"]
-    )
+    deleted_item = next(value for value in reordered.json()["items"] if value["id"] == item["id"])
     deleted = client.request(
         "DELETE",
         f"/api/v1/agent/saved-filters/{item['id']}",
