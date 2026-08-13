@@ -62,6 +62,8 @@ jobs:
           enable-cache: true
       - name: Install Python dependencies
         run: uv sync --frozen
+      - name: Prepare integration environment
+        run: cp .env.example .env
       - name: Test PostgreSQL baseline, Alembic adoption, and API foundation
         run: make db-test
 
@@ -82,7 +84,7 @@ jobs:
           -m integration
 
   portal-end-to-end:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +105,16 @@ jobs:
           pnpm exec playwright install --with-deps chromium
       - name: Test employee-to-analyst vertical slice
         run: pnpm test:e2e
+      - name: Upload Playwright failure evidence
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-linux-calibration-${{ github.run_id }}
+          path: |
+            test-results/
+            tests/end_to_end/**/*-linux.png
+          if-no-files-found: warn
+          retention-days: 7
 
   vulnerability-scan:
     runs-on: ubuntu-latest
@@ -118,6 +130,7 @@ jobs:
           scan-type: fs
           scan-ref: .
           version: v0.70.0
+          scanners: vuln,secret,misconfig
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true

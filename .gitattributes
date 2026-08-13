@@ -10,3 +10,6 @@
 *.toml text eol=lf
 *.md text eol=lf
 Makefile text eol=lf
+
+# Preserve the approved CRLF byte identity recorded in the baseline checksum manifest.
+database/baseline/fusion_helpdesk_postgres/manifest/*.csv -text

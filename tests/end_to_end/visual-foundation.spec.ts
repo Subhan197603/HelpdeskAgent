@@ -103,7 +103,9 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expect(
     page.getByRole("heading", { name: "Knowledge Base" }),
   ).toBeVisible();
-  await expect(page.getByText("Browse by type")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Browse by type", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Oracle Fusion login issues" }),
   ).toBeVisible();
