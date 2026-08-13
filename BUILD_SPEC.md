@@ -3301,6 +3301,79 @@ Continue milestone by milestone.
 
 ---
 
+## 36A. Post-v1 Milestone 12 — Analyst Personal Productivity
+
+Milestone 12 is a bounded post-v1 product milestone on `develop`. It adds
+private, non-destructive analyst productivity controls on top of the existing
+queue, ticket-detail, comment, authorization, and application-shell
+foundations. It does not authorize implementation by itself; each task requires
+the separate approval workflow in `CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+The milestone includes exactly these capabilities:
+
+- personal saved ticket filters restricted to the existing queue-filter
+  vocabulary;
+- personal canned responses that populate an editable comment draft but never
+  post or select visibility automatically;
+- personal ticket watchlists that confer no ticket access and create no
+  notification or subscription side effect; and
+- accessible keyboard accelerators for navigation, focus, selection, and help
+  only, with no direct business mutation.
+
+### Task 12.1 — Personal saved ticket filters
+
+Persist tenant- and user-owned filter presets over the existing base queue,
+status, priority, bounded search, assignment group, and `me` or `unassigned`
+assignee inputs. The server derives tenant and owner identity, validates group
+scope, and executes every preset through the existing queue authorization and
+ticket-visibility path. Arbitrary SQL, regular expressions, queue expressions,
+new sort languages, shared filters, and administrator-managed filters are out
+of scope.
+
+### Task 12.2 — Personal canned responses
+
+Persist private, bounded plaintext response snippets and allow an analyst to
+insert one into the existing public-comment or internal-note editor. Insertion
+creates only an editable browser draft. It never invokes AI, selects
+visibility, or submits content; the existing explicit, authorized, idempotent
+comment operation remains the only posting path.
+
+### Task 12.3 — Personal ticket watchlists
+
+Allow analysts to watch and unwatch tickets and browse a paginated personal
+watched-ticket list. A watch is private preference state: it does not create a
+ticket participant, alter assignment, confer visibility, emit an outbox fact,
+or subscribe the analyst to notifications. Ticket authorization is rechecked
+when a watch is created, removed, listed, or followed.
+
+### Task 12.4 — Accessible keyboard accelerators
+
+Add a small documented set of keyboard accelerators for non-destructive
+analyst navigation and focus actions. Shortcuts must not post comments,
+transition or assign tickets, delete business data, bypass rendered permission
+boundaries, or conflict with text entry and assistive-technology conventions.
+
+### Milestone 12 database and scope boundary
+
+The physical PostgreSQL baseline remains immutable. Any required development
+migration follows `0023_knowledge_admin_index`, is additive and reversible,
+preserves one linear Alembic head, applies tenant/owner isolation and
+least-privilege grants, and receives upgrade/downgrade and optional-RLS
+validation. Do not add generic preference foundations for capabilities outside
+the approved task that needs them.
+
+Ticket merge, duplicate-ticket management, bulk assignment, bulk transitions,
+work logs and time tracking, queue subscriptions, shift handover, analyst
+availability, capacity and workload management, controlled export, shared
+productivity configuration, workflow-engine changes, and all other deferred
+capability families remain out of scope. Production deployment and image
+publication are not part of Milestone 12.
+
+Governed Knowledge Operations remains a preferred future milestone candidate,
+potentially Milestone 13, subject to separate planning and human approval.
+
+---
+
 ## 37. Definition of done for every task
 
 A task is complete only when:

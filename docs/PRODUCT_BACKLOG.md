@@ -160,7 +160,10 @@ TestClient deprecation warning are non-blocking follow-up items.
 
 No Milestone 11 work has been promoted to the frozen production `main` or
 `v1.0.0`, and no production deployment or image publication is authorized.
-Draft PR #1 remains open and unmerged. Milestone 12 is not authorized.
+At Milestone 11 closure, Draft PR #1 remained open and unmerged and Milestone
+12 was not authorized. The later roadmap amendment below defines Milestone 12
+scope without authorizing implementation. Draft PR #1 remains open and
+unmerged.
 
 The completed bounded tasks preserve tenant isolation, authorization,
 auditability, knowledge access controls, AI kill switches and budgets, tool
@@ -194,7 +197,14 @@ PLAN
 - Public versus internal reply handling
 - Email reconciliation reports
 
-## Future Milestone — Knowledge Operations
+## Future Milestone Candidate — Governed Knowledge Operations
+
+Status: `PREFERRED FUTURE MILESTONE CANDIDATE`.
+
+This family is a preferred candidate for a milestone after Milestone 12,
+potentially Milestone 13. It is not rejected, assigned, or authorized. It
+requires separate future planning and human approval and must not be combined
+with Milestone 12 merely because analyst workflows use knowledge.
 
 - Governed knowledge authoring and administration designers
 - Oracle documentation refresh lifecycle
@@ -231,22 +241,54 @@ PLAN
 - Embedding-model migration
 - AI incident kill-switch workflow
 
-## Future Milestone — Analyst Productivity
+## Post-v1 Milestone 12 — Analyst Personal Productivity
+
+Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+
+Milestone 12 is a compact, non-destructive analyst productivity milestone on
+`develop`. The roadmap-amendment approval defines scope only; it does not
+authorize implementation, migrations, commit, tag, push, merge, deployment, or
+image publication.
+
+The roadmap amendment was authorized by
+`APPROVE MILESTONE 12 ANALYST PRODUCTIVITY ROADMAP AMENDMENT`.
+
+Included capabilities:
+
+- Personal saved ticket filters restricted to existing authorized queue inputs
+- Personal canned responses inserted only into an editable comment draft
+- Personal ticket watchlists without access, participant, assignment,
+  notification, subscription, or outbox side effects
+- Accessible keyboard accelerators for navigation, focus, selection, and help
+  only
+
+Bounded task sequence:
+
+1. **12.1 — Personal saved ticket filters**
+2. **12.2 — Personal canned responses**
+3. **12.3 — Personal ticket watchlists**
+4. **12.4 — Accessible keyboard accelerators**
+
+The physical PostgreSQL baseline remains immutable. Any development migration
+must follow `0023_knowledge_admin_index`, remain task-specific, additive and
+reversible, and preserve tenant isolation, owner scoping, least-privilege
+runtime grants, and a single Alembic head.
+
+The following Analyst Productivity backlog items remain deferred and outside
+Milestone 12:
 
 - Ticket merge
 - Duplicate-ticket management
 - Bulk assignment
 - Bulk transitions
-- Canned responses
 - Work logs and time tracking
-- Personal saved filters
-- Watchlists
-- Queue subscriptions
+- Queue subscriptions and background notification behavior
 - Shift handover
 - Analyst availability
 - Capacity and workload management
 - Controlled export
-- Keyboard shortcuts
+- Shared or administrator-managed canned responses or saved filters
+- Administrative queue editing, arbitrary sort shapes, and new filter languages
 
 ## Future Milestone — Extended ITSM
 

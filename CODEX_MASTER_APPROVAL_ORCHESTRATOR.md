@@ -51,12 +51,15 @@ add scope beyond the milestone deliverables and acceptance criteria.
 The initial production roadmap reached completion after Milestone 10 and is
 frozen as `v1.0.0` at commit
 `cc9d76885e181230bd91f5b9bfd0605a9b23fb07`. Milestone 11 is post-v1
-development on `develop`; none of it is part of `v1.0.0`.
+development on `develop`; none of it is part of `v1.0.0`. Milestone 12 is the
+roadmap-defined Analyst Personal Productivity milestone on `develop`; its task
+implementations have not started and require separate exact approvals.
 
 Items listed as Future Milestones in `docs/PRODUCT_BACKLOG.md` remain deferred
 unless the owner separately assigns and approves a task-specific plan. The
 bounded Milestone 11 administration Tasks 11.5D and 11.5E have completed that
-workflow; broader knowledge and AI operations remain deferred.
+workflow. Milestone 12 contains only Tasks 12.1 through 12.4 as defined below;
+broader analyst productivity, knowledge, and AI operations remain deferred.
 
 ---
 
@@ -423,6 +426,10 @@ documented alternative.
 | 10.1 | `feat(reporting): add OAC reporting model and operational feeds`            | `milestone-10-task-10.1` |
 | 10.2 | `chore(operations): add performance security AI evaluation and monitoring`  | `milestone-10-task-10.2` |
 | 10.3 | `chore(release): add recovery runbooks and production readiness validation` | `milestone-10-task-10.3` |
+| 12.1 | `feat(productivity): add personal saved ticket filters`                     | `milestone-12-task-12.1` |
+| 12.2 | `feat(productivity): add personal canned responses`                         | `milestone-12-task-12.2` |
+| 12.3 | `feat(productivity): add personal ticket watchlists`                        | `milestone-12-task-12.3` |
+| 12.4 | `feat(productivity): add accessible keyboard accelerators`                  | `milestone-12-task-12.4` |
 
 Before using a registry entry, verify that the task exists in this roadmap and
 that no conflicting convention has already been approved.
@@ -1530,8 +1537,214 @@ Production `main` and `v1.0.0` remain frozen at
 `0020_reporting_views`. No Milestone 11 work has been promoted to production,
 and no production deployment or image publication is authorized.
 
-Draft PR #1 remains open and unmerged. Milestone 12 and all future backlog work
-remain unauthorized until a separate plan and explicit human approval.
+At Milestone 11 closure, Draft PR #1 remained open and unmerged and Milestone
+12 remained unauthorized. The later approved Milestone 12 roadmap amendment
+defines Tasks 12.1 through 12.4 but does not authorize their implementation.
+Draft PR #1 remains open and unmerged.
+
+---
+
+## Milestone 12 — Analyst Personal Productivity
+
+Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+
+The documentation-only roadmap amendment was authorized by
+`APPROVE MILESTONE 12 ANALYST PRODUCTIVITY ROADMAP AMENDMENT`. That approval
+does not authorize implementation, migrations, commit, tag, push, merge,
+deployment, image publication, or the start of Task 12.1.
+
+Milestone 12 adds only private, non-destructive analyst productivity controls
+that reuse the current queue, ticket-detail, comment, authorization, generated
+API-client, and application-shell foundations. Productivity state never grants
+ticket access, changes assignment or workflow state, posts content
+automatically, or creates background notification behavior.
+
+Implementation must proceed one task at a time through the ordinary workflow:
+
+```text
+PLAN
+→ human implementation approval
+→ IMPLEMENT
+→ focused and full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push when authorized
+→ stop
+```
+
+Roadmap definition is not implementation approval. Do not start Task 12.1 or
+any later task from this section alone.
+
+### Task 12.1 — Personal Saved Ticket Filters
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- private tenant- and analyst-owned presets over the existing base queue,
+  status, priority, bounded search, assignment-group, and `me` or `unassigned`
+  assignee inputs;
+- create, list, update, reorder, apply, and delete personal presets;
+- server-derived tenant and owner, current group-scope validation, and normal
+  queue/ticket authorization on every execution;
+- responsive queue integration with loading, empty, error, conflict, and
+  unauthorized states; and
+- focused unit, PostgreSQL, RLS, OpenAPI, frontend, accessibility, Playwright,
+  and visual-regression evidence followed by the full task gate.
+
+Excluded: arbitrary SQL, regular expressions, queue-expression authoring, new
+sort languages, shared filters, administrator-managed filters, and ticket
+mutation.
+
+Database expectation: task-specific additive and reversible development
+migration `0024_analyst_saved_filters` after
+`0023_knowledge_admin_index`, with tenant/owner constraints, indexes,
+row-version conflict handling, RLS, and least-privilege runtime grants. The
+physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 12 TASK 12.1 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 12 TASK 12.1 COMMIT
+```
+
+### Task 12.2 — Personal Canned Responses
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- private tenant- and analyst-owned bounded plaintext snippets;
+- owner-scoped create, list, update, reorder, and delete operations;
+- insertion into the existing comment editor as editable draft text only;
+- no AI invocation, automatic visibility selection, automatic posting, or new
+  comment mutation path; and
+- focused unit, PostgreSQL, RLS, OpenAPI, frontend, accessibility, Playwright,
+  and visual-regression evidence followed by the full task gate.
+
+Snippet bodies must not enter logs, metrics, or audit summaries. Existing
+ticket visibility, explicit public/internal selection, authorization,
+idempotency, ticket-event, and audit behavior remain authoritative when the
+analyst separately posts the edited comment.
+
+Database expectation: task-specific additive and reversible development
+migration `0025_analyst_canned_responses` after the approved Task 12.1 head,
+with bounded plaintext, tenant and owner isolation, row-version conflict
+handling, RLS, indexes, and least-privilege grants.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 12 TASK 12.2 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 12 TASK 12.2 COMMIT
+```
+
+### Task 12.3 — Personal Ticket Watchlists
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- explicit, idempotent watch and unwatch operations;
+- a private, stably ordered and paginated watched-ticket list;
+- ticket authorization on add, remove, list, and follow; and
+- focused unit, PostgreSQL, RLS, OpenAPI, frontend, accessibility, Playwright,
+  and visual-regression evidence followed by the full task gate.
+
+A watch is preference state only. It does not make the analyst a participant,
+alter assignment, grant access, emit ticket events or outbox facts, or create
+notification or queue-subscription behavior. Inaccessible watched tickets are
+not returned if authorization later changes.
+
+Database expectation: task-specific additive and reversible development
+migration `0026_analyst_ticket_watchlist` after the approved Task 12.2 head,
+with a unique tenant/user/ticket boundary, visibility-safe indexes, RLS, and
+least-privilege grants. It must not modify ticket, participant, assignment,
+notification, or outbox tables.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 12 TASK 12.3 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 12 TASK 12.3 COMMIT
+```
+
+### Task 12.4 — Accessible Keyboard Accelerators
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- a small documented shortcut set for navigation, focus, personal selectors,
+  visible-row navigation, and shortcut help;
+- suspension in text-entry contexts except deliberately scoped editor actions;
+- visible focus, collision prevention, Escape behavior, and focus restoration;
+  and
+- focused frontend, keyboard, accessibility, Playwright, and visual-regression
+  evidence followed by the full task gate.
+
+No shortcut may post a comment, transition or assign a ticket, delete business
+data, reveal an unauthorized control, or bypass an explicit confirmation.
+
+Database and API expectation: no migration and no new backend API. The approved
+Task 12.3 migration `0026_analyst_ticket_watchlist` remains the development
+head.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 12 TASK 12.4 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 12 TASK 12.4 COMMIT
+```
+
+### Milestone 12 Completion Gate
+
+Milestone 12 is complete only when all four tasks have their approved commits
+and tags, the migration history is linear, the physical baseline checksum is
+unchanged, tenant/owner/RLS tests pass, OpenAPI and generated clients agree,
+affected accessibility and visual gates pass, unrelated approved baselines are
+unchanged, and the complete backend, frontend, PostgreSQL integration,
+Playwright, security, build, and Compose gates pass.
+
+The completion evidence must prove that saved filters never expand authorized
+queue results, canned responses never post automatically, watchlists never
+grant access or create notifications, and shortcuts never execute ticket
+mutations. A separately approved documentation-only closure record is required
+after final validation; completion of Task 12.4 alone does not close the
+milestone.
+
+The following remain outside Milestone 12: ticket merge, duplicate-ticket
+management, bulk assignment, bulk transitions, work logs and time tracking,
+queue subscriptions, shift handover, analyst availability, capacity and
+workload management, controlled export, shared productivity administration,
+workflow-engine changes, all other future capability families, production
+deployment, and image publication.
+
+Governed Knowledge Operations is a preferred future milestone candidate,
+potentially Milestone 13, and requires a separate future planning and human
+approval gate.
 
 ---
 
@@ -1585,7 +1798,7 @@ approved and assigned:
 - Advanced knowledge operations
 - Mutable AI control-plane operations, provider probing, and circuit reset
 - Advanced AI operations
-- Analyst productivity enhancements
+- Analyst productivity enhancements outside the bounded Milestone 12 tasks
 - Extended ITSM
 - Assets and full CMDB
 - Additional production operations beyond Milestone 10 commitments
@@ -1593,6 +1806,10 @@ approved and assigned:
 
 Broader advanced knowledge and AI operations beyond the completed bounded
 Tasks 11.5D and 11.5E remain deferred.
+
+Governed Knowledge Operations is the preferred future milestone candidate,
+potentially Milestone 13. It is not part of Milestone 12 and remains
+unauthorized pending separate planning and human approval.
 
 To begin one of these, require a new approved roadmap amendment with:
 
