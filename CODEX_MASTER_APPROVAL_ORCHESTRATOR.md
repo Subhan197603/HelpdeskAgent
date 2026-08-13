@@ -225,25 +225,29 @@ Use this when:
 
 ## 2.2 Current Verified Status
 
-This snapshot records the Milestone 11 implementation baseline verified by the
-closure audit. Codex must still reverify repository evidence before every task.
+This snapshot records the Milestone 11 application baseline verified after the
+R1-R4 closure remediations. The governance commit containing this record does
+not change the validated application baseline. Codex must still reverify
+repository evidence before every task.
 
 ```yaml
 branch: develop
-develop_commit: dbd3cb537bf0a54099c81f1b27a579977774b7ab
-origin_develop_commit: dbd3cb537bf0a54099c81f1b27a579977774b7ab
+validated_application_commit: ce1375edc574a3fc8befede0c5efc90861c69308
+validated_application_tag: milestone-11-remediation-r4
 development_migration_head: 0023_knowledge_admin_index
 production_commit: cc9d76885e181230bd91f5b9bfd0605a9b23fb07
 production_tag: v1.0.0
 production_migration_head: 0020_reporting_views
-latest_completed_task: milestone-11-task-11.5e
+latest_completed_remediation: milestone-11-remediation-r4
 milestone_11_implementation_state: COMPLETE
-milestone_11_formal_closure_state: PENDING_VALIDATION
+milestone_11_validation_state: PASS
+milestone_11_formal_closure_state: CLOSED
 remaining_milestone_11_tasks: []
-known_unresolved_issues:
-  - three Copilot integration failures
-  - five JavaScript dependency advisories
-  - no current green full-CI evidence
+final_ci_run: 31696085111
+known_non_blocking_issues:
+  - three accepted Moderate React Router advisories (SEC-2026-004)
+  - GitHub Actions Node.js 20 deprecation annotations
+  - Starlette TestClient deprecation warning (SEC-2026-002)
 tracked_working_tree: clean
 ```
 
@@ -255,6 +259,10 @@ backups/
 docker-compose.keycloak.local.yml
 docker-compose.production.yml
 docker-compose.staging.yml
+foundation-integration-failed.log
+foundation-integration-full.log
+portal-e2e-calibration-failed.log
+portal-e2e-calibration-full.log
 production-deployment-plan.md
 staging-uat-report.md
 ```
@@ -454,6 +462,41 @@ Implementation was authorized by
 and push require the separate exact phrase
 `APPROVE MILESTONE 11 GOVERNANCE RECONCILIATION COMMIT`. This checkpoint does
 not authorize Tasks 11.5D or 11.5E.
+
+## 4.3 Historical Milestone 11 Final Governance Checkpoint
+
+The pre-remediation validation checkpoint is preserved as immutable history:
+
+```text
+Commit: c0f84b8ccb1dbd230a3b31b78315b700e4ed6ec8
+Commit message: docs(governance): reconcile milestone 11 completion state
+Tag: milestone-11-final-governance-reconciliation
+```
+
+That checkpoint correctly recorded the evidence available before closure
+remediation began. Do not move, delete, or reuse its tag to represent the later
+validated state.
+
+## 4.4 Milestone 11 Closure Remediation and Final Closure
+
+The closure blockers identified after the historical checkpoint were resolved
+through these annotated remediation tags:
+
+| Remediation | Evidence                                                        | Tag                           | Commit                                     |
+| ----------- | --------------------------------------------------------------- | ----------------------------- | ------------------------------------------ |
+| R1          | Nullable ticket impact and urgency compatibility                | `milestone-11-remediation-r1` | `1352d7357ec1523256058e1de8935407e9afbaec` |
+| R2          | Direct AI hard-budget-stop enforcement evidence                 | `milestone-11-remediation-r2` | `e2a273f46e64ced901c741fc6a248aabf48ee170` |
+| R3          | JavaScript advisory remediation and security-register alignment | `milestone-11-remediation-r3` | `9c50ad99c9b3befcd36fe8d5763ad045c290d241` |
+| R4          | Gitleaks, Trivy, full CI, and approved Linux visual evidence    | `milestone-11-remediation-r4` | `ce1375edc574a3fc8befede0c5efc90861c69308` |
+
+Final validation against the exact R4 state passed the complete backend,
+frontend, PostgreSQL integration, Playwright, accessibility, visual, security,
+build, and Compose gates. CI run `31696085111` passed all required jobs at the
+R4 commit. The final governance commit is documentation-only and is marked by
+the annotated tag `milestone-11-closure`.
+
+The closure tag does not authorize a production promotion, a merge of Draft PR
+#1, or the start of Milestone 12.
 
 ---
 
@@ -1465,17 +1508,30 @@ and push were authorized by
 
 ## Milestone 11 Closure State
 
-Milestone 11 implementation is complete. Formal closure remains pending a
-separate validation gate that establishes acceptable full regression and CI
-evidence. The known unresolved evidence is three Copilot integration failures,
-five JavaScript dependency advisories, and no current green full-CI evidence.
-These issues remain visible for closure review; this governance reconciliation
-does not fix them or establish that the advisories are exploitable.
+Milestone 11 implementation, remediation, and final validation are complete.
+Formal closure is recorded by the approved documentation-only governance
+commit and annotated tag `milestone-11-closure`.
+
+The prior Copilot failures were resolved by R1, direct hard-budget-stop
+enforcement was established by R2, the JavaScript inventory and security
+register were reconciled by R3, and R4 established passing Gitleaks, Trivy,
+full CI, and approved Linux visual evidence. Final validation passed 315
+non-integration backend tests, 120 PostgreSQL integration tests, 18 Playwright
+tests, all frontend gates, all required image builds, and Compose validation.
+The 88 approved Linux baselines remained byte-for-byte unchanged.
+
+Three Moderate React Router advisories remain accepted under `SEC-2026-004`.
+GitHub Actions Node.js 20 deprecation annotations and the Starlette TestClient
+deprecation warning remain non-blocking follow-up items. They do not reopen
+Milestone 11.
 
 Production `main` and `v1.0.0` remain frozen at
 `cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
 `0020_reporting_views`. No Milestone 11 work has been promoted to production,
 and no production deployment or image publication is authorized.
+
+Draft PR #1 remains open and unmerged. Milestone 12 and all future backlog work
+remain unauthorized until a separate plan and explicit human approval.
 
 ---
 

@@ -20,9 +20,11 @@ Production `main` and `v1.0.0` are frozen at commit
 `cc9d76885e181230bd91f5b9bfd0605a9b23fb07`. Their historical Alembic head is
 `0020_reporting_views`.
 
-Current `develop` at the completed Milestone 11 implementation baseline
-`dbd3cb537bf0a54099c81f1b27a579977774b7ab` has Alembic head
-`0023_knowledge_admin_index`.
+The validated Milestone 11 R4 application baseline is annotated tag
+`milestone-11-remediation-r4` at
+`ce1375edc574a3fc8befede0c5efc90861c69308`. Its Alembic head is
+`0023_knowledge_admin_index`. The later final-closure governance commit is
+documentation-only and does not change that migration state.
 
 The only post-v1 revisions currently present are:
 

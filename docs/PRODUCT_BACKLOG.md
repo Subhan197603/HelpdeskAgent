@@ -136,18 +136,31 @@ Git tag `milestone-11-task-11.5e` resolves to
 
 ### Milestone 11 Closure State
 
-Milestone 11 implementation is `COMPLETE`. Formal closure is
-`PENDING_VALIDATION` until a separate closure gate establishes acceptable full
-regression and CI evidence. Known unresolved evidence remains visible:
+Milestone 11 implementation, closure remediation, and final validation are
+`COMPLETE`. Formal closure is `CLOSED` at the documentation-only governance
+commit marked by the annotated tag `milestone-11-closure`.
 
-- three Copilot integration failures;
-- five JavaScript dependency advisories; and
-- no current green full-CI evidence.
+The closure blockers were resolved and verified in order:
 
-This documentation reconciliation does not fix those issues or characterize
-the advisories as exploitable. No Milestone 11 work has been promoted to the
-frozen production `main` or `v1.0.0`, and no production deployment or image
-publication is authorized.
+| Remediation | Result                                                          | Tag                           | Commit                                     |
+| ----------- | --------------------------------------------------------------- | ----------------------------- | ------------------------------------------ |
+| R1          | Nullable ticket impact and urgency compatibility                | `milestone-11-remediation-r1` | `1352d7357ec1523256058e1de8935407e9afbaec` |
+| R2          | Direct AI hard-budget-stop enforcement evidence                 | `milestone-11-remediation-r2` | `e2a273f46e64ced901c741fc6a248aabf48ee170` |
+| R3          | JavaScript advisory remediation and security-register alignment | `milestone-11-remediation-r3` | `9c50ad99c9b3befcd36fe8d5763ad045c290d241` |
+| R4          | Gitleaks, Trivy, full CI, and approved Linux visual evidence    | `milestone-11-remediation-r4` | `ce1375edc574a3fc8befede0c5efc90861c69308` |
+
+Final validation against the exact R4 state passed the complete backend,
+frontend, PostgreSQL integration, Playwright, accessibility, visual, security,
+build, and Compose gates. CI run `31696085111` passed all required jobs. The 88
+approved Linux visual baselines remained byte-for-byte unchanged.
+
+Three Moderate React Router advisories remain accepted under `SEC-2026-004`.
+GitHub Actions Node.js 20 deprecation annotations and the accepted Starlette
+TestClient deprecation warning are non-blocking follow-up items.
+
+No Milestone 11 work has been promoted to the frozen production `main` or
+`v1.0.0`, and no production deployment or image publication is authorized.
+Draft PR #1 remains open and unmerged. Milestone 12 is not authorized.
 
 The completed bounded tasks preserve tenant isolation, authorization,
 auditability, knowledge access controls, AI kill switches and budgets, tool
