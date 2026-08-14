@@ -219,6 +219,37 @@ describe("application shell", () => {
     await waitFor(() => expect(help).toHaveFocus());
   });
 
+  it("lets analysts persistently turn character-key shortcuts off and on", async () => {
+    permissions.push("TICKET_ANALYST_READ");
+    const user = userEvent.setup();
+    renderShell("/agent/tickets");
+    const help = await screen.findByRole("button", { name: "Help" });
+
+    await user.click(help);
+    await user.click(
+      screen.getByRole("button", { name: "Turn off shortcuts" }),
+    );
+    expect(localStorage.getItem("helpdesk-keyboard-shortcuts-enabled")).toBe(
+      "false",
+    );
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.keyboard("gd");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent(
+      "/agent/tickets",
+    );
+
+    await user.click(help);
+    await user.click(screen.getByRole("button", { name: "Turn on shortcuts" }));
+    expect(localStorage.getItem("helpdesk-keyboard-shortcuts-enabled")).toBe(
+      "true",
+    );
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.keyboard("gd");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent(
+      "/agent/dashboard",
+    );
+  });
+
   it("provides permission-aware analyst navigation accelerators", async () => {
     permissions.push("TICKET_ANALYST_READ", "KNOWLEDGE_READ_ANALYST");
     const user = userEvent.setup();

@@ -33,6 +33,7 @@ import {
   AppShell,
   RequirePermission,
   useCurrentIdentity,
+  useKeyboardShortcutsEnabled,
 } from "./components/AppShell";
 import { DataTable, Pagination, TableToolbar } from "./components/DataTable";
 import { AttachmentUploader } from "./components/AttachmentUploader";
@@ -363,6 +364,7 @@ function CannedResponseTools({
   draft: string;
   onDraftChange: (value: string) => void;
 }) {
+  const keyboardShortcutsEnabled = useKeyboardShortcutsEnabled();
   const client = useIdentityClient();
   const queryClient = useQueryClient();
   const queryKey = ["agent-canned-responses"];
@@ -490,7 +492,7 @@ function CannedResponseTools({
       <label htmlFor="canned-response-select">Choose a canned response</label>
       <select
         aria-describedby="canned-response-help"
-        aria-keyshortcuts="F"
+        aria-keyshortcuts={keyboardShortcutsEnabled ? "F" : undefined}
         data-shortcut-target="personal"
         id="canned-response-select"
         onChange={(event) => {
@@ -1313,6 +1315,7 @@ function AnalystDashboardPage() {
 }
 
 function AgentQueuePage() {
+  const keyboardShortcutsEnabled = useKeyboardShortcutsEnabled();
   const client = useIdentityClient();
   const identity = useCurrentIdentity();
   const queryClient = useQueryClient();
@@ -1622,7 +1625,7 @@ function AgentQueuePage() {
                   Apply a saved filter
                 </label>
                 <select
-                  aria-keyshortcuts="F"
+                  aria-keyshortcuts={keyboardShortcutsEnabled ? "F" : undefined}
                   data-shortcut-target="personal"
                   id="saved-filter-select"
                   onChange={(event) => {
@@ -1761,7 +1764,9 @@ function AgentQueuePage() {
                 </label>
                 <div>
                   <input
-                    aria-keyshortcuts="/"
+                    aria-keyshortcuts={
+                      keyboardShortcutsEnabled ? "/" : undefined
+                    }
                     id="queue-search"
                     maxLength={100}
                     onChange={(event) => {

@@ -118,7 +118,9 @@ Shortcuts pause in inputs, textareas, selects, editable content, and while
 another modal is active. Modifier combinations, key repeat, and input-method
 composition are not intercepted. The accelerators never post comments, alter
 workflow or assignment, watch or unwatch tickets, delete data, bypass a
-permission check, or skip a confirmation.
+permission check, or skip a confirmation. Analysts can turn character-key
+shortcuts off or back on from the Help dialog; that preference persists in the
+browser, and the Help button remains available while shortcuts are off.
 
 ## Activity and comments
 

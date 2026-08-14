@@ -28,10 +28,14 @@ const SHORTCUT_GROUPS = [
 ] as const;
 
 export function ShortcutHelpDialog({
+  enabled,
   onClose,
+  onEnabledChange,
   open,
 }: {
+  enabled: boolean;
   onClose: () => void;
+  onEnabledChange: (enabled: boolean) => void;
   open: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -66,7 +70,8 @@ export function ShortcutHelpDialog({
       <h2 id={titleId}>Keyboard shortcuts</h2>
       <p id={descriptionId}>
         Shortcuts navigate or move focus only. They pause while you type and
-        never submit or change a ticket.
+        never submit or change a ticket. Keyboard shortcuts are currently
+        {enabled ? " on." : " off."}
       </p>
       <div className="shortcut-help-groups">
         {SHORTCUT_GROUPS.map((group) => (
@@ -91,6 +96,16 @@ export function ShortcutHelpDialog({
         ))}
       </div>
       <div className="dialog-actions">
+        <button
+          aria-pressed={enabled}
+          className="button secondary"
+          onClick={() => {
+            onEnabledChange(!enabled);
+          }}
+          type="button"
+        >
+          {enabled ? "Turn off shortcuts" : "Turn on shortcuts"}
+        </button>
         <button
           className="button secondary"
           onClick={onClose}

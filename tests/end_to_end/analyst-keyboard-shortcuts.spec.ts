@@ -41,8 +41,29 @@ test("analyst keyboard accelerators navigate and focus without mutation", async 
   await page.keyboard.press("Shift+/");
   const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(help).toBeVisible();
+  await page.getByRole("button", { name: "Turn off shortcuts" }).click();
+  await expect(help).toContainText("Keyboard shortcuts are currently off.");
+  await expect(page.locator("#saved-filter-select")).not.toHaveAttribute(
+    "aria-keyshortcuts",
+  );
   await page.keyboard.press("Escape");
   await expect(help).not.toBeVisible();
+
+  await page.keyboard.press("g");
+  await page.keyboard.press("d");
+  await expect(page).toHaveURL(/\/agent\/tickets(?:\?|$)/);
+  await page.reload();
+  await page.keyboard.press("g");
+  await page.keyboard.press("d");
+  await expect(page).toHaveURL(/\/agent\/tickets(?:\?|$)/);
+  await page.getByRole("button", { name: "Help" }).click();
+  await page.getByRole("button", { name: "Turn on shortcuts" }).click();
+  await expect(help).toContainText("Keyboard shortcuts are currently on.");
+  await expect(page.locator("#saved-filter-select")).toHaveAttribute(
+    "aria-keyshortcuts",
+    "F",
+  );
+  await page.keyboard.press("Escape");
 
   await page.keyboard.press("g");
   await page.keyboard.press("d");
@@ -67,6 +88,7 @@ test("analyst keyboard accelerators navigate and focus without mutation", async 
   await page.keyboard.press("g");
   await page.keyboard.press("k");
   await expect(page).toHaveURL(/\/agent\/knowledge$/);
+  await expect(page.getByLabel("Search knowledge articles")).toBeVisible();
   await page.keyboard.press("/");
   await expect(page.getByLabel("Search knowledge articles")).toBeFocused();
 

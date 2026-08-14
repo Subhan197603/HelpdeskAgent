@@ -42,6 +42,12 @@ type PermissionCode =
   | "TICKET_READ_OWN";
 
 const IdentityContext = createContext<Identity | null>(null);
+const KeyboardShortcutsContext = createContext(true);
+const KEYBOARD_SHORTCUTS_STORAGE_KEY = "helpdesk-keyboard-shortcuts-enabled";
+
+export function useKeyboardShortcutsEnabled(): boolean {
+  return useContext(KeyboardShortcutsContext);
+}
 
 interface NavigationItem {
   icon: IconName;
@@ -396,6 +402,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   );
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const [keyboardShortcutsEnabled, setKeyboardShortcutsEnabled] = useState(
+    () => localStorage.getItem(KEYBOARD_SHORTCUTS_STORAGE_KEY) !== "false",
+  );
   const shortcutHelpOpener = useRef<HTMLElement | null>(null);
   const mobileOpener = useRef<HTMLElement | null>(null);
   const chordPending = useRef(false);
@@ -466,7 +475,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       const analyst =
         identity.data && can(identity.data, "TICKET_ANALYST_READ");
-      if (!analyst || shortcutHelpOpen || shouldSuspendShortcut(event)) return;
+      if (
+        !analyst ||
+        !keyboardShortcutsEnabled ||
+        shortcutHelpOpen ||
+        shouldSuspendShortcut(event)
+      )
+        return;
       if (document.querySelector("dialog[open]")) return;
 
       const key = event.key.toLowerCase();
@@ -521,6 +536,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [
     closeShortcutHelp,
     identity.data,
+    keyboardShortcutsEnabled,
     mobileOpen,
     navigate,
     openShortcutHelp,
@@ -542,47 +558,63 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   return (
     <IdentityContext.Provider value={identity.data}>
-      <a className="skip-link" href="#main-content">
-        Skip to content
-      </a>
-      <Sidebar
-        collapsed={collapsed}
-        identity={identity.data}
-        mobileOpen={mobileOpen}
-        onClose={() => {
-          setMobileOpen(false);
-        }}
-        onCollapse={() => {
-          setCollapsed((value) => {
-            localStorage.setItem("helpdesk-sidebar-collapsed", String(!value));
-            return !value;
-          });
-        }}
-      />
-      <TopBar
-        collapsed={collapsed}
-        identity={identity.data}
-        onHelp={
-          can(identity.data, "TICKET_ANALYST_READ")
-            ? openShortcutHelp
-            : undefined
-        }
-        onMenu={() => {
-          mobileOpener.current =
-            document.activeElement instanceof HTMLElement
-              ? document.activeElement
-              : null;
-          setMobileOpen(true);
-        }}
-      />
-      <main
-        className={`app-content${collapsed ? " app-content--collapsed" : ""}`}
-        id="main-content"
-        tabIndex={-1}
-      >
-        {children}
-      </main>
-      <ShortcutHelpDialog onClose={closeShortcutHelp} open={shortcutHelpOpen} />
+      <KeyboardShortcutsContext.Provider value={keyboardShortcutsEnabled}>
+        <a className="skip-link" href="#main-content">
+          Skip to content
+        </a>
+        <Sidebar
+          collapsed={collapsed}
+          identity={identity.data}
+          mobileOpen={mobileOpen}
+          onClose={() => {
+            setMobileOpen(false);
+          }}
+          onCollapse={() => {
+            setCollapsed((value) => {
+              localStorage.setItem(
+                "helpdesk-sidebar-collapsed",
+                String(!value),
+              );
+              return !value;
+            });
+          }}
+        />
+        <TopBar
+          collapsed={collapsed}
+          identity={identity.data}
+          onHelp={
+            can(identity.data, "TICKET_ANALYST_READ")
+              ? openShortcutHelp
+              : undefined
+          }
+          onMenu={() => {
+            mobileOpener.current =
+              document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+            setMobileOpen(true);
+          }}
+        />
+        <main
+          className={`app-content${collapsed ? " app-content--collapsed" : ""}`}
+          id="main-content"
+          tabIndex={-1}
+        >
+          {children}
+        </main>
+        <ShortcutHelpDialog
+          enabled={keyboardShortcutsEnabled}
+          onClose={closeShortcutHelp}
+          onEnabledChange={(enabled) => {
+            localStorage.setItem(
+              KEYBOARD_SHORTCUTS_STORAGE_KEY,
+              String(enabled),
+            );
+            setKeyboardShortcutsEnabled(enabled);
+          }}
+          open={shortcutHelpOpen}
+        />
+      </KeyboardShortcutsContext.Provider>
     </IdentityContext.Provider>
   );
 }
