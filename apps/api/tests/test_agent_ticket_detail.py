@@ -31,6 +31,7 @@ def test_agent_detail_exposes_assignment_impact_and_sla_fields(client: TestClien
         "assignment_group_name",
         "assignee_user_id",
         "assignee_name",
+        "watched",
         "slas",
     ):
         assert field in properties, field
@@ -100,6 +101,7 @@ def test_agent_detail_serializes_schema_valid_classification_values(
         assignment_group_name=None,
         assignee_user_id=None,
         assignee_name=None,
+        watched=False,
     )
 
     payload = response.model_dump(mode="json")
@@ -109,7 +111,7 @@ def test_agent_detail_serializes_schema_valid_classification_values(
 
 def test_customer_ticket_contract_gains_no_analyst_fields(client: TestClient) -> None:
     properties = _schemas(client)["TicketResponse"]["properties"]
-    for field in ("slas", "impact_code", "urgency_code", "assignee_name"):
+    for field in ("slas", "impact_code", "urgency_code", "assignee_name", "watched"):
         assert field not in properties, field
 
 

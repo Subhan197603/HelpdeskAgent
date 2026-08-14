@@ -65,6 +65,14 @@ export default defineConfig({
         viewport: { height: 800, width: 1280 },
       },
     },
+    {
+      name: "ticket-watchlists-chromium",
+      testMatch: /analyst-ticket-watchlists\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { height: 800, width: 1280 },
+      },
+    },
   ],
   webServer: [
     {

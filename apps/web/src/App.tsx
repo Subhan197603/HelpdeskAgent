@@ -351,6 +351,11 @@ export function insertCannedResponse(draft: string, snippet: string) {
   return `${draft.trimEnd()}\n\n${snippet}`;
 }
 
+export function watchActionLabel(watched: boolean, pending: boolean) {
+  if (pending) return watched ? "Unwatching…" : "Watching…";
+  return watched ? "Unwatch" : "Watch";
+}
+
 function CannedResponseTools({
   draft,
   onDraftChange,
@@ -1313,6 +1318,7 @@ function AgentQueuePage() {
   const savedFilterId = params.get("savedFilter");
   const editingFilterId = params.get("editFilter");
   const queueId = params.get("queue");
+  const watchlistView = params.get("view") === "watched";
   const search = params.get("q") ?? "";
   const status = params.get("status") ?? "";
   const priority = params.get("priority") ?? "";
@@ -1332,10 +1338,10 @@ function AgentQueuePage() {
       unwrap(await client.GET("/api/v1/agent/saved-filters")),
   });
   useEffect(() => {
-    if (!queueId && !savedFilterId && queues.data?.items[0]) {
+    if (!queueId && !savedFilterId && !watchlistView && queues.data?.items[0]) {
       setParams({ queue: queues.data.items[0].id }, { replace: true });
     }
-  }, [queueId, queues.data, savedFilterId, setParams]);
+  }, [queueId, queues.data, savedFilterId, setParams, watchlistView]);
   useEffect(() => {
     setSearchInput(search);
   }, [search]);
@@ -1348,6 +1354,7 @@ function AgentQueuePage() {
   const updateManualParams = (changes: Record<string, string | null>) => {
     const next = new URLSearchParams(params);
     next.delete("savedFilter");
+    next.delete("view");
     for (const [key, value] of Object.entries(changes)) {
       if (value) next.set(key, value);
       else next.delete(key);
@@ -1401,6 +1408,16 @@ function AgentQueuePage() {
         }),
       );
     },
+  });
+  const watchedTickets = useQuery({
+    enabled: watchlistView,
+    queryKey: ["agent-watched-tickets", cursor],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/agent/watched-tickets", {
+          params: { query: { cursor: cursor ?? undefined } },
+        }),
+      ),
   });
   const createFilter = useMutation({
     mutationFn: async () => {
@@ -1542,10 +1559,28 @@ function AgentQueuePage() {
       {queues.data && queues.data.items.length > 0 && (
         <div className="queue-layout">
           <nav aria-label="Analyst queues" className="queue-navigation">
+            <button
+              aria-current={watchlistView ? "page" : undefined}
+              className={watchlistView ? "active" : ""}
+              onClick={() => {
+                setCursor(null);
+                setParams({ view: "watched" });
+              }}
+              type="button"
+            >
+              <strong>Watched tickets</strong>
+              <small>Personal</small>
+            </button>
             {queues.data.items.map((queue) => (
               <button
-                aria-current={queue.id === selected?.id ? "page" : undefined}
-                className={queue.id === selected?.id ? "active" : ""}
+                aria-current={
+                  !watchlistView && queue.id === selected?.id
+                    ? "page"
+                    : undefined
+                }
+                className={
+                  !watchlistView && queue.id === selected?.id ? "active" : ""
+                }
                 key={queue.id}
                 onClick={() => {
                   updateManualParams({ queue: queue.id, editFilter: null });
@@ -1558,84 +1593,97 @@ function AgentQueuePage() {
             ))}
           </nav>
           <section aria-labelledby="queue-heading" className="queue-results">
-            <h2 id="queue-heading">{selected?.name}</h2>
-            {selected?.description && <p>{selected.description}</p>}
-            <section
-              aria-labelledby="saved-filters-heading"
-              className="saved-filters"
-            >
-              <h3 id="saved-filters-heading">Personal saved filters</h3>
-              {savedFilters.isPending && (
-                <p role="status">Loading saved filters…</p>
-              )}
-              {savedFilters.error && (
-                <ErrorSummary error={savedFilters.error} />
-              )}
-              <label htmlFor="saved-filter-select">Apply a saved filter</label>
-              <select
-                id="saved-filter-select"
-                onChange={(event) => {
-                  const id = event.target.value;
-                  setCursor(null);
-                  if (id) setParams({ savedFilter: id });
-                  else if (queues.data.items[0])
-                    setParams({ queue: queues.data.items[0].id });
-                }}
-                value={savedFilterId ?? ""}
+            <h2 id="queue-heading">
+              {watchlistView ? "Watched tickets" : selected?.name}
+            </h2>
+            {watchlistView ? (
+              <p>
+                Your private watchlist. Ticket access is checked whenever this
+                list is loaded.
+              </p>
+            ) : (
+              selected?.description && <p>{selected.description}</p>
+            )}
+            {!watchlistView && (
+              <section
+                aria-labelledby="saved-filters-heading"
+                className="saved-filters"
               >
-                <option value="">Manual filters</option>
-                {savedFilters.data?.items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              {selectedSaved && (
-                <div className="saved-filter-actions">
-                  <Button
-                    onClick={() => {
-                      editSavedFilter(selectedSaved);
-                    }}
-                    variant="secondary"
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    disabled={
-                      savedFilters.data?.items[0]?.id === selectedSaved.id ||
-                      reorderFilters.isPending
-                    }
-                    onClick={() => {
-                      moveFilter(selectedSaved, -1);
-                    }}
-                    variant="secondary"
-                  >
-                    Move up
-                  </Button>
-                  <Button
-                    disabled={
-                      savedFilters.data?.items.at(-1)?.id ===
-                        selectedSaved.id || reorderFilters.isPending
-                    }
-                    onClick={() => {
-                      moveFilter(selectedSaved, 1);
-                    }}
-                    variant="secondary"
-                  >
-                    Move down
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setDeleting(selectedSaved);
-                    }}
-                    variant="danger"
-                  >
-                    Delete
-                  </Button>
-                </div>
-              )}
-            </section>
-            {!savedFilterId && (
+                <h3 id="saved-filters-heading">Personal saved filters</h3>
+                {savedFilters.isPending && (
+                  <p role="status">Loading saved filters…</p>
+                )}
+                {savedFilters.error && (
+                  <ErrorSummary error={savedFilters.error} />
+                )}
+                <label htmlFor="saved-filter-select">
+                  Apply a saved filter
+                </label>
+                <select
+                  id="saved-filter-select"
+                  onChange={(event) => {
+                    const id = event.target.value;
+                    setCursor(null);
+                    if (id) setParams({ savedFilter: id });
+                    else if (queues.data.items[0])
+                      setParams({ queue: queues.data.items[0].id });
+                  }}
+                  value={savedFilterId ?? ""}
+                >
+                  <option value="">Manual filters</option>
+                  {savedFilters.data?.items.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedSaved && (
+                  <div className="saved-filter-actions">
+                    <Button
+                      onClick={() => {
+                        editSavedFilter(selectedSaved);
+                      }}
+                      variant="secondary"
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      disabled={
+                        savedFilters.data?.items[0]?.id === selectedSaved.id ||
+                        reorderFilters.isPending
+                      }
+                      onClick={() => {
+                        moveFilter(selectedSaved, -1);
+                      }}
+                      variant="secondary"
+                    >
+                      Move up
+                    </Button>
+                    <Button
+                      disabled={
+                        savedFilters.data?.items.at(-1)?.id ===
+                          selectedSaved.id || reorderFilters.isPending
+                      }
+                      onClick={() => {
+                        moveFilter(selectedSaved, 1);
+                      }}
+                      variant="secondary"
+                    >
+                      Move down
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setDeleting(selectedSaved);
+                      }}
+                      variant="danger"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                )}
+              </section>
+            )}
+            {!watchlistView && !savedFilterId && (
               <div className="queue-filter-grid">
                 <label>
                   Status code
@@ -1694,7 +1742,7 @@ function AgentQueuePage() {
                 </label>
               </div>
             )}
-            {!savedFilterId && (
+            {!watchlistView && !savedFilterId && (
               <form
                 className="queue-search"
                 onSubmit={(event) => {
@@ -1721,7 +1769,7 @@ function AgentQueuePage() {
                 </div>
               </form>
             )}
-            {!savedFilterId && (
+            {!watchlistView && !savedFilterId && (
               <form
                 className="save-filter-form"
                 onSubmit={(event) => {
@@ -1756,41 +1804,80 @@ function AgentQueuePage() {
                 </Button>
               </form>
             )}
-            {(createFilter.error ??
-              updateFilter.error ??
-              reorderFilters.error) && (
-              <ErrorSummary
-                error={
-                  createFilter.error ??
-                  updateFilter.error ??
-                  reorderFilters.error
-                }
-              />
-            )}
-            {tickets.isPending && (
+            {!watchlistView &&
+              (createFilter.error ??
+                updateFilter.error ??
+                reorderFilters.error) && (
+                <ErrorSummary
+                  error={
+                    createFilter.error ??
+                    updateFilter.error ??
+                    reorderFilters.error
+                  }
+                />
+              )}
+            {!watchlistView && tickets.isPending && (
               <StatusPanel>Loading queue tickets…</StatusPanel>
             )}
-            {tickets.error && <ErrorSummary error={tickets.error} />}
-            {tickets.data?.items.length === 0 && (
+            {!watchlistView && tickets.error && (
+              <ErrorSummary error={tickets.error} />
+            )}
+            {!watchlistView && tickets.data?.items.length === 0 && (
               <StatusPanel>No tickets match this queue.</StatusPanel>
             )}
-            <div className="ticket-list">
-              {tickets.data?.items.map((ticket) => (
-                <QueueRow
-                  href={`/agent/tickets/${ticket.key}`}
-                  key={ticket.id}
-                  priority={ticket.priority}
-                  status={ticket.status_name}
-                  summary={ticket.summary}
-                  ticketKey={ticket.key}
-                  metadata={`${ticket.assignment_group_name ?? "Unassigned"}${ticket.assignee_name ? ` · ${ticket.assignee_name}` : ""}`}
-                />
-              ))}
-            </div>
-            {tickets.data?.next_cursor && (
+            {watchlistView && watchedTickets.isPending && (
+              <StatusPanel>Loading watched tickets…</StatusPanel>
+            )}
+            {watchlistView && watchedTickets.error && (
+              <ErrorSummary error={watchedTickets.error} />
+            )}
+            {watchlistView && watchedTickets.data?.items.length === 0 && (
+              <StatusPanel>No watched tickets yet.</StatusPanel>
+            )}
+            {!watchlistView && (
+              <div className="ticket-list">
+                {tickets.data?.items.map((ticket) => (
+                  <QueueRow
+                    href={`/agent/tickets/${ticket.key}`}
+                    key={ticket.id}
+                    priority={ticket.priority}
+                    status={ticket.status_name}
+                    summary={ticket.summary}
+                    ticketKey={ticket.key}
+                    metadata={`${ticket.assignment_group_name ?? "Unassigned"}${ticket.assignee_name ? ` · ${ticket.assignee_name}` : ""}`}
+                  />
+                ))}
+              </div>
+            )}
+            {watchlistView && (
+              <div className="ticket-list">
+                {watchedTickets.data?.items.map((ticket) => (
+                  <QueueRow
+                    href={`/agent/tickets/${ticket.key}`}
+                    key={ticket.id}
+                    priority={ticket.priority}
+                    status={ticket.status_name}
+                    summary={ticket.summary}
+                    ticketKey={ticket.key}
+                    metadata={`Watched ${formatDateTime(ticket.watched_at)}`}
+                  />
+                ))}
+              </div>
+            )}
+            {!watchlistView && tickets.data?.next_cursor && (
               <Button
                 onClick={() => {
                   setCursor(tickets.data.next_cursor ?? null);
+                }}
+                variant="secondary"
+              >
+                Next page
+              </Button>
+            )}
+            {watchlistView && watchedTickets.data?.next_cursor && (
+              <Button
+                onClick={() => {
+                  setCursor(watchedTickets.data.next_cursor ?? null);
                 }}
                 variant="secondary"
               >
@@ -1893,6 +1980,29 @@ function AnalystTicketDetailPage() {
     void queryClient.invalidateQueries({ queryKey: timelineKey });
     void queryClient.invalidateQueries({ queryKey: transitionsKey });
   };
+  const watch = useMutation({
+    mutationFn: async () => {
+      if (ticket.data?.watched) {
+        const result = await client.DELETE(
+          "/api/v1/agent/tickets/{ticket_key}/watch",
+          { params: { path: { ticket_key: ticketKey } } },
+        );
+        if (!result.response.ok) unwrap(result);
+        return;
+      }
+      unwrap(
+        await client.PUT("/api/v1/agent/tickets/{ticket_key}/watch", {
+          params: { path: { ticket_key: ticketKey } },
+        }),
+      );
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ticketQueryKey });
+      void queryClient.invalidateQueries({
+        queryKey: ["agent-watched-tickets"],
+      });
+    },
+  });
   const transition = useMutation({
     mutationFn: async (transitionCode: string) => {
       const rowVersion = transitions.data?.row_version;
@@ -2017,6 +2127,16 @@ function AnalystTicketDetailPage() {
         <div className="detail-header__title">
           <h1>{data.summary}</h1>
           <div className="detail-header__actions">
+            <Button
+              aria-pressed={data.watched}
+              disabled={watch.isPending}
+              onClick={() => {
+                watch.mutate();
+              }}
+              variant="secondary"
+            >
+              {watchActionLabel(data.watched, watch.isPending)}
+            </Button>
             {canAssign && (
               <Button
                 onClick={() => {
@@ -2039,9 +2159,14 @@ function AnalystTicketDetailPage() {
           </div>
         </div>
       </header>
-      {(transition.error ?? assign.error ?? addComment.error) && (
+      {(watch.error ??
+        transition.error ??
+        assign.error ??
+        addComment.error) && (
         <ErrorSummary
-          error={transition.error ?? assign.error ?? addComment.error}
+          error={
+            watch.error ?? transition.error ?? assign.error ?? addComment.error
+          }
         />
       )}
       {assignOpen && (

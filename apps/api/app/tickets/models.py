@@ -82,6 +82,13 @@ class TicketSlaRow:
 
 
 @dataclass(frozen=True, slots=True)
+class WatchedTicket:
+    watchlist_id: UUID
+    watched_at: datetime
+    ticket: TicketView
+
+
+@dataclass(frozen=True, slots=True)
 class PublicComment:
     comment_id: UUID
     author_user_id: UUID

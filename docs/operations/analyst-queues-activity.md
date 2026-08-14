@@ -79,6 +79,27 @@ bodies must not enter logs, metrics, audit summaries, or error details. Shared,
 administrator-managed, executable, and variable-substitution templates are
 not supported.
 
+## Personal ticket watchlists
+
+Milestone 12 Task 12.3 adds private ticket-watch preferences:
+
+```http
+GET    /api/v1/agent/watched-tickets?limit=50&cursor=...
+PUT    /api/v1/agent/tickets/{ticket_key}/watch
+DELETE /api/v1/agent/tickets/{ticket_key}/watch
+```
+
+Watch and unwatch are idempotent. Tenant and owner identity come only from the
+authenticated analyst, and both repository predicates and row-level security
+enforce that boundary. The personal list is ordered by the time watched plus a
+stable identifier and uses an opaque keyset cursor.
+
+Every operation rechecks ordinary analyst ticket visibility. If group access
+changes, the stored preference is retained but the ticket is omitted from the
+list and cannot be followed or removed until access is restored. A watch never
+creates a participant, changes assignment, grants access, emits a ticket event
+or outbox fact, or creates notification or queue-subscription behavior.
+
 ## Activity and comments
 
 ```http

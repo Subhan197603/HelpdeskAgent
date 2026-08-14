@@ -120,11 +120,21 @@ def test_ticket_openapi_covers_the_complete_task_surface(client: TestClient) -> 
         "/api/v1/ticket-drafts/{draft_id}/submit",
         "/api/v1/tickets/{ticket_key}",
         "/api/v1/my/tickets",
+        "/api/v1/agent/watched-tickets",
+        "/api/v1/agent/tickets/{ticket_key}/watch",
     } <= paths.keys()
     assert "Idempotency-Key" in {
         parameter["name"]
         for parameter in paths["/api/v1/ticket-drafts/{draft_id}/submit"]["post"]["parameters"]
     }
+
+
+def test_watchlist_contract_has_no_client_controlled_ownership_fields(client: TestClient) -> None:
+    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    assert set(schemas["WatchStateResponse"]["properties"]) == {"watched", "watched_at"}
+    assert {"items", "limit", "next_cursor"} == set(schemas["WatchedTicketPage"]["properties"])
+    assert "tenant_id" not in schemas["WatchedTicketResponse"]["properties"]
+    assert "owner_user_id" not in schemas["WatchedTicketResponse"]["properties"]
 
 
 def test_ticket_metrics_record_operations_without_request_content() -> None:

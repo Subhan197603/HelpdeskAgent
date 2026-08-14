@@ -35,6 +35,7 @@ The only post-v1 revisions currently present are:
 → 0023_knowledge_admin_index
 → 0024_analyst_saved_filters
 → 0025_analyst_canned_responses
+→ 0026_analyst_ticket_watchlist
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -60,10 +61,16 @@ owner-scoped uniqueness and ordering indexes. It follows
 `0023_knowledge_admin_index`; the physical PostgreSQL baseline is unchanged.
 
 Milestone 12 Task 12.2 introduces `0025_analyst_canned_responses`, the current
-development head. It adds private bounded plaintext snippets with tenant-and-
+approved Task 12.2 head. It adds private bounded plaintext snippets with tenant-and-
 owner row-level security, narrow runtime CRUD grants, optimistic row versions,
 and owner-scoped uniqueness and ordering indexes. It follows
 `0024_analyst_saved_filters`; the physical PostgreSQL baseline is unchanged.
+
+Milestone 12 Task 12.3 introduces `0026_analyst_ticket_watchlist`, the current
+development head. It adds private ticket-watch preferences with tenant-and-owner
+row-level security, visibility-safe indexes, and narrow runtime select, insert,
+and delete grants. It follows `0025_analyst_canned_responses`; the physical
+PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database
 

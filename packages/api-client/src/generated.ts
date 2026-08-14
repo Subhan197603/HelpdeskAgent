@@ -1220,6 +1220,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/tickets/{ticket_key}/watch": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Watch Ticket */
+    put: operations["watch_ticket_api_v1_agent_tickets__ticket_key__watch_put"];
+    post?: never;
+    /** Unwatch Ticket */
+    delete: operations["unwatch_ticket_api_v1_agent_tickets__ticket_key__watch_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/watched-tickets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Watched Tickets */
+    get: operations["watched_tickets_api_v1_agent_watched_tickets_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/approvals/{approval_id}/decisions": {
     parameters: {
       query?: never;
@@ -3180,6 +3215,8 @@ export interface components {
       updated_at: string;
       /** Urgency Code */
       urgency_code: string | null;
+      /** Watched */
+      watched: boolean;
       /** Work Type */
       work_type: string;
     };
@@ -6440,6 +6477,91 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
+    };
+    /** WatchStateResponse */
+    WatchStateResponse: {
+      /** Watched */
+      watched: boolean;
+      /** Watched At */
+      watched_at: string | null;
+    };
+    /** WatchedTicketPage */
+    WatchedTicketPage: {
+      /** Items */
+      items: components["schemas"]["WatchedTicketResponse"][];
+      /** Limit */
+      limit: number;
+      /**
+       * Next Cursor
+       * @description Opaque keyset cursor
+       */
+      next_cursor?: string | null;
+    };
+    /** WatchedTicketResponse */
+    WatchedTicketResponse: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Creation Event At */
+      creation_event_at: string | null;
+      /** Description */
+      description: string | null;
+      /** Environment Name */
+      environment_name: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Key */
+      key: string;
+      /** Priority */
+      priority: string;
+      /** Project Code */
+      project_code: string;
+      /** Project Name */
+      project_name: string;
+      /** Public Comments */
+      public_comments?: components["schemas"]["PublicCommentResponse"][];
+      /** Reporter Name */
+      reporter_name: string;
+      /**
+       * Reporter User Id
+       * Format: uuid
+       */
+      reporter_user_id: string;
+      /** Request Type Code */
+      request_type_code: string;
+      /** Request Type Name */
+      request_type_name: string;
+      /** Requested For Name */
+      requested_for_name: string | null;
+      /** Requested For User Id */
+      requested_for_user_id: string | null;
+      /** Row Version */
+      row_version: number;
+      /** Service Name */
+      service_name: string | null;
+      /** Status */
+      status: string;
+      /** Status Name */
+      status_name: string;
+      /** Summary */
+      summary: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /**
+       * Watched At
+       * Format: date-time
+       */
+      watched_at: string;
+      /** Work Type */
+      work_type: string;
     };
     /** WorkTypeResponse */
     WorkTypeResponse: {
@@ -11900,6 +12022,206 @@ export interface operations {
         };
       };
       /** @description Transition validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  watch_ticket_api_v1_agent_tickets__ticket_key__watch_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WatchStateResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Concurrency, configuration, or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Structured validation failure */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  unwatch_ticket_api_v1_agent_tickets__ticket_key__watch_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        ticket_key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Concurrency, configuration, or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Structured validation failure */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  watched_tickets_api_v1_agent_watched_tickets_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        cursor?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WatchedTicketPage"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Resource not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Concurrency, configuration, or idempotency conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Structured validation failure */
       422: {
         headers: {
           [name: string]: unknown;

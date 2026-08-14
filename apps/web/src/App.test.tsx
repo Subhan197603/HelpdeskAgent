@@ -10,6 +10,7 @@ import {
   insertCannedResponse,
   LoginPage,
   ticketClassificationDisplay,
+  watchActionLabel,
 } from "./App";
 import { ErrorSummary } from "./components/States";
 import { ApiProblem } from "./lib/api";
@@ -200,6 +201,15 @@ describe("personal canned response insertion", () => {
     expect(
       insertCannedResponse("Hello,", "Please provide the invoice number."),
     ).toBe("Hello,\n\nPlease provide the invoice number.");
+  });
+});
+
+describe("personal ticket watchlist state", () => {
+  it("labels idempotent watch and unwatch actions without implying notifications", () => {
+    expect(watchActionLabel(false, false)).toBe("Watch");
+    expect(watchActionLabel(true, false)).toBe("Unwatch");
+    expect(watchActionLabel(false, true)).toBe("Watching…");
+    expect(watchActionLabel(true, true)).toBe("Unwatching…");
   });
 });
 

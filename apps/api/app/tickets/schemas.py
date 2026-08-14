@@ -145,4 +145,20 @@ class AgentTicketResponse(TicketResponse):
     assignment_group_name: str | None
     assignee_user_id: UUID | None
     assignee_name: str | None
+    watched: bool
     slas: list[AgentTicketSlaSummary] = Field(default_factory=list)
+
+
+class WatchStateResponse(BaseModel):
+    watched: bool
+    watched_at: datetime | None
+
+
+class WatchedTicketResponse(TicketResponse):
+    watched_at: datetime
+
+
+class WatchedTicketPage(BaseModel):
+    items: list[WatchedTicketResponse]
+    limit: int
+    next_cursor: Annotated[str | None, Field(description="Opaque keyset cursor")] = None

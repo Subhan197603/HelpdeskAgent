@@ -2129,7 +2129,7 @@ def test_personal_canned_response_crud_reorder_and_isolation(
 @pytest.mark.integration
 def test_canned_response_migration_is_minimal_and_owner_scoped() -> None:
     assert _psql("SELECT version_num FROM config.alembic_version") == (
-        "0025_analyst_canned_responses"
+        "0026_analyst_ticket_watchlist"
     )
     assert (
         _psql(
@@ -2164,6 +2164,188 @@ def test_canned_response_migration_is_minimal_and_owner_scoped() -> None:
         _psql(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='config' "
             "AND tablename='analyst_canned_response'"
+        )
+        == "3"
+    )
+
+
+def _watch_side_effect_counts(ticket_ids: list[str]) -> str:
+    identifiers = ",".join(f"'{value}'" for value in ticket_ids)
+    return _psql(
+        "SELECT "
+        f"(SELECT count(*) FROM itsm.ticket_participant WHERE ticket_id IN ({identifiers}))"
+        "||':'||"
+        f"(SELECT count(*) FROM itsm.ticket_event WHERE ticket_id IN ({identifiers}))"
+        "||':'||"
+        "(SELECT count(*) FROM integration.outbox_event "
+        f"WHERE aggregate_id IN ({identifiers}))"
+        "||':'||"
+        "(SELECT count(*) FROM integration.notification_delivery "
+        f"WHERE resource_id IN ({identifiers}))"
+    )
+
+
+def _watchlist_ticket(client: TestClient, prefix: str) -> dict[str, object]:
+    draft = _draft(
+        client,
+        {
+            **_body(),
+            "summary": f"Watchlist validation {prefix}",
+        },
+    )
+    response = client.post(
+        f"/api/v1/ticket-drafts/{draft['id']}/submit",
+        headers={
+            "X-Developer-User": "DEV/customer",
+            "Idempotency-Key": f"watchlist-{prefix}-{uuid4()}",
+        },
+        json={"row_version": draft["row_version"]},
+    )
+    assert response.status_code == 201
+    return cast("dict[str, object]", response.json())
+
+
+@pytest.mark.integration
+def test_personal_ticket_watchlist_is_idempotent_paginated_and_isolated(
+    client: TestClient,
+) -> None:
+    first = _watchlist_ticket(client, "first")
+    second = _watchlist_ticket(client, "second")
+    ticket_ids = [str(first["id"]), str(second["id"])]
+    before_side_effects = _watch_side_effect_counts(ticket_ids)
+    agent = {"X-Developer-User": "DEV/agent"}
+    first_path = f"/api/v1/agent/tickets/{first['key']}/watch"
+    second_path = f"/api/v1/agent/tickets/{second['key']}/watch"
+
+    detail = client.get(f"/api/v1/agent/tickets/{first['key']}", headers=agent)
+    assert detail.status_code == 200
+    assert detail.json()["watched"] is False
+
+    watched = client.put(first_path, headers=agent)
+    assert watched.status_code == 200
+    assert watched.json()["watched"] is True
+    watched_at = watched.json()["watched_at"]
+    replay = client.put(first_path, headers=agent)
+    assert replay.status_code == 200
+    assert replay.json()["watched_at"] == watched_at
+    assert (
+        _psql(
+            "SELECT count(*) FROM config.analyst_ticket_watchlist "
+            f"WHERE owner_user_id='22000000-0000-0000-0000-000000000004' "
+            f"AND ticket_id='{first['id']}'"
+        )
+        == "1"
+    )
+    assert client.put(second_path, headers=agent).status_code == 200
+
+    page_one = client.get("/api/v1/agent/watched-tickets", headers=agent, params={"limit": 1})
+    assert page_one.status_code == 200
+    assert page_one.json()["next_cursor"]
+    page_two = client.get(
+        "/api/v1/agent/watched-tickets",
+        headers=agent,
+        params={"limit": 1, "cursor": page_one.json()["next_cursor"]},
+    )
+    assert page_two.status_code == 200
+    assert {
+        page_one.json()["items"][0]["key"],
+        page_two.json()["items"][0]["key"],
+    } == {first["key"], second["key"]}
+    assert (
+        client.get(
+            "/api/v1/agent/watched-tickets",
+            headers=agent,
+            params={"cursor": "not-a-watchlist-cursor"},
+        ).status_code
+        == 422
+    )
+
+    other_user = {"X-Developer-User": "DEV/agent-two"}
+    assert (
+        client.get(first_path.removesuffix("/watch"), headers=other_user).json()["watched"] is False
+    )
+    assert client.get("/api/v1/agent/watched-tickets", headers=other_user).json()["items"] == []
+    assert client.delete(first_path, headers=other_user).status_code == 204
+    assert client.get(first_path.removesuffix("/watch"), headers=agent).json()["watched"] is True
+
+    assert client.put(first_path, headers={"X-Developer-User": "OTHER/agent"}).status_code == 404
+    customer = {"X-Developer-User": "DEV/customer"}
+    assert client.get("/api/v1/agent/watched-tickets", headers=customer).status_code == 403
+    assert client.put(first_path, headers=customer).status_code == 403
+    assert client.delete(first_path, headers=customer).status_code == 403
+
+    assert client.delete(first_path, headers=agent).status_code == 204
+    assert client.delete(first_path, headers=agent).status_code == 204
+    assert client.get(first_path.removesuffix("/watch"), headers=agent).json()["watched"] is False
+    assert _watch_side_effect_counts(ticket_ids) == before_side_effects
+
+
+@pytest.mark.integration
+def test_inaccessible_watched_ticket_is_not_returned_or_followed(client: TestClient) -> None:
+    ticket = _watchlist_ticket(client, "authorization-change")
+    agent_two = {"X-Developer-User": "DEV/agent-two"}
+    watch_path = f"/api/v1/agent/tickets/{ticket['key']}/watch"
+    assert client.put(watch_path, headers=agent_two).status_code == 200
+    _psql(
+        "UPDATE itsm.ticket SET "
+        "assignment_group_id='23000000-0000-0000-0000-000000000001' "
+        f"WHERE ticket_id='{ticket['id']}'"
+    )
+    listing = client.get("/api/v1/agent/watched-tickets", headers=agent_two)
+    assert listing.status_code == 200
+    assert ticket["key"] not in {item["key"] for item in listing.json()["items"]}
+    assert (
+        client.get(f"/api/v1/agent/tickets/{ticket['key']}", headers=agent_two).status_code == 404
+    )
+    assert client.delete(watch_path, headers=agent_two).status_code == 404
+    assert (
+        _psql(
+            "SELECT count(*) FROM config.analyst_ticket_watchlist "
+            f"WHERE owner_user_id='22000000-0000-0000-0000-000000000012' "
+            f"AND ticket_id='{ticket['id']}'"
+        )
+        == "1"
+    )
+
+
+@pytest.mark.integration
+def test_ticket_watchlist_migration_is_minimal_and_owner_scoped() -> None:
+    assert _psql("SELECT version_num FROM config.alembic_version") == (
+        "0026_analyst_ticket_watchlist"
+    )
+    assert (
+        _psql(
+            "SELECT relrowsecurity FROM pg_class "
+            "WHERE oid='config.analyst_ticket_watchlist'::regclass"
+        )
+        == "t"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM pg_policies WHERE schemaname='config' "
+            "AND tablename='analyst_ticket_watchlist' "
+            "AND policyname='analyst_ticket_watchlist_owner_isolation'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT has_table_privilege('helpdesk_app',"
+            "'config.analyst_ticket_watchlist','SELECT,INSERT,DELETE')"
+        )
+        == "t"
+    )
+    assert (
+        _psql(
+            "SELECT has_table_privilege('helpdesk_app',"
+            "'config.analyst_ticket_watchlist','UPDATE,TRUNCATE,TRIGGER,REFERENCES')"
+        )
+        == "f"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM pg_indexes WHERE schemaname='config' "
+            "AND tablename='analyst_ticket_watchlist'"
         )
         == "3"
     )

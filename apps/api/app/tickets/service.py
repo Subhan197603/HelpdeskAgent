@@ -26,7 +26,7 @@ from apps.api.app.identity.authorization import (
     AuthorizationService,
     Permission,
 )
-from apps.api.app.tickets.models import PublicComment, TicketDraft, TicketView
+from apps.api.app.tickets.models import PublicComment, TicketDraft, TicketView, WatchedTicket
 from apps.api.app.tickets.repository import TicketRepository
 from apps.api.app.tickets.schemas import (
     AgentTicketResponse,
@@ -39,6 +39,8 @@ from apps.api.app.tickets.schemas import (
     PublicCommentCreateRequest,
     PublicCommentResponse,
     TicketResponse,
+    WatchedTicketResponse,
+    WatchStateResponse,
 )
 from apps.api.app.tickets.validation import validate_and_normalize
 
@@ -500,7 +502,7 @@ class TicketService:
         return responses, next_cursor
 
     async def analyst_ticket(self, context: RequestContext, ticket_key: str) -> AgentTicketResponse:
-        tenant_id, _ = _identity(context)
+        tenant_id, user_id = _identity(context)
         self._authorize(context, Permission.TICKET_ANALYST_READ)
         include_all = self._authorization.is_allowed(context, Permission.TICKET_READ_ALL)
         async with self._factory(context) as uow:
@@ -516,6 +518,7 @@ class TicketService:
             comments = await repo.public_comments(ticket.ticket_id)
             extras = await repo.analyst_extras(ticket.ticket_id)
             slas = await repo.ticket_slas(ticket.ticket_id)
+            watched = await repo.ticket_watched(tenant_id, user_id, ticket.ticket_id)
             base = _ticket_response(ticket, comments)
             return AgentTicketResponse(
                 **base.model_dump(),
@@ -525,6 +528,7 @@ class TicketService:
                 assignment_group_name=extras.assignment_group_name,
                 assignee_user_id=extras.assignee_user_id,
                 assignee_name=extras.assignee_name,
+                watched=watched,
                 slas=[
                     AgentTicketSlaSummary(
                         definition_code=row.definition_code,
@@ -538,6 +542,61 @@ class TicketService:
                     for row in slas
                 ],
             )
+
+    async def watched_tickets(
+        self, context: RequestContext, limit: int, cursor: str | None
+    ) -> tuple[list[WatchedTicketResponse], str | None]:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        include_all = self._authorization.is_allowed(context, Permission.TICKET_READ_ALL)
+        before_at, before_id = _decode_watch_cursor(cursor)
+        async with self._factory(context) as uow:
+            rows = await TicketRepository(uow.session).watched_tickets(
+                tenant_id,
+                user_id,
+                context.support_group_ids,
+                limit + 1,
+                before_at,
+                before_id,
+                include_all=include_all,
+            )
+        more = len(rows) > limit
+        rows = rows[:limit]
+        next_cursor = _encode_watch_cursor(rows[-1]) if more and rows else None
+        return [_watched_ticket_response(row) for row in rows], next_cursor
+
+    async def watch_ticket(self, context: RequestContext, ticket_key: str) -> WatchStateResponse:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        async with self._factory(context) as uow:
+            repo = TicketRepository(uow.session)
+            ticket = await repo.analyst_ticket(
+                tenant_id,
+                context.support_group_ids,
+                key=ticket_key,
+                include_all=self._authorization.is_allowed(context, Permission.TICKET_READ_ALL),
+            )
+            if ticket is None:
+                raise NotFoundError("Ticket was not found.")
+            watched_at = await repo.watch_ticket(tenant_id, user_id, ticket.ticket_id)
+            await uow.commit()
+        return WatchStateResponse(watched=True, watched_at=watched_at)
+
+    async def unwatch_ticket(self, context: RequestContext, ticket_key: str) -> None:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        async with self._factory(context) as uow:
+            repo = TicketRepository(uow.session)
+            ticket = await repo.analyst_ticket(
+                tenant_id,
+                context.support_group_ids,
+                key=ticket_key,
+                include_all=self._authorization.is_allowed(context, Permission.TICKET_READ_ALL),
+            )
+            if ticket is None:
+                raise NotFoundError("Ticket was not found.")
+            await repo.unwatch_ticket(tenant_id, user_id, ticket.ticket_id)
+            await uow.commit()
 
     async def analyst_tickets(
         self, context: RequestContext, limit: int, cursor: str | None
@@ -877,6 +936,13 @@ def _ticket_response(
     )
 
 
+def _watched_ticket_response(item: WatchedTicket) -> WatchedTicketResponse:
+    return WatchedTicketResponse(
+        **_ticket_response(item.ticket).model_dump(),
+        watched_at=item.watched_at,
+    )
+
+
 def _encode_cursor(ticket: TicketView) -> str:
     raw = f"{ticket.created_at.isoformat()}|{ticket.ticket_id}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
@@ -888,6 +954,26 @@ def _decode_cursor(value: str | None) -> tuple[datetime | None, UUID | None]:
     try:
         decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode()
         timestamp, identifier = decoded.split("|", 1)
+        return datetime.fromisoformat(timestamp), UUID(identifier)
+    except (ValueError, UnicodeDecodeError):
+        raise ValidationError(
+            "Pagination cursor is invalid.", field_errors={"cursor": ["Invalid cursor."]}
+        ) from None
+
+
+def _encode_watch_cursor(item: WatchedTicket) -> str:
+    raw = f"watchlist|{item.watched_at.isoformat()}|{item.watchlist_id}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_watch_cursor(value: str | None) -> tuple[datetime | None, UUID | None]:
+    if value is None:
+        return None, None
+    try:
+        decoded = base64.urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode()
+        scope, timestamp, identifier = decoded.split("|", 2)
+        if scope != "watchlist":
+            raise ValueError
         return datetime.fromisoformat(timestamp), UUID(identifier)
     except (ValueError, UnicodeDecodeError):
         raise ValidationError(

@@ -17,6 +17,7 @@ from apps.api.app.tickets.models import (
     TicketDraft,
     TicketSlaRow,
     TicketView,
+    WatchedTicket,
 )
 
 
@@ -586,6 +587,112 @@ class TicketRepository:
         ).all()
         return [_ticket(row) for row in rows]
 
+    async def ticket_watched(self, tenant_id: UUID, owner_user_id: UUID, ticket_id: UUID) -> bool:
+        value = await self._session.scalar(
+            text("""
+                SELECT EXISTS (
+                  SELECT 1 FROM config.analyst_ticket_watchlist
+                  WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                    AND ticket_id=:ticket_id
+                )
+            """),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "ticket_id": ticket_id,
+            },
+        )
+        return bool(value)
+
+    async def watch_ticket(self, tenant_id: UUID, owner_user_id: UUID, ticket_id: UUID) -> datetime:
+        watched_at = await self._session.scalar(
+            text("""
+                WITH inserted AS (
+                  INSERT INTO config.analyst_ticket_watchlist(
+                    tenant_id,owner_user_id,ticket_id)
+                  VALUES (:tenant_id,:owner_user_id,:ticket_id)
+                  ON CONFLICT DO NOTHING
+                  RETURNING watched_at
+                )
+                SELECT watched_at FROM inserted
+                UNION ALL
+                SELECT watched_at FROM config.analyst_ticket_watchlist
+                WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                  AND ticket_id=:ticket_id
+                LIMIT 1
+            """),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "ticket_id": ticket_id,
+            },
+        )
+        assert isinstance(watched_at, datetime)
+        return watched_at
+
+    async def unwatch_ticket(self, tenant_id: UUID, owner_user_id: UUID, ticket_id: UUID) -> None:
+        await self._session.execute(
+            text("""
+                DELETE FROM config.analyst_ticket_watchlist
+                WHERE tenant_id=:tenant_id AND owner_user_id=:owner_user_id
+                  AND ticket_id=:ticket_id
+            """),
+            {
+                "tenant_id": tenant_id,
+                "owner_user_id": owner_user_id,
+                "ticket_id": ticket_id,
+            },
+        )
+
+    async def watched_tickets(
+        self,
+        tenant_id: UUID,
+        owner_user_id: UUID,
+        support_group_ids: frozenset[UUID],
+        limit: int,
+        before_at: datetime | None,
+        before_id: UUID | None,
+        *,
+        include_all: bool,
+    ) -> list[WatchedTicket]:
+        rows = (
+            await self._session.execute(
+                text(
+                    """
+                    SELECT watch.watchlist_id,watch.watched_at,ticket_view.*
+                    FROM config.analyst_ticket_watchlist AS watch
+                    JOIN LATERAL (
+                    """
+                    + _TICKET_SELECT
+                    + """
+                      WHERE ticket.ticket_id=watch.ticket_id
+                        AND ticket.tenant_id=:tenant_id
+                        AND (:include_all OR ticket.assignment_group_id IS NULL
+                             OR ticket.assignment_group_id =
+                               ANY(CAST(:support_group_ids AS uuid[])))
+                    ) AS ticket_view ON true
+                    WHERE watch.tenant_id=:tenant_id
+                      AND watch.owner_user_id=:owner_user_id
+                      AND (CAST(:before_at AS timestamptz) IS NULL OR
+                           (watch.watched_at,watch.watchlist_id) <
+                           (CAST(:before_at AS timestamptz),CAST(:before_id AS uuid)))
+                    ORDER BY watch.watched_at DESC,watch.watchlist_id DESC
+                    LIMIT :limit
+                    """
+                ),
+                {
+                    "tenant_id": tenant_id,
+                    "owner_user_id": owner_user_id,
+                    "support_group_ids": list(support_group_ids),
+                    "include_all": include_all,
+                    "before_at": before_at,
+                    "before_id": before_id,
+                    "limit": limit,
+                },
+            )
+        ).all()
+        return [_watched_ticket(row) for row in rows]
+
     async def public_comments(self, ticket_id: UUID) -> list[PublicComment]:
         rows = (
             await self._session.execute(
@@ -848,3 +955,8 @@ def _draft(row: Any) -> TicketDraft:
 
 def _ticket(row: Any) -> TicketView:
     return TicketView(*tuple(row))
+
+
+def _watched_ticket(row: Any) -> WatchedTicket:
+    values = tuple(row)
+    return WatchedTicket(values[0], values[1], TicketView(*values[2:]))

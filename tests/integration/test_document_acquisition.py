@@ -368,7 +368,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
     assert (
-        _value("SELECT version_num FROM config.alembic_version") == "0025_analyst_canned_responses"
+        _value("SELECT version_num FROM config.alembic_version") == "0026_analyst_ticket_watchlist"
     )
     assert (
         _value(

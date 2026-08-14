@@ -20,6 +20,8 @@ from apps.api.app.tickets.schemas import (
     PublicCommentCreateRequest,
     TicketPage,
     TicketResponse,
+    WatchedTicketPage,
+    WatchStateResponse,
 )
 from apps.api.app.tickets.service import TicketService
 
@@ -187,6 +189,21 @@ async def analyst_tickets(
 
 
 @router.get(
+    "/api/v1/agent/watched-tickets",
+    response_model=WatchedTicketPage,
+    responses=ERRORS,
+)
+async def watched_tickets(
+    request: Request,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    cursor: Annotated[str | None, Query(max_length=500)] = None,
+) -> WatchedTicketPage:
+    items, next_cursor = await _service(request).watched_tickets(context, limit, cursor)
+    return WatchedTicketPage(items=items, limit=limit, next_cursor=next_cursor)
+
+
+@router.get(
     "/api/v1/agent/tickets/{ticket_key}",
     response_model=AgentTicketResponse,
     responses=ERRORS,
@@ -197,6 +214,33 @@ async def analyst_ticket(
     context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
 ) -> AgentTicketResponse:
     return await _service(request).analyst_ticket(context, ticket_key)
+
+
+@router.put(
+    "/api/v1/agent/tickets/{ticket_key}/watch",
+    response_model=WatchStateResponse,
+    responses=ERRORS,
+)
+async def watch_ticket(
+    request: Request,
+    ticket_key: str,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> WatchStateResponse:
+    return await _service(request).watch_ticket(context, ticket_key)
+
+
+@router.delete(
+    "/api/v1/agent/tickets/{ticket_key}/watch",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=ERRORS,
+)
+async def unwatch_ticket(
+    request: Request,
+    ticket_key: str,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> Response:
+    await _service(request).unwatch_ticket(context, ticket_key)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(
