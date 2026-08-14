@@ -73,6 +73,14 @@ export default defineConfig({
         viewport: { height: 800, width: 1280 },
       },
     },
+    {
+      name: "keyboard-shortcuts-chromium",
+      testMatch: /analyst-keyboard-shortcuts\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { height: 800, width: 1280 },
+      },
+    },
   ],
   webServer: [
     {

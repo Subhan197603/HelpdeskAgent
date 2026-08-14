@@ -1020,6 +1020,60 @@ h3 {
 .confirmation-dialog::backdrop {
   background: rgb(15 23 42 / 55%);
 }
+.shortcut-help-dialog {
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+  color: var(--color-text);
+  max-height: calc(100vh - 2 * var(--space-5));
+  max-width: min(720px, calc(100vw - 2 * var(--space-5)));
+  overflow: auto;
+  padding: var(--space-6);
+  width: 100%;
+}
+.shortcut-help-dialog::backdrop {
+  background: rgb(15 23 42 / 55%);
+}
+.shortcut-help-dialog > p {
+  color: var(--color-text-muted);
+}
+.shortcut-help-groups {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.shortcut-help-groups h3 {
+  margin-bottom: var(--space-3);
+}
+.shortcut-help-groups ul {
+  display: grid;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shortcut-help-groups li {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  justify-content: space-between;
+}
+.shortcut-help-groups li > span:first-child {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+}
+.shortcut-help-groups kbd {
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 1px 0 var(--color-border-strong);
+  font-size: var(--font-xs);
+  font-weight: 700;
+  min-width: 2rem;
+  padding: var(--space-1) var(--space-2);
+  text-align: center;
+}
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -1753,6 +1807,9 @@ h3 {
   .queue-search > div {
     align-items: stretch;
     flex-direction: column;
+  }
+  .shortcut-help-groups {
+    grid-template-columns: 1fr;
   }
 
   .queue-filter-grid {

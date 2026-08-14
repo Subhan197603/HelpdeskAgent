@@ -171,6 +171,15 @@ test("approved employee and analyst screens remain visually stable", async ({
     style.parentNode?.removeChild(style);
   });
 
+  await page.keyboard.press("Shift+/");
+  await expect(
+    page.getByRole("dialog", { name: "Keyboard shortcuts" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot("shortcut-help.png", screenshotOptions);
+  await page.keyboard.press("Escape");
+
   await openNavigation();
   await page.getByRole("link", { name: "Dashboard" }).click();
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();

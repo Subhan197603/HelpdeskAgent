@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { components } from "@fusion-helpdesk/api-client";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -12,11 +13,17 @@ import {
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { ApiProblem, sessionApiClient, unwrap } from "../lib/api";
+import {
+  focusShortcutTarget,
+  moveVisibleTicketRowFocus,
+  shouldSuspendShortcut,
+} from "../lib/keyboard-shortcuts";
 import { useSession } from "../lib/session";
 import { Avatar } from "./Avatar";
 import { IconButton } from "./Button";
 import { Icon, type IconName } from "./Icon";
 import { SearchField } from "./SearchField";
+import { ShortcutHelpDialog } from "./ShortcutHelpDialog";
 import { ErrorState, LoadingSkeleton, UnauthorizedState } from "./States";
 
 type Identity = components["schemas"]["CurrentIdentityResponse"];
@@ -310,10 +317,12 @@ function Sidebar({
 function TopBar({
   collapsed,
   identity,
+  onHelp,
   onMenu,
 }: {
   collapsed: boolean;
   identity: Identity;
+  onHelp?: () => void;
   onMenu: () => void;
 }) {
   const { signOut } = useSession();
@@ -352,7 +361,7 @@ function TopBar({
           icon="bell"
           label="Notifications are not yet available"
         />
-        <IconButton icon="help" label="Help" />
+        <IconButton icon="help" label="Help" onClick={onHelp} />
         <IconButton
           disabled
           icon="settings"
@@ -386,6 +395,11 @@ export function AppShell({ children }: { children: ReactNode }) {
     () => localStorage.getItem("helpdesk-sidebar-collapsed") === "true",
   );
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shortcutHelpOpen, setShortcutHelpOpen] = useState(false);
+  const shortcutHelpOpener = useRef<HTMLElement | null>(null);
+  const mobileOpener = useRef<HTMLElement | null>(null);
+  const chordPending = useRef(false);
+  const chordTimer = useRef<number | null>(null);
   const client = useMemo(() => sessionApiClient(session), [session]);
   const identity = useQuery({
     enabled: Boolean(session),
@@ -405,15 +419,114 @@ export function AppShell({ children }: { children: ReactNode }) {
     signOut();
     navigate("/login", { replace: true });
   }, [sessionExpired, signOut, navigate]);
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMobileOpen(false);
-    };
-    document.addEventListener("keydown", close);
-    return () => {
-      document.removeEventListener("keydown", close);
-    };
+  const restoreFocus = useCallback((target: HTMLElement | null) => {
+    window.requestAnimationFrame(() => {
+      if (target?.isConnected) target.focus();
+    });
   }, []);
+  const openShortcutHelp = useCallback(() => {
+    shortcutHelpOpener.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    setShortcutHelpOpen(true);
+  }, []);
+  const closeShortcutHelp = useCallback(() => {
+    const target = shortcutHelpOpener.current;
+    setShortcutHelpOpen(false);
+    restoreFocus(target);
+  }, [restoreFocus]);
+  useEffect(() => {
+    const clearChord = () => {
+      chordPending.current = false;
+      if (chordTimer.current !== null) {
+        window.clearTimeout(chordTimer.current);
+        chordTimer.current = null;
+      }
+    };
+    const moveTo = (path: string) => {
+      navigate(path);
+      window.requestAnimationFrame(() => {
+        document.getElementById("main-content")?.focus();
+      });
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (shortcutHelpOpen) {
+          event.preventDefault();
+          closeShortcutHelp();
+        } else if (mobileOpen) {
+          event.preventDefault();
+          setMobileOpen(false);
+          restoreFocus(mobileOpener.current);
+        }
+        clearChord();
+        return;
+      }
+
+      const analyst =
+        identity.data && can(identity.data, "TICKET_ANALYST_READ");
+      if (!analyst || shortcutHelpOpen || shouldSuspendShortcut(event)) return;
+      if (document.querySelector("dialog[open]")) return;
+
+      const key = event.key.toLowerCase();
+      if (chordPending.current) {
+        clearChord();
+        const destination =
+          key === "d"
+            ? "/agent/dashboard"
+            : key === "q"
+              ? "/agent/tickets"
+              : key === "k" && can(identity.data, "KNOWLEDGE_READ_ANALYST")
+                ? "/agent/knowledge"
+                : null;
+        if (destination) {
+          event.preventDefault();
+          moveTo(destination);
+        }
+        return;
+      }
+
+      if (key === "g") {
+        event.preventDefault();
+        chordPending.current = true;
+        chordTimer.current = window.setTimeout(clearChord, 1_000);
+        return;
+      }
+      if (event.key === "?" || (event.code === "Slash" && event.shiftKey)) {
+        event.preventDefault();
+        openShortcutHelp();
+        return;
+      }
+      if (key === "/" && focusShortcutTarget("search")) {
+        event.preventDefault();
+        return;
+      }
+      if (key === "f" && focusShortcutTarget("personal")) {
+        event.preventDefault();
+        return;
+      }
+      if (
+        (key === "j" || key === "k") &&
+        moveVisibleTicketRowFocus(key === "j" ? 1 : -1)
+      ) {
+        event.preventDefault();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      clearChord();
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [
+    closeShortcutHelp,
+    identity.data,
+    mobileOpen,
+    navigate,
+    openShortcutHelp,
+    restoreFocus,
+    shortcutHelpOpen,
+  ]);
   if (!session) return <main id="main-content">{children}</main>;
   if (identity.isPending)
     return (
@@ -449,7 +562,16 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TopBar
         collapsed={collapsed}
         identity={identity.data}
+        onHelp={
+          can(identity.data, "TICKET_ANALYST_READ")
+            ? openShortcutHelp
+            : undefined
+        }
         onMenu={() => {
+          mobileOpener.current =
+            document.activeElement instanceof HTMLElement
+              ? document.activeElement
+              : null;
           setMobileOpen(true);
         }}
       />
@@ -460,6 +582,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {children}
       </main>
+      <ShortcutHelpDialog onClose={closeShortcutHelp} open={shortcutHelpOpen} />
     </IdentityContext.Provider>
   );
 }

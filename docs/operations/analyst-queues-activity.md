@@ -100,6 +100,26 @@ list and cannot be followed or removed until access is restored. A watch never
 creates a participant, changes assignment, grants access, emits a ticket event
 or outbox fact, or creates notification or queue-subscription behavior.
 
+## Accessible keyboard accelerators
+
+Milestone 12 Task 12.4 adds a small analyst-only shortcut set over existing,
+authorized UI routes and controls:
+
+- `G` then `D`, `Q`, or `K` navigates to the dashboard, queues, or analyst
+  knowledge respectively; unavailable destinations remain unavailable.
+- `/` focuses the visible queue or knowledge search field.
+- `F` focuses the visible personal saved-filter or canned-response selector.
+- `J` and `K` move focus between visible queue or watchlist rows without
+  opening or changing a ticket.
+- `?` opens the shortcut reference, and `Escape` cancels a pending sequence or
+  closes the reference and restores focus.
+
+Shortcuts pause in inputs, textareas, selects, editable content, and while
+another modal is active. Modifier combinations, key repeat, and input-method
+composition are not intercepted. The accelerators never post comments, alter
+workflow or assignment, watch or unwatch tickets, delete data, bypass a
+permission check, or skip a confirmation.
+
 ## Activity and comments
 
 ```http

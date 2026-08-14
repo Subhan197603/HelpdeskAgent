@@ -490,6 +490,8 @@ function CannedResponseTools({
       <label htmlFor="canned-response-select">Choose a canned response</label>
       <select
         aria-describedby="canned-response-help"
+        aria-keyshortcuts="F"
+        data-shortcut-target="personal"
         id="canned-response-select"
         onChange={(event) => {
           setSelectedId(event.target.value);
@@ -1620,6 +1622,8 @@ function AgentQueuePage() {
                   Apply a saved filter
                 </label>
                 <select
+                  aria-keyshortcuts="F"
+                  data-shortcut-target="personal"
                   id="saved-filter-select"
                   onChange={(event) => {
                     const id = event.target.value;
@@ -1745,6 +1749,7 @@ function AgentQueuePage() {
             {!watchlistView && !savedFilterId && (
               <form
                 className="queue-search"
+                data-shortcut-target="search"
                 onSubmit={(event) => {
                   event.preventDefault();
                   updateManualParams({ q: searchInput.trim() });
@@ -1756,6 +1761,7 @@ function AgentQueuePage() {
                 </label>
                 <div>
                   <input
+                    aria-keyshortcuts="/"
                     id="queue-search"
                     maxLength={100}
                     onChange={(event) => {
@@ -1835,7 +1841,7 @@ function AgentQueuePage() {
               <StatusPanel>No watched tickets yet.</StatusPanel>
             )}
             {!watchlistView && (
-              <div className="ticket-list">
+              <div className="ticket-list" data-shortcut-rows>
                 {tickets.data?.items.map((ticket) => (
                   <QueueRow
                     href={`/agent/tickets/${ticket.key}`}
@@ -1850,7 +1856,7 @@ function AgentQueuePage() {
               </div>
             )}
             {watchlistView && (
-              <div className="ticket-list">
+              <div className="ticket-list" data-shortcut-rows>
                 {watchedTickets.data?.items.map((ticket) => (
                   <QueueRow
                     href={`/agent/tickets/${ticket.key}`}
@@ -2745,7 +2751,12 @@ function KnowledgeLandingPage({ analyst }: { analyst: boolean }) {
         description="Search approved articles or browse by type."
         title="Knowledge Base"
       />
-      <form className="knowledge-search" onSubmit={submitSearch} role="search">
+      <form
+        className="knowledge-search"
+        data-shortcut-target={analyst ? "search" : undefined}
+        onSubmit={submitSearch}
+        role="search"
+      >
         <SearchField
           className="knowledge-search__field"
           label="Search knowledge articles"

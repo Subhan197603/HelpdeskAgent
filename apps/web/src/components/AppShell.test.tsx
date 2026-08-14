@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SessionProvider } from "../lib/session";
@@ -34,7 +34,12 @@ vi.mock("../lib/api", async (importOriginal) => {
   };
 });
 
-function renderShell(path = "/portal") {
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="Current route">{location.pathname}</output>;
+}
+
+function renderShell(path = "/portal", content = <h1>Page content</h1>) {
   localStorage.setItem(
     "fusion-helpdesk-session",
     JSON.stringify({ identity: "DEV/customer", persona: "employee" }),
@@ -48,7 +53,8 @@ function renderShell(path = "/portal") {
       <SessionProvider>
         <MemoryRouter initialEntries={[path]}>
           <AppShell>
-            <h1>Page content</h1>
+            <LocationProbe />
+            {content}
           </AppShell>
         </MemoryRouter>
       </SessionProvider>
@@ -196,5 +202,64 @@ describe("application shell", () => {
     expect(screen.getByLabelText("Application navigation")).not.toHaveClass(
       "app-sidebar--open",
     );
+  });
+
+  it("opens keyboard help and restores focus when Escape closes it", async () => {
+    permissions.push("TICKET_ANALYST_READ");
+    const user = userEvent.setup();
+    renderShell("/agent/tickets");
+    const help = await screen.findByRole("button", { name: "Help" });
+    help.focus();
+
+    await user.keyboard("?");
+    expect(
+      screen.getByRole("dialog", { name: "Keyboard shortcuts" }),
+    ).toBeVisible();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(help).toHaveFocus());
+  });
+
+  it("provides permission-aware analyst navigation accelerators", async () => {
+    permissions.push("TICKET_ANALYST_READ", "KNOWLEDGE_READ_ANALYST");
+    const user = userEvent.setup();
+    renderShell("/agent/tickets");
+    await screen.findByRole("link", { name: "My queues" });
+
+    await user.keyboard("gd");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent(
+      "/agent/dashboard",
+    );
+    await user.keyboard("gq");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent(
+      "/agent/tickets",
+    );
+    await user.keyboard("gk");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent(
+      "/agent/knowledge",
+    );
+    await waitFor(() => expect(document.querySelector("main")).toHaveFocus());
+  });
+
+  it("does not intercept typing or expose shortcuts to employees", async () => {
+    const user = userEvent.setup();
+    renderShell(
+      "/portal",
+      <textarea aria-label="Draft response" defaultValue="" />,
+    );
+    const draft = await screen.findByRole("textbox", {
+      name: "Draft response",
+    });
+
+    await user.click(draft);
+    await user.keyboard("gq?fjk/");
+    expect(draft).toHaveValue("gq?fjk/");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent("/portal");
+    expect(
+      screen.queryByRole("dialog", { name: "Keyboard shortcuts" }),
+    ).not.toBeInTheDocument();
+
+    draft.blur();
+    await user.keyboard("gq");
+    expect(screen.getByLabelText("Current route")).toHaveTextContent("/portal");
   });
 });
