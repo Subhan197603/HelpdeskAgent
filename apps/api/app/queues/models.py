@@ -62,6 +62,19 @@ class SavedFilter:
 
 
 @dataclass(frozen=True, slots=True)
+class CannedResponse:
+    canned_response_id: UUID
+    tenant_id: UUID
+    owner_user_id: UUID
+    name: str
+    body: str
+    display_order: int
+    row_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
 class ActivityItem:
     item_id: str
     item_type: str

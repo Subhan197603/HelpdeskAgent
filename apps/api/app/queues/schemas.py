@@ -103,6 +103,50 @@ class SavedFilterListResponse(BaseModel):
     items: list[SavedFilterResponse]
 
 
+class CannedResponseFields(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str = Field(min_length=1, max_length=100)
+    body: str = Field(min_length=1, max_length=10_000)
+
+
+class CannedResponseCreateRequest(CannedResponseFields):
+    pass
+
+
+class CannedResponseUpdateRequest(CannedResponseFields):
+    row_version: int = Field(ge=1)
+
+
+class CannedResponseOrderItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID
+    row_version: int = Field(ge=1)
+
+
+class CannedResponseOrderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[CannedResponseOrderItem] = Field(min_length=1, max_length=100)
+
+
+class CannedResponseDeleteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    row_version: int = Field(ge=1)
+
+
+class CannedResponseResponse(BaseModel):
+    id: UUID
+    name: str
+    body: str
+    display_order: int
+    row_version: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class CannedResponseListResponse(BaseModel):
+    items: list[CannedResponseResponse]
+
+
 class ActivityItemResponse(BaseModel):
     id: str
     type: str

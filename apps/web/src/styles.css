@@ -1124,6 +1124,51 @@ h3 {
   font-size: var(--text-sm);
   font-weight: 650;
 }
+
+.canned-responses {
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+}
+
+.canned-responses h3,
+.canned-responses p {
+  margin: 0;
+}
+
+.canned-responses > label,
+.canned-response-form > label {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 650;
+}
+
+.canned-responses select,
+.canned-response-form input,
+.canned-response-form textarea {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  width: 100%;
+}
+
+.canned-response-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.canned-response-form {
+  display: grid;
+  gap: var(--space-2);
+}
 .ticket-list {
   background: var(--color-surface);
   border: 1px solid var(--color-border);

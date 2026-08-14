@@ -57,6 +57,14 @@ export default defineConfig({
       testMatch: /ai-governance-visual\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], viewport: { height, width } },
     })),
+    {
+      name: "canned-responses-chromium",
+      testMatch: /analyst-canned-responses\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { height: 800, width: 1280 },
+      },
+    },
   ],
   webServer: [
     {

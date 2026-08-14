@@ -1987,3 +1987,183 @@ def test_saved_filters_fail_closed_across_users_tenants_and_roles(client: TestCl
         json=arbitrary_expression,
     )
     assert rejected.status_code == 422
+
+
+@pytest.mark.integration
+def test_personal_canned_response_crud_reorder_and_isolation(
+    client: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    agent = {"X-Developer-User": "DEV/agent"}
+    private_body = "Please provide the affected invoice. PRIVATE-CANNED-121"
+    first = client.post(
+        "/api/v1/agent/canned-responses",
+        headers={**agent, "Idempotency-Key": f"canned-response-{uuid4()}"},
+        json={"name": "Request details", "body": private_body},
+    )
+    assert first.status_code == 201
+    item = first.json()
+    assert item["body"] == private_body
+    assert "PRIVATE-CANNED-121" not in caplog.text
+
+    replay_key = f"canned-response-{uuid4()}"
+    second_body = {"name": "Resolution", "body": "The invoice has been reprocessed."}
+    second = client.post(
+        "/api/v1/agent/canned-responses",
+        headers={**agent, "Idempotency-Key": replay_key},
+        json=second_body,
+    )
+    assert second.status_code == 201
+    replay = client.post(
+        "/api/v1/agent/canned-responses",
+        headers={**agent, "Idempotency-Key": replay_key},
+        json=second_body,
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+
+    listing = client.get("/api/v1/agent/canned-responses", headers=agent)
+    assert listing.status_code == 200
+    assert [value["name"] for value in listing.json()["items"]] == [
+        "Request details",
+        "Resolution",
+    ]
+
+    updated = client.patch(
+        f"/api/v1/agent/canned-responses/{item['id']}",
+        headers={**agent, "If-Match": "1"},
+        json={
+            "name": "Request invoice details",
+            "body": "Please provide the affected invoice number.",
+            "row_version": 1,
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["row_version"] == 2
+
+    second_item = second.json()
+    reordered = client.put(
+        "/api/v1/agent/canned-responses/order",
+        headers=agent,
+        json={
+            "items": [
+                {"id": second_item["id"], "row_version": second_item["row_version"]},
+                {"id": item["id"], "row_version": 2},
+            ]
+        },
+    )
+    assert reordered.status_code == 200
+    assert reordered.json()["items"][0]["id"] == second_item["id"]
+
+    path = f"/api/v1/agent/canned-responses/{item['id']}"
+    for selector in ("DEV/agent-two", "OTHER/agent"):
+        headers = {"X-Developer-User": selector}
+        assert client.get(path, headers=headers).status_code == 404
+        assert (
+            client.put(
+                "/api/v1/agent/canned-responses/order",
+                headers=headers,
+                json={"items": [{"id": item["id"], "row_version": 3}]},
+            ).status_code
+            == 422
+        )
+        assert (
+            client.patch(
+                path,
+                headers=headers,
+                json={
+                    "name": "Stolen",
+                    "body": "Stolen body",
+                    "row_version": 3,
+                },
+            ).status_code
+            == 404
+        )
+        assert (
+            client.request("DELETE", path, headers=headers, json={"row_version": 3}).status_code
+            == 404
+        )
+
+    customer = {"X-Developer-User": "DEV/customer"}
+    assert client.get("/api/v1/agent/canned-responses", headers=customer).status_code == 403
+    assert client.get(path, headers=customer).status_code == 403
+    assert (
+        client.put(
+            "/api/v1/agent/canned-responses/order",
+            headers=customer,
+            json={"items": [{"id": item["id"], "row_version": 3}]},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.patch(
+            path,
+            headers=customer,
+            json={"name": "Denied", "body": "Denied", "row_version": 3},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.request("DELETE", path, headers=customer, json={"row_version": 3}).status_code == 403
+    )
+    rejected = client.post(
+        "/api/v1/agent/canned-responses",
+        headers={**agent, "Idempotency-Key": f"canned-response-{uuid4()}"},
+        json={
+            "name": "Unsafe",
+            "body": "This is inert plain text.",
+            "query": {"sql": "DROP TABLE itsm.ticket"},
+        },
+    )
+    assert rejected.status_code == 422
+
+    current = next(value for value in reordered.json()["items"] if value["id"] == item["id"])
+    deleted = client.request(
+        "DELETE",
+        path,
+        headers={**agent, "If-Match": str(current["row_version"])},
+        json={"row_version": current["row_version"]},
+    )
+    assert deleted.status_code == 204
+
+
+@pytest.mark.integration
+def test_canned_response_migration_is_minimal_and_owner_scoped() -> None:
+    assert _psql("SELECT version_num FROM config.alembic_version") == (
+        "0025_analyst_canned_responses"
+    )
+    assert (
+        _psql(
+            "SELECT relrowsecurity FROM pg_class "
+            "WHERE oid='config.analyst_canned_response'::regclass"
+        )
+        == "t"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM pg_policies WHERE schemaname='config' "
+            "AND tablename='analyst_canned_response' "
+            "AND policyname='analyst_canned_response_owner_isolation'"
+        )
+        == "1"
+    )
+    assert (
+        _psql(
+            "SELECT has_table_privilege('helpdesk_app',"
+            "'config.analyst_canned_response','SELECT,INSERT,UPDATE,DELETE')"
+        )
+        == "t"
+    )
+    assert (
+        _psql(
+            "SELECT has_table_privilege('helpdesk_app',"
+            "'config.analyst_canned_response','TRUNCATE,TRIGGER,REFERENCES')"
+        )
+        == "f"
+    )
+    assert (
+        _psql(
+            "SELECT count(*) FROM pg_indexes WHERE schemaname='config' "
+            "AND tablename='analyst_canned_response'"
+        )
+        == "3"
+    )

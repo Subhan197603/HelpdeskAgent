@@ -13,6 +13,12 @@ from apps.api.app.identity.authorization import Permission
 from apps.api.app.queues.schemas import (
     ActivityItemResponse,
     AnalystCommentCreateRequest,
+    CannedResponseCreateRequest,
+    CannedResponseDeleteRequest,
+    CannedResponseListResponse,
+    CannedResponseOrderRequest,
+    CannedResponseResponse,
+    CannedResponseUpdateRequest,
     QueueListResponse,
     QueueTicketPage,
     SavedFilterCreateRequest,
@@ -37,6 +43,117 @@ router = APIRouter(tags=["queues"])
 
 def _service(request: Request) -> QueueService:
     return cast("QueueService", request.app.state.queue_service)
+
+
+@router.get(
+    "/api/v1/agent/canned-responses",
+    response_model=CannedResponseListResponse,
+    responses=ERRORS,
+)
+async def canned_responses(
+    request: Request,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> CannedResponseListResponse:
+    return CannedResponseListResponse(items=await _service(request).canned_responses(context))
+
+
+@router.post(
+    "/api/v1/agent/canned-responses",
+    response_model=CannedResponseResponse,
+    status_code=status.HTTP_201_CREATED,
+    responses=ERRORS,
+)
+async def create_canned_response(
+    response: Response,
+    request: Request,
+    command: CannedResponseCreateRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    idempotency_key: Annotated[
+        str,
+        Header(
+            alias="Idempotency-Key",
+            min_length=8,
+            max_length=255,
+            pattern=r"^[A-Za-z0-9._:-]+$",
+        ),
+    ],
+) -> CannedResponseResponse:
+    item, replayed = await _service(request).create_canned_response(
+        context, command, idempotency_key
+    )
+    if replayed:
+        response.status_code = status.HTTP_200_OK
+        response.headers["Idempotent-Replayed"] = "true"
+    return item
+
+
+@router.put(
+    "/api/v1/agent/canned-responses/order",
+    response_model=CannedResponseListResponse,
+    responses=ERRORS,
+)
+async def reorder_canned_responses(
+    request: Request,
+    command: CannedResponseOrderRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> CannedResponseListResponse:
+    return CannedResponseListResponse(
+        items=await _service(request).reorder_canned_responses(context, command)
+    )
+
+
+@router.get(
+    "/api/v1/agent/canned-responses/{canned_response_id}",
+    response_model=CannedResponseResponse,
+    responses=ERRORS,
+)
+async def canned_response(
+    request: Request,
+    canned_response_id: UUID,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+) -> CannedResponseResponse:
+    return await _service(request).canned_response(context, canned_response_id)
+
+
+@router.patch(
+    "/api/v1/agent/canned-responses/{canned_response_id}",
+    response_model=CannedResponseResponse,
+    responses=ERRORS,
+)
+async def update_canned_response(
+    request: Request,
+    canned_response_id: UUID,
+    command: CannedResponseUpdateRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> CannedResponseResponse:
+    if if_match is not None and _version(if_match) != command.row_version:
+        raise ValidationError(
+            "If-Match and body row version must agree.",
+            field_errors={"header.If-Match": ["Version mismatch."]},
+        )
+    return await _service(request).update_canned_response(context, canned_response_id, command)
+
+
+@router.delete(
+    "/api/v1/agent/canned-responses/{canned_response_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=ERRORS,
+)
+async def delete_canned_response(
+    request: Request,
+    canned_response_id: UUID,
+    command: CannedResponseDeleteRequest,
+    context: Annotated[RequestContext, Depends(require_permission(Permission.TICKET_ANALYST_READ))],
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> Response:
+    if if_match is not None and _version(if_match) != command.row_version:
+        raise ValidationError(
+            "If-Match and body row version must agree.",
+            field_errors={"header.If-Match": ["Version mismatch."]},
+        )
+    await _service(request).delete_canned_response(context, canned_response_id, command.row_version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/api/v1/agent/queues", response_model=QueueListResponse, responses=ERRORS)

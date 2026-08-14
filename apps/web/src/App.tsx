@@ -94,6 +94,7 @@ type FormField = components["schemas"]["FormFieldResponse"];
 type RequestForm = components["schemas"]["RequestFormResponse"];
 type Draft = components["schemas"]["DraftResponse"];
 type SavedFilter = components["schemas"]["SavedFilterResponse"];
+type CannedResponse = components["schemas"]["CannedResponseResponse"];
 type FieldValue = string | string[] | boolean;
 type AIPolicy = components["schemas"]["AIPolicySummaryResponse"];
 
@@ -343,6 +344,263 @@ function PortalHome() {
 function useIdentityClient() {
   const { session } = useSession();
   return useMemo(() => sessionApiClient(session), [session]);
+}
+
+export function insertCannedResponse(draft: string, snippet: string) {
+  if (!draft) return snippet;
+  return `${draft.trimEnd()}\n\n${snippet}`;
+}
+
+function CannedResponseTools({
+  draft,
+  onDraftChange,
+}: {
+  draft: string;
+  onDraftChange: (value: string) => void;
+}) {
+  const client = useIdentityClient();
+  const queryClient = useQueryClient();
+  const queryKey = ["agent-canned-responses"];
+  const [selectedId, setSelectedId] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+  const cannedResponses = useQuery({
+    queryKey,
+    queryFn: async () =>
+      unwrap(await client.GET("/api/v1/agent/canned-responses")),
+  });
+  const selected = cannedResponses.data?.items.find(
+    (item) => item.id === selectedId,
+  );
+  const resetForm = () => {
+    setEditingId(null);
+    setName("");
+    setBody("");
+  };
+  const create = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.POST("/api/v1/agent/canned-responses", {
+          params: {
+            header: {
+              "Idempotency-Key": newIdempotencyKey("canned-response"),
+            },
+          },
+          body: { name, body },
+        }),
+      ),
+    onSuccess: (item) => {
+      resetForm();
+      setSelectedId(item.id);
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+  const update = useMutation({
+    mutationFn: async (item: CannedResponse) =>
+      unwrap(
+        await client.PATCH(
+          "/api/v1/agent/canned-responses/{canned_response_id}",
+          {
+            params: {
+              path: { canned_response_id: item.id },
+              header: { "If-Match": String(item.row_version) },
+            },
+            body: { name, body, row_version: item.row_version },
+          },
+        ),
+      ),
+    onSuccess: () => {
+      resetForm();
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+  const remove = useMutation({
+    mutationFn: async (item: CannedResponse) => {
+      const result = await client.DELETE(
+        "/api/v1/agent/canned-responses/{canned_response_id}",
+        {
+          params: {
+            path: { canned_response_id: item.id },
+            header: { "If-Match": String(item.row_version) },
+          },
+          body: { row_version: item.row_version },
+        },
+      );
+      if (!result.response.ok) unwrap(result);
+    },
+    onSuccess: () => {
+      resetForm();
+      setSelectedId("");
+      void queryClient.invalidateQueries({ queryKey });
+    },
+  });
+  const reorder = useMutation({
+    mutationFn: async (items: CannedResponse[]) =>
+      unwrap(
+        await client.PUT("/api/v1/agent/canned-responses/order", {
+          body: {
+            items: items.map((item) => ({
+              id: item.id,
+              row_version: item.row_version,
+            })),
+          },
+        }),
+      ),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKey, data);
+    },
+  });
+  const move = (offset: number) => {
+    const items = [...(cannedResponses.data?.items ?? [])];
+    const index = items.findIndex((item) => item.id === selectedId);
+    const target = index + offset;
+    if (index < 0 || target < 0 || target >= items.length) return;
+    const current = items[index];
+    const destination = items[target];
+    if (!current || !destination) return;
+    items[index] = destination;
+    items[target] = current;
+    reorder.mutate(items);
+  };
+  const error = create.error ?? update.error ?? remove.error ?? reorder.error;
+  return (
+    <section
+      aria-labelledby="canned-responses-heading"
+      className="canned-responses"
+    >
+      <h3 id="canned-responses-heading">Personal canned responses</h3>
+      <p id="canned-response-help">
+        Insert editable text into this draft. Visibility and posting stay
+        unchanged.
+      </p>
+      {cannedResponses.isPending && (
+        <StatusPanel>Loading canned responses…</StatusPanel>
+      )}
+      {cannedResponses.error && <ErrorSummary error={cannedResponses.error} />}
+      {error && <ErrorSummary error={error} />}
+      {cannedResponses.data?.items.length === 0 && (
+        <StatusPanel>No canned responses yet.</StatusPanel>
+      )}
+      <label htmlFor="canned-response-select">Choose a canned response</label>
+      <select
+        aria-describedby="canned-response-help"
+        id="canned-response-select"
+        onChange={(event) => {
+          setSelectedId(event.target.value);
+        }}
+        value={selectedId}
+      >
+        <option value="">Select a response…</option>
+        {cannedResponses.data?.items.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </select>
+      <div className="canned-response-actions">
+        <Button
+          disabled={!selected}
+          onClick={() => {
+            if (selected)
+              onDraftChange(insertCannedResponse(draft, selected.body));
+          }}
+          type="button"
+        >
+          Insert response
+        </Button>
+        <Button
+          disabled={!selected}
+          onClick={() => {
+            if (!selected) return;
+            setEditingId(selected.id);
+            setName(selected.name);
+            setBody(selected.body);
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Edit
+        </Button>
+        <Button
+          disabled={!selected}
+          onClick={() => {
+            move(-1);
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Move up
+        </Button>
+        <Button
+          disabled={!selected}
+          onClick={() => {
+            move(1);
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Move down
+        </Button>
+        <Button
+          disabled={!selected || remove.isPending}
+          onClick={() => {
+            if (selected) remove.mutate(selected);
+          }}
+          type="button"
+          variant="secondary"
+        >
+          Delete
+        </Button>
+      </div>
+      <div className="canned-response-form">
+        <label htmlFor="canned-response-name">Response name</label>
+        <input
+          id="canned-response-name"
+          maxLength={100}
+          onChange={(event) => {
+            setName(event.target.value);
+          }}
+          value={name}
+        />
+        <label htmlFor="canned-response-body">Response text</label>
+        <textarea
+          id="canned-response-body"
+          maxLength={10000}
+          onChange={(event) => {
+            setBody(event.target.value);
+          }}
+          rows={4}
+          value={body}
+        />
+        <div className="canned-response-actions">
+          <Button
+            disabled={
+              !name.trim() ||
+              !body.trim() ||
+              create.isPending ||
+              update.isPending
+            }
+            onClick={() => {
+              const editing = cannedResponses.data?.items.find(
+                (item) => item.id === editingId,
+              );
+              if (editing) update.mutate(editing);
+              else create.mutate();
+            }}
+            type="button"
+          >
+            {editingId ? "Update response" : "Create response"}
+          </Button>
+          {editingId && (
+            <Button onClick={resetForm} type="button" variant="secondary">
+              Cancel
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function CataloguePage() {
@@ -1964,6 +2222,10 @@ function AnalystTicketDetailPage() {
                     <option value="PUBLIC">Public comment</option>
                     <option value="INTERNAL">Internal note</option>
                   </select>
+                  <CannedResponseTools
+                    draft={comment}
+                    onDraftChange={setComment}
+                  />
                   <textarea
                     aria-describedby="analyst-comment-help"
                     id="analyst-comment"
@@ -2223,18 +2485,24 @@ function TicketDetailPage({ analyst = false }: { analyst?: boolean }) {
                         : "This internal note is visible only to authorized analysts."}
                     </p>
                     {analyst && (
-                      <select
-                        aria-label="Comment visibility"
-                        onChange={(event) => {
-                          setVisibility(
-                            event.target.value as "PUBLIC" | "INTERNAL",
-                          );
-                        }}
-                        value={visibility}
-                      >
-                        <option value="PUBLIC">Public comment</option>
-                        <option value="INTERNAL">Internal note</option>
-                      </select>
+                      <>
+                        <select
+                          aria-label="Comment visibility"
+                          onChange={(event) => {
+                            setVisibility(
+                              event.target.value as "PUBLIC" | "INTERNAL",
+                            );
+                          }}
+                          value={visibility}
+                        >
+                          <option value="PUBLIC">Public comment</option>
+                          <option value="INTERNAL">Internal note</option>
+                        </select>
+                        <CannedResponseTools
+                          draft={comment}
+                          onDraftChange={setComment}
+                        />
+                      </>
                     )}
                     <textarea
                       aria-describedby="comment-help"

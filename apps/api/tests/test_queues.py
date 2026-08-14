@@ -5,11 +5,13 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
+from pydantic import ValidationError as PydanticValidationError
 
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import ValidationError
 from apps.api.app.identity.authorization import AuthorizationService
 from apps.api.app.queues.models import QueueDefinition, QueueTicket
+from apps.api.app.queues.schemas import CannedResponseCreateRequest
 from apps.api.app.queues.service import (
     QueueConfigurationError,
     QueueService,
@@ -72,6 +74,17 @@ def test_restricted_filter_compiler_uses_only_fixed_sql_and_parameters() -> None
     assert "ticket.priority_code" in sql
     assert ":queue_filter_0" in sql
     assert parameters == {"queue_filter_0": ["P1", "P2"]}
+
+
+def test_canned_response_contract_is_bounded_plaintext_only() -> None:
+    item = CannedResponseCreateRequest(name="Invoice reply", body="Please provide details.")
+    assert item.body == "Please provide details."
+    with pytest.raises(PydanticValidationError):
+        CannedResponseCreateRequest.model_validate(
+            {"name": "Unsafe", "body": "Text", "template": "{{ticket.id}}"}
+        )
+    with pytest.raises(PydanticValidationError):
+        CannedResponseCreateRequest(name="Too large", body="x" * 10_001)
 
 
 @pytest.mark.parametrize(

@@ -19,11 +19,22 @@ from apps.api.app.core.exceptions import (
 )
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService, Permission
-from apps.api.app.queues.models import ActivityItem, QueueDefinition, QueueTicket, SavedFilter
+from apps.api.app.queues.models import (
+    ActivityItem,
+    CannedResponse,
+    QueueDefinition,
+    QueueTicket,
+    SavedFilter,
+)
 from apps.api.app.queues.repository import QueueRepository
 from apps.api.app.queues.schemas import (
     ActivityItemResponse,
     AnalystCommentCreateRequest,
+    CannedResponseCreateRequest,
+    CannedResponseFields,
+    CannedResponseOrderRequest,
+    CannedResponseResponse,
+    CannedResponseUpdateRequest,
     QueueResponse,
     QueueTicketResponse,
     SavedFilterCreateRequest,
@@ -47,6 +58,163 @@ class QueueService:
     def __init__(self, factory: UnitOfWorkFactory, authorization: AuthorizationService) -> None:
         self._factory = factory
         self._authorization = authorization
+
+    async def canned_responses(self, context: RequestContext) -> list[CannedResponseResponse]:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        async with self._factory(context) as uow:
+            rows = await QueueRepository(uow.session).canned_responses(tenant_id, user_id)
+        return [_canned_response_response(row) for row in rows]
+
+    async def canned_response(
+        self, context: RequestContext, canned_response_id: UUID
+    ) -> CannedResponseResponse:
+        row = await self._owned_canned_response(context, canned_response_id)
+        return _canned_response_response(row)
+
+    async def create_canned_response(
+        self,
+        context: RequestContext,
+        command: CannedResponseCreateRequest,
+        idempotency_key: str,
+    ) -> tuple[CannedResponseResponse, bool]:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        values = _canned_response_values(command)
+        request_hash = hashlib.sha256(
+            json.dumps(values, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+        async with self._factory(context) as uow:
+            repo = QueueRepository(uow.session)
+            idem = await TicketRepository(uow.session).claim_idempotency(
+                tenant_id,
+                user_id,
+                idempotency_key,
+                request_hash,
+                "ANALYST_CANNED_RESPONSE_CREATE",
+            )
+            if idem.request_hash != request_hash or idem.principal_id != str(user_id):
+                raise IdempotencyConflict()
+            if idem.processing_status == "COMPLETED":
+                row = await repo.canned_response(tenant_id, user_id, UUID(idem.result_resource_id))
+                if row is None:
+                    raise ConflictError("The idempotent canned-response result is unavailable.")
+                await uow.commit()
+                return _canned_response_response(row), True
+            if await repo.canned_response_name_exists(tenant_id, user_id, values["name"]):
+                raise ConflictError("A personal canned response with this name already exists.")
+            row = await repo.create_canned_response(tenant_id, user_id, **values)
+            if row is None:
+                raise ConflictError("A personal canned response with this name already exists.")
+            await TicketRepository(uow.session).complete_idempotency(
+                idem.idempotency_record_id,
+                "ANALYST_CANNED_RESPONSE",
+                row.canned_response_id,
+                {"canned_response_id": str(row.canned_response_id)},
+            )
+            await uow.commit()
+        return _canned_response_response(row), False
+
+    async def update_canned_response(
+        self,
+        context: RequestContext,
+        canned_response_id: UUID,
+        command: CannedResponseUpdateRequest,
+    ) -> CannedResponseResponse:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        values = _canned_response_values(command)
+        async with self._factory(context) as uow:
+            repo = QueueRepository(uow.session)
+            current = await repo.canned_response(tenant_id, user_id, canned_response_id)
+            if current is None:
+                raise NotFoundError("Canned response was not found.")
+            if current.row_version != command.row_version:
+                raise ConcurrencyError("The canned response changed. Refresh and try again.")
+            if await repo.canned_response_name_exists(
+                tenant_id, user_id, values["name"], excluding=canned_response_id
+            ):
+                raise ConflictError("A personal canned response with this name already exists.")
+            updated = await repo.update_canned_response(
+                tenant_id,
+                user_id,
+                canned_response_id,
+                command.row_version,
+                **values,
+            )
+            if updated is None:
+                raise ConcurrencyError("The canned response changed. Refresh and try again.")
+            await uow.commit()
+        return _canned_response_response(updated)
+
+    async def reorder_canned_responses(
+        self, context: RequestContext, command: CannedResponseOrderRequest
+    ) -> list[CannedResponseResponse]:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        identifiers = [item.id for item in command.items]
+        if len(set(identifiers)) != len(identifiers):
+            raise ValidationError(
+                "Canned response order contains duplicates.",
+                field_errors={"items": ["Include each canned response once."]},
+            )
+        async with self._factory(context) as uow:
+            repo = QueueRepository(uow.session)
+            current = await repo.canned_responses(tenant_id, user_id)
+            current_by_id = {item.canned_response_id: item for item in current}
+            if set(identifiers) != set(current_by_id):
+                raise ValidationError(
+                    "Canned response order is incomplete.",
+                    field_errors={"items": ["Include every personal canned response once."]},
+                )
+            if any(
+                current_by_id[item.id].row_version != item.row_version for item in command.items
+            ):
+                raise ConcurrencyError("A canned response changed. Refresh and try again.")
+            changed = await repo.reorder_canned_responses(
+                tenant_id,
+                user_id,
+                [
+                    (item.id, item.row_version, index * 10)
+                    for index, item in enumerate(command.items)
+                ],
+            )
+            if changed != len(command.items):
+                raise ConcurrencyError("A canned response changed. Refresh and try again.")
+            rows = await repo.canned_responses(tenant_id, user_id)
+            await uow.commit()
+        return [_canned_response_response(row) for row in rows]
+
+    async def delete_canned_response(
+        self, context: RequestContext, canned_response_id: UUID, row_version: int
+    ) -> None:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        async with self._factory(context) as uow:
+            repo = QueueRepository(uow.session)
+            current = await repo.canned_response(tenant_id, user_id, canned_response_id)
+            if current is None:
+                raise NotFoundError("Canned response was not found.")
+            if current.row_version != row_version:
+                raise ConcurrencyError("The canned response changed. Refresh and try again.")
+            if not await repo.delete_canned_response(
+                tenant_id, user_id, canned_response_id, row_version
+            ):
+                raise ConcurrencyError("The canned response changed. Refresh and try again.")
+            await uow.commit()
+
+    async def _owned_canned_response(
+        self, context: RequestContext, canned_response_id: UUID
+    ) -> CannedResponse:
+        tenant_id, user_id = _identity(context)
+        self._authorize(context, Permission.TICKET_ANALYST_READ)
+        async with self._factory(context) as uow:
+            row = await QueueRepository(uow.session).canned_response(
+                tenant_id, user_id, canned_response_id
+            )
+        if row is None:
+            raise NotFoundError("Canned response was not found.")
+        return row
 
     async def saved_filters(self, context: RequestContext) -> list[SavedFilterResponse]:
         tenant_id, user_id = _identity(context)
@@ -570,6 +738,31 @@ def _saved_filter_values(command: SavedFilterFields) -> dict[str, Any]:
         "assignment_group_id": command.assignment_group_id,
         "assignee": command.assignee,
     }
+
+
+def _canned_response_values(command: CannedResponseFields) -> dict[str, str]:
+    name = " ".join(command.name.split())
+    body = command.body.strip()
+    field_errors: dict[str, list[str]] = {}
+    if not name:
+        field_errors["name"] = ["Enter a name."]
+    if not body:
+        field_errors["body"] = ["Enter response text."]
+    if field_errors:
+        raise ValidationError("Canned response fields are required.", field_errors=field_errors)
+    return {"name": name, "body": body}
+
+
+def _canned_response_response(item: CannedResponse) -> CannedResponseResponse:
+    return CannedResponseResponse(
+        id=item.canned_response_id,
+        name=item.name,
+        body=item.body,
+        display_order=item.display_order,
+        row_version=item.row_version,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
 
 
 def _saved_filter_response(item: SavedFilter) -> SavedFilterResponse:

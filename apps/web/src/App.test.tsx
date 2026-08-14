@@ -5,7 +5,12 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DynamicField, LoginPage, ticketClassificationDisplay } from "./App";
+import {
+  DynamicField,
+  insertCannedResponse,
+  LoginPage,
+  ticketClassificationDisplay,
+} from "./App";
 import { ErrorSummary } from "./components/States";
 import { ApiProblem } from "./lib/api";
 import type { AuthConfiguration } from "./lib/auth/oidc";
@@ -184,6 +189,17 @@ describe("portal state handling", () => {
     expect(localStorage.getItem("fusion-helpdesk-session")).toContain(
       "DEV/customer",
     );
+  });
+});
+
+describe("personal canned response insertion", () => {
+  it("creates editable draft text without changing any other comment state", () => {
+    expect(insertCannedResponse("", "Please provide the invoice number.")).toBe(
+      "Please provide the invoice number.",
+    );
+    expect(
+      insertCannedResponse("Hello,", "Please provide the invoice number."),
+    ).toBe("Hello,\n\nPlease provide the invoice number.");
   });
 });
 

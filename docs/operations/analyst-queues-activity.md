@@ -56,6 +56,29 @@ preset with `savedFilter`, and returns to ordinary query state when a preset is 
 filters never store SQL, regular expressions, queue expressions, sort definitions, shared scope,
 or ticket mutations.
 
+## Personal canned responses
+
+Milestone 12 Task 12.2 adds private, bounded plaintext response snippets:
+
+```http
+GET    /api/v1/agent/canned-responses
+POST   /api/v1/agent/canned-responses
+GET    /api/v1/agent/canned-responses/{canned_response_id}
+PATCH  /api/v1/agent/canned-responses/{canned_response_id}
+DELETE /api/v1/agent/canned-responses/{canned_response_id}
+PUT    /api/v1/agent/canned-responses/order
+```
+
+Tenant and owner identity are derived from the authenticated analyst and are
+enforced by repository predicates and row-level security. Create is
+idempotent; update, reorder, and delete use optimistic row versions. Selecting
+a snippet inserts only editable text into the existing browser draft. It does
+not change public/internal visibility, invoke AI, or post a comment. The
+existing authorized comment endpoint remains the sole posting path. Snippet
+bodies must not enter logs, metrics, audit summaries, or error details. Shared,
+administrator-managed, executable, and variable-substitution templates are
+not supported.
+
 ## Activity and comments
 
 ```http

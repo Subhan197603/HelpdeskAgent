@@ -34,6 +34,7 @@ The only post-v1 revisions currently present are:
 → 0022_admin_config_privileges
 → 0023_knowledge_admin_index
 → 0024_analyst_saved_filters
+→ 0025_analyst_canned_responses
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -52,11 +53,17 @@ configuration tables. It reuses `AI_OVERSIGHT` and existing runtime `SELECT`
 privileges, adds no database object or write privilege, and therefore retains
 `0023_knowledge_admin_index` as the development head.
 
-Milestone 12 Task 12.1 introduces `0024_analyst_saved_filters`, the current
-development head. It adds one private preference table with tenant-and-owner
+Milestone 12 Task 12.1 introduced `0024_analyst_saved_filters`. It adds one
+private preference table with tenant-and-owner
 row-level security, narrow runtime CRUD grants, optimistic row versions, and
 owner-scoped uniqueness and ordering indexes. It follows
 `0023_knowledge_admin_index`; the physical PostgreSQL baseline is unchanged.
+
+Milestone 12 Task 12.2 introduces `0025_analyst_canned_responses`, the current
+development head. It adds private bounded plaintext snippets with tenant-and-
+owner row-level security, narrow runtime CRUD grants, optimistic row versions,
+and owner-scoped uniqueness and ordering indexes. It follows
+`0024_analyst_saved_filters`; the physical PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database
 
