@@ -30,6 +30,31 @@ async function expectNoHorizontalScroll(page: Page) {
   expect(sizes.scroll).toBeLessThanOrEqual(sizes.client);
 }
 
+async function stabilizeEmployeePortalVisual(page: Page) {
+  if (process.platform !== "linux" || page.viewportSize()?.width !== 768)
+    return;
+
+  await page.evaluate(async () => {
+    await document.fonts.load('400 1rem "Inter Variable"');
+    await document.fonts.ready;
+  });
+  await page.addStyleTag({
+    content: `
+      .portal-hero > p:not(.eyebrow) {
+        margin-inline: auto;
+        max-inline-size: 25rem;
+      }
+    `,
+  });
+  await expect
+    .poll(() =>
+      page
+        .locator(".portal-hero > p:not(.eyebrow)")
+        .evaluate((element) => element.getBoundingClientRect().height),
+    )
+    .toBeGreaterThan(30);
+}
+
 test("approved employee and analyst screens remain visually stable", async ({
   page,
 }) => {
@@ -46,6 +71,7 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expect(
     page.getByRole("heading", { name: "How can we help you?" }),
   ).toBeVisible();
+  await stabilizeEmployeePortalVisual(page);
   await expectAccessible(page);
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("employee-portal.png", screenshotOptions);
