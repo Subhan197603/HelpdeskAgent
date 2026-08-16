@@ -243,15 +243,31 @@ with Milestone 12 merely because analyst workflows use knowledge.
 
 ## Post-v1 Milestone 12 — Analyst Personal Productivity
 
-Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
 Milestone 12 is a compact, non-destructive analyst productivity milestone on
-`develop`. The roadmap-amendment approval defines scope only; it does not
-authorize implementation, migrations, commit, tag, push, merge, deployment, or
-image publication.
-
-The roadmap amendment was authorized by
+`develop`. The roadmap amendment was authorized by
 `APPROVE MILESTONE 12 ANALYST PRODUCTIVITY ROADMAP AMENDMENT`.
+
+### Milestone 12 Closure State
+
+All four tasks are complete, individually tagged, and remotely verified:
+`milestone-12-task-12.1` (`2fb167b3`), `milestone-12-task-12.2` (`50229521`),
+`milestone-12-task-12.3` (`a91ede6c`), and `milestone-12-task-12.4`
+(`834eb762`). Two further approved bounded commits realigned exactly five
+stale Milestone 11 analyst Linux visual baselines whose drift was caused by
+approved Milestone 12 UI additions. Final canonical CI run `31939519533`
+passed every job at the validated application commit
+`3136c29f10d434a870b0b72f61d0d5de7d827c08`, including all Task 12.1–12.4
+functional, accessibility, keyboard, and visual evidence. The development
+Alembic head is `0026_analyst_ticket_watchlist`. Formal closure is recorded by
+the documentation-only governance commit and annotated tag
+`milestone-12-closure`.
+
+Production `main` and `v1.0.0` remain frozen; no Milestone 12 work is promoted
+to production. Draft PR #1 remains open and unmerged. Milestone 13 and all
+future backlog work remain unauthorized until a separate plan and explicit
+human approval.
 
 Included capabilities:
 

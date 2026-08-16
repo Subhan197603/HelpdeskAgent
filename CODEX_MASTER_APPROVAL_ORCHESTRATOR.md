@@ -228,25 +228,25 @@ Use this when:
 
 ## 2.2 Current Verified Status
 
-This snapshot records the Milestone 11 application baseline verified after the
-R1-R4 closure remediations. The governance commit containing this record does
-not change the validated application baseline. Codex must still reverify
-repository evidence before every task.
+This snapshot records the Milestone 12 application baseline verified after the
+analyst Linux baseline realignment and final validation. The governance commit
+containing this record does not change the validated application baseline.
+Codex must still reverify repository evidence before every task.
 
 ```yaml
 branch: develop
-validated_application_commit: ce1375edc574a3fc8befede0c5efc90861c69308
-validated_application_tag: milestone-11-remediation-r4
-development_migration_head: 0023_knowledge_admin_index
+validated_application_commit: 3136c29f10d434a870b0b72f61d0d5de7d827c08
+development_migration_head: 0026_analyst_ticket_watchlist
 production_commit: cc9d76885e181230bd91f5b9bfd0605a9b23fb07
 production_tag: v1.0.0
 production_migration_head: 0020_reporting_views
-latest_completed_remediation: milestone-11-remediation-r4
-milestone_11_implementation_state: COMPLETE
-milestone_11_validation_state: PASS
+latest_completed_task: milestone-12-task-12.4
 milestone_11_formal_closure_state: CLOSED
-remaining_milestone_11_tasks: []
-final_ci_run: 31696085111
+milestone_12_implementation_state: COMPLETE
+milestone_12_validation_state: PASS
+milestone_12_formal_closure_state: CLOSED
+remaining_milestone_12_tasks: []
+final_ci_run: 31939519533
 known_non_blocking_issues:
   - three accepted Moderate React Router advisories (SEC-2026-004)
   - GitHub Actions Node.js 20 deprecation annotations
@@ -1546,12 +1546,13 @@ Draft PR #1 remains open and unmerged.
 
 ## Milestone 12 — Analyst Personal Productivity
 
-Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
 The documentation-only roadmap amendment was authorized by
-`APPROVE MILESTONE 12 ANALYST PRODUCTIVITY ROADMAP AMENDMENT`. That approval
-does not authorize implementation, migrations, commit, tag, push, merge,
-deployment, image publication, or the start of Task 12.1.
+`APPROVE MILESTONE 12 ANALYST PRODUCTIVITY ROADMAP AMENDMENT`. All four tasks
+were subsequently implemented, validated, committed, tagged, and pushed through
+their individual human-approved gates, and formal closure is recorded by the
+annotated tag `milestone-12-closure` (see Milestone 12 Closure State below).
 
 Milestone 12 adds only private, non-destructive analyst productivity controls
 that reuse the current queue, ticket-detail, comment, authorization, generated
@@ -1578,7 +1579,8 @@ any later task from this section alone.
 
 ### Task 12.1 — Personal Saved Ticket Filters
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-12-task-12.1` at
+`2fb167b315e1ef09806f2ec36ab7ba58b6a38c98`.
 
 Scope:
 
@@ -1617,7 +1619,8 @@ APPROVE MILESTONE 12 TASK 12.1 COMMIT
 
 ### Task 12.2 — Personal Canned Responses
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-12-task-12.2` at
+`50229521b94573d81580efca43385067915dff97`.
 
 Scope:
 
@@ -1653,7 +1656,8 @@ APPROVE MILESTONE 12 TASK 12.2 COMMIT
 
 ### Task 12.3 — Personal Ticket Watchlists
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-12-task-12.3` at
+`a91ede6c00a942387df726df5ee10a7ff286302b`.
 
 Scope:
 
@@ -1688,7 +1692,8 @@ APPROVE MILESTONE 12 TASK 12.3 COMMIT
 
 ### Task 12.4 — Accessible Keyboard Accelerators
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-12-task-12.4` at
+`834eb76235c37da16d53d5df7c4ce3c14c7b79dd`.
 
 Scope:
 
@@ -1741,6 +1746,48 @@ queue subscriptions, shift handover, analyst availability, capacity and
 workload management, controlled export, shared productivity administration,
 workflow-engine changes, all other future capability families, production
 deployment, and image publication.
+
+### Milestone 12 Closure State
+
+Milestone 12 implementation, validation, analyst Linux baseline realignment,
+and final validation are complete. Formal closure is recorded by the approved
+documentation-only governance commit and annotated tag `milestone-12-closure`.
+
+| Task | Evidence                         | Tag                      | Commit                                     |
+| ---- | -------------------------------- | ------------------------ | ------------------------------------------ |
+| 12.1 | Personal Saved Ticket Filters    | `milestone-12-task-12.1` | `2fb167b315e1ef09806f2ec36ab7ba58b6a38c98` |
+| 12.2 | Personal Canned Responses        | `milestone-12-task-12.2` | `50229521b94573d81580efca43385067915dff97` |
+| 12.3 | Personal Ticket Watchlists       | `milestone-12-task-12.3` | `a91ede6c00a942387df726df5ee10a7ff286302b` |
+| 12.4 | Accessible Keyboard Accelerators | `milestone-12-task-12.4` | `834eb76235c37da16d53d5df7c4ce3c14c7b79dd` |
+
+Task 12.4 completion required approved validation remediation and test
+stabilization commits after the original implementation. After Task 12.4 was
+tagged, two further approved bounded commits
+(`98534db8d478b8bed16c5330a4984d8b5f34b37d` and
+`3136c29f10d434a870b0b72f61d0d5de7d827c08`) realigned exactly five stale
+Milestone 11 analyst Linux visual baselines (analyst queue 768/390, analyst
+ticket activity 1280/768/390) whose drift was caused by approved Milestone 12
+UI additions. No product code, test code, migration, or unrelated baseline
+changed in that realignment.
+
+Final canonical validation is CI run `31939519533` at the exact validated
+application commit `3136c29f10d434a870b0b72f61d0d5de7d827c08`. All jobs passed:
+quality, foundation integration, retrieval regression, portal end-to-end (22 of
+22 Playwright tests, including all Task 12.1–12.4 functional, accessibility,
+keyboard, and visual assertions), secret scan, and vulnerability scan. The
+development Alembic head is `0026_analyst_ticket_watchlist`; Task 12.4 and the
+baseline realignment introduced no migrations.
+
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
+`0020_reporting_views`. No Milestone 12 work has been promoted to production,
+and no production deployment or image publication is authorized.
+
+Draft PR #1 remains open and unmerged. Draft PRs #2 and #3 were automatically
+marked merged by GitHub when their validation head commits landed on `develop`
+through approved fast-forward pushes; no merge commits exist and no manual
+merge was performed. The closure tag does not authorize a production promotion,
+a merge of Draft PR #1, or the start of Milestone 13.
 
 Governed Knowledge Operations is a preferred future milestone candidate,
 potentially Milestone 13, and requires a separate future planning and human

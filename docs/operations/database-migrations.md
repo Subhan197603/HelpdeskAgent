@@ -26,6 +26,12 @@ The validated Milestone 11 R4 application baseline is annotated tag
 `0023_knowledge_admin_index`. The later final-closure governance commit is
 documentation-only and does not change that migration state.
 
+The validated Milestone 12 application baseline is commit
+`3136c29f10d434a870b0b72f61d0d5de7d827c08` with Alembic head
+`0026_analyst_ticket_watchlist`. Task 12.4 and the analyst Linux baseline
+realignment introduced no migrations, and the Milestone 12 closure governance
+commit is documentation-only.
+
 The only post-v1 revisions currently present are:
 
 ```text
@@ -60,13 +66,13 @@ row-level security, narrow runtime CRUD grants, optimistic row versions, and
 owner-scoped uniqueness and ordering indexes. It follows
 `0023_knowledge_admin_index`; the physical PostgreSQL baseline is unchanged.
 
-Milestone 12 Task 12.2 introduces `0025_analyst_canned_responses`, the current
-approved Task 12.2 head. It adds private bounded plaintext snippets with tenant-and-
-owner row-level security, narrow runtime CRUD grants, optimistic row versions,
-and owner-scoped uniqueness and ordering indexes. It follows
-`0024_analyst_saved_filters`; the physical PostgreSQL baseline is unchanged.
+Milestone 12 Task 12.2 introduced `0025_analyst_canned_responses`. It adds
+private bounded plaintext snippets with tenant-and-owner row-level security,
+narrow runtime CRUD grants, optimistic row versions, and owner-scoped
+uniqueness and ordering indexes. It follows `0024_analyst_saved_filters`; the
+physical PostgreSQL baseline is unchanged.
 
-Milestone 12 Task 12.3 introduces `0026_analyst_ticket_watchlist`, the current
+Milestone 12 Task 12.3 introduced `0026_analyst_ticket_watchlist`, the current
 development head. It adds private ticket-watch preferences with tenant-and-owner
 row-level security, visibility-safe indexes, and narrow runtime select, insert,
 and delete grants. It follows `0025_analyst_canned_responses`; the physical
