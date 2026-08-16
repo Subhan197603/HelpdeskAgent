@@ -1789,9 +1789,193 @@ through approved fast-forward pushes; no merge commits exist and no manual
 merge was performed. The closure tag does not authorize a production promotion,
 a merge of Draft PR #1, or the start of Milestone 13.
 
-Governed Knowledge Operations is a preferred future milestone candidate,
-potentially Milestone 13, and requires a separate future planning and human
-approval gate.
+Governed Knowledge Operations is ratified as Milestone 13 below.
+
+---
+
+## Milestone 13 — Governed Knowledge Operations
+
+Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+
+The documentation-only roadmap amendment was authorized by
+`APPROVE MILESTONE 13 GOVERNED KNOWLEDGE OPERATIONS ROADMAP AMENDMENT`. That
+approval does not authorize implementation, migrations, commit, tag, push,
+merge, deployment, image publication, or the start of Task 13.1.
+
+Milestone 13 adds governed knowledge-corpus operations that reuse the existing
+approved-source registry, document-acquisition pipeline, processing and
+publication lifecycle, knowledge-administration screens and permission family,
+audit trail, and retrieval regression foundations. Knowledge operations never
+acquire from unapproved external targets, never publish automatically, and
+never alter retrieval eligibility without an approved publication.
+
+Implementation must proceed one task at a time through the ordinary workflow:
+
+```text
+PLAN
+→ human implementation approval
+→ IMPLEMENT
+→ focused and full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push when authorized
+→ stop
+```
+
+Roadmap definition is not implementation approval. Do not start Task 13.1 or
+any later task from this section alone.
+
+### Task 13.1 — Approved-Source Inventory and Refresh Lifecycle Administration
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- tenant-scoped approved-source inventory administration over the existing
+  source-governance registry;
+- an explicit deterministic refresh-lifecycle state per source: current,
+  refresh-due, refreshing, stale, retired;
+- last-acquisition and last-change evidence surfaced per source;
+- a manual mark-for-refresh action behind existing knowledge-administration
+  write permissions, with audited state transitions; and
+- focused unit, PostgreSQL, RLS, OpenAPI, frontend, accessibility, Playwright,
+  and visual-regression evidence followed by the full task gate.
+
+Excluded: automatic crawling, new-release discovery, content mutation, new
+external acquisition targets, corpus publication changes, and retrieval
+behavior changes.
+
+Database expectation: task-specific additive and reversible development
+migration `0027_knowledge_source_lifecycle` after
+`0026_analyst_ticket_watchlist`, with tenant constraints, RLS, and
+least-privilege runtime grants. The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 13 TASK 13.1 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 13 TASK 13.1 COMMIT
+```
+
+### Task 13.2 — Content-Change Detection with Removed-Page and Redirect Handling
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- re-acquisition restricted to already-approved sources;
+- per-page classification as unchanged, changed, removed, or redirected using
+  content hashing;
+- persisted per-page change evidence feeding Task 13.1 lifecycle states; and
+- change reports in the knowledge-administration screens.
+
+Excluded: automatic republication, new-release discovery, ranking changes, and
+publication changes.
+
+Database expectation: one task-specific additive and reversible migration after
+the approved Task 13.1 head. The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 13 TASK 13.2 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 13 TASK 13.2 COMMIT
+```
+
+### Task 13.3 — Corpus Validation with Duplicate and Near-Duplicate Detection
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- a pre-publication corpus validation report covering structural defects,
+  empty chunks, duplicate documents, and near-duplicate chunk suppression
+  flags;
+- persisted validation results; and
+- suppression flags that affect retrieval eligibility only after a later
+  approved publication and never remove the last visible copy of content.
+
+Excluded: reranking, synonym and acronym management, embedding changes, and
+automatic publication.
+
+Database expectation: one task-specific additive and reversible migration after
+the approved Task 13.2 head. The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 13 TASK 13.3 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 13 TASK 13.3 COMMIT
+```
+
+### Task 13.4 — Governed Corpus Publication and Rollback
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- corpus-version records with corpus-level publication gated on passing Task
+  13.3 validation and the retrieval regression suite;
+- explicit human approval for every publication;
+- a one-step audited rollback to the prior published corpus version that
+  restores prior retrieval eligibility deterministically; and
+- publication and rollback actions in the knowledge-administration screens.
+
+Excluded: automatic or scheduled publication, production deployment, and image
+publication.
+
+Database expectation: one task-specific additive and reversible migration after
+the approved Task 13.3 head. The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 13 TASK 13.4 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 13 TASK 13.4 COMMIT
+```
+
+### Milestone 13 Completion Gate
+
+Milestone 13 is complete only when all four tasks have their approved commits
+and tags, the migration history is linear, the physical baseline checksum is
+unchanged, tenant/RLS tests pass, OpenAPI and generated clients agree,
+affected accessibility and visual gates pass, unrelated approved baselines are
+unchanged, the retrieval regression suite passes, and the complete backend,
+frontend, PostgreSQL integration, Playwright, security, build, and Compose
+gates pass.
+
+The completion evidence must prove that knowledge operations never acquire
+from unapproved targets, never publish automatically, never alter retrieval
+eligibility without an approved publication, and that rollback restores the
+prior published corpus deterministically. A separately approved
+documentation-only closure record is required after final validation;
+completion of Task 13.4 alone does not close the milestone.
+
+The following remain outside Milestone 13: new-release discovery, synonym and
+acronym management, exact error-code matching, zero-result analysis,
+stale-content penalties, advanced reranking, embedding-model migration,
+production deployment, and image publication.
 
 ---
 

@@ -3369,8 +3369,75 @@ productivity configuration, workflow-engine changes, and all other deferred
 capability families remain out of scope. Production deployment and image
 publication are not part of Milestone 12.
 
-Governed Knowledge Operations remains a preferred future milestone candidate,
-potentially Milestone 13, subject to separate planning and human approval.
+Governed Knowledge Operations is ratified as Milestone 13 in section 36B.
+
+---
+
+## 36B. Post-v1 Milestone 13 — Governed Knowledge Operations
+
+Milestone 13 is a bounded post-v1 product milestone on `develop`. It adds
+governed knowledge-corpus operations on top of the existing approved-source
+registry, document-acquisition pipeline, processing and publication lifecycle,
+knowledge administration screens, and retrieval regression foundations. It does
+not authorize implementation by itself; each task requires the separate
+approval workflow in `CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+The milestone includes exactly these capabilities:
+
+- approved-source inventory administration with an explicit refresh lifecycle;
+- content-change detection over already-approved sources with removed-page and
+  redirect handling;
+- corpus validation with duplicate-document detection and near-duplicate chunk
+  suppression; and
+- governed corpus-version publication and one-step rollback.
+
+### Task 13.1 — Approved-source inventory and refresh lifecycle administration
+
+Provide knowledge administrators a tenant-scoped inventory of approved sources
+with an explicit, deterministic refresh-lifecycle state (current, refresh-due,
+refreshing, stale, retired), last-acquisition and last-change evidence, and a
+manual mark-for-refresh action behind existing knowledge-administration
+permissions. State transitions are audited. Automatic crawling, new-release
+discovery, content mutation, new external acquisition targets, and corpus
+publication changes are out of scope.
+
+### Task 13.2 — Content-change detection with removed-page and redirect handling
+
+Extend the acquisition pipeline to re-acquire only already-approved sources and
+classify each page as unchanged, changed, removed, or redirected using content
+hashing, persisting per-page change evidence that feeds the Task 13.1
+lifecycle states. Changed content never republishes automatically. New-release
+discovery, ranking changes, and automatic publication are out of scope.
+
+### Task 13.3 — Corpus validation with duplicate and near-duplicate detection
+
+Add a pre-publication corpus validation report covering structural defects,
+empty chunks, duplicate documents, and near-duplicate chunk suppression flags.
+Suppression flags affect retrieval eligibility only after a later approved
+publication and must never remove the last visible copy of content. Reranking,
+synonym management, and embedding changes are out of scope.
+
+### Task 13.4 — Governed corpus publication and rollback
+
+Introduce corpus-version-level publication gated on passing Task 13.3
+validation and the retrieval regression suite, with explicit human approval and
+a one-step audited rollback to the prior published corpus version. Automatic or
+scheduled publication and production deployment are out of scope.
+
+### Milestone 13 database and scope boundary
+
+The physical PostgreSQL baseline remains immutable. Any required development
+migration follows `0026_analyst_ticket_watchlist`, is additive and reversible,
+preserves one linear Alembic head, applies tenant isolation and
+least-privilege grants, and receives upgrade/downgrade validation. Do not add
+generic knowledge-operations foundations for capabilities outside the approved
+task that needs them.
+
+New-release discovery, synonym and acronym management, exact error-code
+matching, zero-result analysis, stale-content penalties, advanced reranking,
+embedding-model migration, and all other deferred capability families remain
+out of scope. Production deployment and image publication are not part of
+Milestone 13.
 
 ---
 

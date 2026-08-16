@@ -197,28 +197,46 @@ PLAN
 - Public versus internal reply handling
 - Email reconciliation reports
 
-## Future Milestone Candidate — Governed Knowledge Operations
+## Post-v1 Milestone 13 — Governed Knowledge Operations
 
-Status: `PREFERRED FUTURE MILESTONE CANDIDATE`.
+Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
 
-This family is a preferred candidate for a milestone after Milestone 12,
-potentially Milestone 13. It is not rejected, assigned, or authorized. It
-requires separate future planning and human approval and must not be combined
-with Milestone 12 merely because analyst workflows use knowledge.
+Milestone 13 is a bounded, governed knowledge-operations milestone on
+`develop`. The roadmap-amendment approval defines scope only; it does not
+authorize implementation, migrations, commit, tag, push, merge, deployment, or
+image publication.
+
+The roadmap amendment was authorized by
+`APPROVE MILESTONE 13 GOVERNED KNOWLEDGE OPERATIONS ROADMAP AMENDMENT`.
+
+Included capabilities:
+
+- Approved-source inventory administration with an explicit refresh lifecycle
+- Content-change detection over approved sources with removed-page and
+  redirect handling
+- Corpus validation with duplicate-document detection and near-duplicate chunk
+  suppression
+- Governed corpus-version publication and one-step audited rollback
+
+Bounded task sequence:
+
+1. **13.1 — Approved-source inventory and refresh lifecycle administration**
+2. **13.2 — Content-change detection with removed-page and redirect handling**
+3. **13.3 — Corpus validation with duplicate and near-duplicate detection**
+4. **13.4 — Governed corpus publication and rollback**
+
+The physical PostgreSQL baseline remains immutable. Any development migration
+must follow `0026_analyst_ticket_watchlist`, remain task-specific, additive and
+reversible, and preserve tenant isolation, least-privilege runtime grants, and
+a single Alembic head.
+
+The following Governed Knowledge Operations backlog items remain deferred and
+outside Milestone 13:
 
 - Governed knowledge authoring and administration designers
-- Oracle documentation refresh lifecycle
-- Approved-source inventory
 - New-release discovery
-- Content-change detection
-- Removed-page and redirect handling
-- Corpus validation
-- Corpus publication and rollback
 - Synonym and acronym management
 - Exact error-code matching
-- Duplicate-document detection
-- Near-duplicate chunk suppression
-- Retrieval regression testing
 - Zero-result analysis
 - Stale-content penalties
 - Advanced reranking
