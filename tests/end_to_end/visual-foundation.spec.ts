@@ -60,45 +60,48 @@ test("approved employee and analyst screens remain visually stable", async ({
 }) => {
   test.setTimeout(90_000);
   const recentTicketsRoute = "**/api/v1/my/tickets*";
+  const stabilizeRecentTickets = page.viewportSize()?.width === 390;
   const openNavigation = async () => {
     const menu = page.getByRole("button", { name: "Open navigation" });
     if (await menu.isVisible()) await menu.click();
   };
-  await page.route(recentTicketsRoute, async (route) => {
-    const ticket = (key: string) => ({
-      created_at: "2026-08-02T10:00:00Z",
-      creation_event_at: "2026-08-02T10:00:00Z",
-      description:
-        "Invoice validation fails with an unexpected application error.",
-      environment_name: "Production",
-      id: `00000000-0000-4000-8000-00000000000${key.slice(-1)}`,
-      key,
-      priority: "P4",
-      project_code: "ERP",
-      project_name: "Oracle Fusion ERP Support",
-      public_comments: [],
-      reporter_name: "Development Customer",
-      reporter_user_id: "00000000-0000-4000-8000-000000000010",
-      request_type_code: "ERP_ERROR",
-      request_type_name: "Report an Oracle Fusion error",
-      requested_for_name: null,
-      requested_for_user_id: null,
-      row_version: 1,
-      service_name: null,
-      status: "SUBMITTED",
-      status_name: "Submitted",
-      summary: "Oracle Fusion invoice error",
-      updated_at: "2026-08-02T10:00:00Z",
-      work_type: "REQUEST",
+  if (stabilizeRecentTickets) {
+    await page.route(recentTicketsRoute, async (route) => {
+      const ticket = (key: string) => ({
+        created_at: "2026-08-02T10:00:00Z",
+        creation_event_at: "2026-08-02T10:00:00Z",
+        description:
+          "Invoice validation fails with an unexpected application error.",
+        environment_name: "Production",
+        id: `00000000-0000-4000-8000-00000000000${key.slice(-1)}`,
+        key,
+        priority: "P4",
+        project_code: "ERP",
+        project_name: "Oracle Fusion ERP Support",
+        public_comments: [],
+        reporter_name: "Development Customer",
+        reporter_user_id: "00000000-0000-4000-8000-000000000010",
+        request_type_code: "ERP_ERROR",
+        request_type_name: "Report an Oracle Fusion error",
+        requested_for_name: null,
+        requested_for_user_id: null,
+        row_version: 1,
+        service_name: null,
+        status: "SUBMITTED",
+        status_name: "Submitted",
+        summary: "Oracle Fusion invoice error",
+        updated_at: "2026-08-02T10:00:00Z",
+        work_type: "REQUEST",
+      });
+      await route.fulfill({
+        json: {
+          items: [ticket("ERP-3"), ticket("ERP-2"), ticket("ERP-1")],
+          limit: 50,
+          next_cursor: null,
+        },
+      });
     });
-    await route.fulfill({
-      json: {
-        items: [ticket("ERP-3"), ticket("ERP-2"), ticket("ERP-1")],
-        limit: 50,
-        next_cursor: null,
-      },
-    });
-  });
+  }
   await page.clock.install({ time: new Date("2026-08-02T10:30:00Z") });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/login");
@@ -111,7 +114,7 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expectAccessible(page);
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("employee-portal.png", screenshotOptions);
-  await page.unroute(recentTicketsRoute);
+  if (stabilizeRecentTickets) await page.unroute(recentTicketsRoute);
 
   await page
     .locator(".portal-hero")
