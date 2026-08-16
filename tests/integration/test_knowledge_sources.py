@@ -403,3 +403,162 @@ def test_canonical_location_and_global_scope_are_fail_closed(client: TestClient)
         ).status_code
         == 403
     )
+
+
+@pytest.mark.integration
+def test_refresh_lifecycle_migration_is_minimal_and_backfilled() -> None:
+    assert (
+        _value("SELECT version_num FROM config.alembic_version")
+        == "0027_knowledge_source_lifecycle"
+    )
+    assert (
+        _value(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_schema='kb' AND table_name='source' AND column_name IN "
+            "('refresh_state','refresh_due_at','last_refresh_requested_at',"
+            "'last_refresh_requested_by','last_refresh_completed_at')"
+        )
+        == "5"
+    )
+    assert (
+        _value("SELECT count(*) FROM pg_constraint WHERE conname='kb_source_refresh_state_ck'")
+        == "1"
+    )
+    assert (
+        _value("SELECT count(*) FROM pg_indexes WHERE indexname='kb_source_refresh_lifecycle_ix'")
+        == "1"
+    )
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.source WHERE refresh_state IS DISTINCT FROM "
+            "'CURRENT' AND source_id='" + OTHER_SOURCE_ID + "'"
+        )
+        == "0"
+    )
+    assert _value("SELECT has_table_privilege('helpdesk_app','kb.source','UPDATE')") == "t"
+    assert _value("SELECT has_table_privilege('helpdesk_app','kb.source','DELETE')") == "f"
+
+
+@pytest.mark.integration
+def test_refresh_lifecycle_administration_is_governed(client: TestClient) -> None:
+    created = client.post(
+        "/api/v1/admin/knowledge/sources",
+        headers=_headers("knowledge-author", "create-refresh-lifecycle"),
+        json=_source_payload(code="REFRESH_LIFECYCLE"),
+    )
+    assert created.status_code == 201, created.text
+    source = created.json()
+    assert source["refresh_state"] == "CURRENT"
+    assert source["effective_refresh_state"] == "CURRENT"
+    assert source["last_acquisition_status"] is None
+    runs_before = _value("SELECT count(*) FROM kb.ingestion_run")
+
+    lifecycle_url = f"/api/v1/admin/knowledge/sources/{source['id']}/refresh-lifecycle"
+    assert (
+        client.post(
+            lifecycle_url,
+            headers=_headers("customer", "employee-refresh-denied"),
+            json={"action": "MARK_REFRESH_DUE", "expected_version": 1},
+        ).status_code
+        == 403
+    )
+    assert (
+        client.post(
+            f"/api/v1/admin/knowledge/sources/{OTHER_SOURCE_ID}/refresh-lifecycle",
+            headers=_headers("knowledge-author", "cross-tenant-refresh-denied"),
+            json={"action": "MARK_REFRESH_DUE", "expected_version": 1},
+        ).status_code
+        == 404
+    )
+
+    marked = client.post(
+        lifecycle_url,
+        headers=_headers("knowledge-author", "mark-refresh-due"),
+        json={"action": "MARK_REFRESH_DUE", "expected_version": 1},
+    )
+    assert marked.status_code == 200, marked.text
+    assert marked.json()["refresh_state"] == "REFRESH_DUE"
+    assert marked.json()["effective_refresh_state"] == "REFRESH_DUE"
+    assert marked.json()["refresh_due_at"] is not None
+    assert marked.json()["last_refresh_requested_at"] is not None
+    assert marked.json()["row_version"] == 2
+
+    replay = client.post(
+        lifecycle_url,
+        headers=_headers("knowledge-author", "mark-refresh-due"),
+        json={"action": "MARK_REFRESH_DUE", "expected_version": 1},
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["row_version"] == 2
+
+    invalid = client.post(
+        lifecycle_url,
+        headers=_headers("knowledge-author", "mark-refresh-due-invalid"),
+        json={"action": "MARK_REFRESH_DUE", "expected_version": 2},
+    )
+    assert invalid.status_code == 409
+    assert invalid.json()["type"].endswith("/problems/invalid_transition")
+
+    stale = client.post(
+        lifecycle_url,
+        headers=_headers("knowledge-author", "mark-current-stale-version"),
+        json={"action": "MARK_CURRENT", "expected_version": 1},
+    )
+    assert stale.status_code == 409
+
+    completed = client.post(
+        lifecycle_url,
+        headers=_headers("knowledge-author", "mark-current"),
+        json={"action": "MARK_CURRENT", "expected_version": 2},
+    )
+    assert completed.status_code == 200, completed.text
+    assert completed.json()["refresh_state"] == "CURRENT"
+    assert completed.json()["refresh_due_at"] is None
+    assert completed.json()["last_refresh_completed_at"] is not None
+
+    listing = client.get(
+        "/api/v1/admin/knowledge/sources",
+        headers=_headers("knowledge-author"),
+        params={"refresh_state": "REFRESH_DUE"},
+    )
+    assert listing.status_code == 200
+    assert "REFRESH_LIFECYCLE" not in {item["code"] for item in listing.json()["items"]}
+    paged = client.get(
+        "/api/v1/admin/knowledge/sources",
+        headers=_headers("knowledge-author"),
+        params={"search": "REFRESH_LIFECYCLE", "limit": 1},
+    )
+    assert paged.status_code == 200
+    assert paged.json()["total"] >= 1
+    assert paged.json()["items"][0]["code"] == "REFRESH_LIFECYCLE"
+
+    retire = _source_payload(code="REFRESH_LIFECYCLE") | {
+        "expected_version": 3,
+        "status": "RETIRED",
+    }
+    retire.pop("scope")
+    retired = client.put(
+        f"/api/v1/admin/knowledge/sources/{source['id']}",
+        headers=_headers("knowledge-author", "retire-refresh-lifecycle"),
+        json=retire,
+    )
+    assert retired.status_code == 200, retired.text
+    assert retired.json()["effective_refresh_state"] == "RETIRED"
+    assert (
+        client.post(
+            lifecycle_url,
+            headers=_headers("knowledge-author", "retired-refresh-denied"),
+            json={"action": "MARK_REFRESH_DUE", "expected_version": 4},
+        ).status_code
+        == 409
+    )
+
+    assert _value("SELECT count(*) FROM kb.ingestion_run") == runs_before
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event WHERE resource_id="
+            f"'{source['id']}' AND action_code='KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED'"
+        )
+        == "2"
+    )

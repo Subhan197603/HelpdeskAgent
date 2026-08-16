@@ -13,6 +13,7 @@ from apps.api.app.core.exceptions import (
     AuthorizationError,
     ConcurrencyError,
     ConflictError,
+    InvalidTransitionError,
     NotFoundError,
     ValidationError,
 )
@@ -28,6 +29,9 @@ from apps.api.app.knowledge.schemas import (
     AcquisitionPermissionResponse,
     ApprovalStatus,
     AudienceScope,
+    EffectiveRefreshState,
+    RefreshLifecycleCommand,
+    RefreshState,
     SourceApprovalCommand,
     SourceCreate,
     SourceDefinition,
@@ -43,6 +47,11 @@ _EXTERNAL_METHODS = {
     "APPROVED_DIRECT_DOWNLOAD",
     "API_FEED",
     "REPOSITORY_CONNECTOR",
+}
+_REFRESH_TRANSITIONS: dict[str, tuple[str, set[str]]] = {
+    "MARK_REFRESH_DUE": ("REFRESH_DUE", {"CURRENT", "STALE"}),
+    "MARK_CURRENT": ("CURRENT", {"REFRESH_DUE", "STALE"}),
+    "MARK_STALE": ("STALE", {"CURRENT", "REFRESH_DUE"}),
 }
 
 
@@ -69,20 +78,31 @@ class KnowledgeSourceService:
         audience: str | None,
         status: str | None,
         approval_status: str | None,
+        refresh_state: str | None = None,
+        search: str | None = None,
         limit: int,
+        offset: int = 0,
     ) -> SourceList:
         self._authorize(context, Permission.KNOWLEDGE_SOURCE_READ_ADMIN)
         tenant_id, _ = _identity(context)
         async with self._factory(context) as uow:
-            rows = await KnowledgeSourceRepository(uow.session).list(
+            rows, total = await KnowledgeSourceRepository(uow.session).list(
                 tenant_id,
                 source_type=source_type,
                 audience=audience,
                 status=status,
                 approval_status=approval_status,
+                refresh_state=refresh_state,
+                search=search,
                 limit=limit,
+                offset=offset,
             )
-        return SourceList(items=[_response(row) for row in rows])
+        return SourceList(
+            items=[_response(row) for row in rows],
+            total=total,
+            offset=offset,
+            has_more=offset + len(rows) < total,
+        )
 
     async def get(self, context: RequestContext, source_id: UUID) -> SourceResponse:
         self._authorize(context, Permission.KNOWLEDGE_SOURCE_READ_ADMIN)
@@ -221,6 +241,63 @@ class KnowledgeSourceService:
             source = await repo.get(tenant_id, source_id)
             if source is None:
                 raise KnowledgeConfigurationError("Approved source is unavailable.")
+            await uow.commit()
+        return _response(source), False
+
+    async def refresh_lifecycle(
+        self,
+        context: RequestContext,
+        source_id: UUID,
+        command: RefreshLifecycleCommand,
+        idempotency_key: str,
+    ) -> tuple[SourceResponse, bool]:
+        self._authorize(context, Permission.KNOWLEDGE_SOURCE_UPDATE)
+        tenant_id, user_id = _identity(context)
+        request_hash = _hash(
+            "refresh-lifecycle", {"source_id": str(source_id), **command.model_dump(mode="json")}
+        )
+        async with self._factory(context) as uow:
+            repo = KnowledgeSourceRepository(uow.session)
+            claim = await repo.claim_idempotency(
+                tenant_id,
+                user_id,
+                idempotency_key,
+                request_hash,
+                "KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE",
+            )
+            _validate_claim(claim, user_id, request_hash)
+            current = await repo.get(tenant_id, source_id, lock=True)
+            if current is None:
+                raise NotFoundError("Knowledge source was not found.")
+            if current.tenant_id is None:
+                self._authorize(context, Permission.KNOWLEDGE_SOURCE_MANAGE_GLOBAL)
+            if claim.processing_status == "COMPLETED":
+                await uow.commit()
+                return _response(current), True
+            if current.source_status == "RETIRED":
+                raise InvalidTransitionError("A retired source refresh lifecycle cannot change.")
+            target_state, allowed_from = _REFRESH_TRANSITIONS[command.action]
+            if current.refresh_state not in allowed_from:
+                raise InvalidTransitionError(
+                    f"{command.action} is not allowed from state {current.refresh_state}."
+                )
+            if not await repo.set_refresh_state(
+                tenant_id,
+                source_id,
+                user_id,
+                action=command.action,
+                target_state=target_state,
+                previous_state=current.refresh_state,
+                refresh_due_at=command.refresh_due_at,
+                expected_version=command.expected_version,
+                correlation_id=context.correlation_id,
+                request_id=context.request_id,
+            ):
+                raise ConcurrencyError("Knowledge source row version is stale.")
+            await repo.complete_idempotency(claim.record_id, "KNOWLEDGE_SOURCE", source_id, 200)
+            source = await repo.get(tenant_id, source_id)
+            if source is None:
+                raise KnowledgeConfigurationError("Updated source is unavailable.")
             await uow.commit()
         return _response(source), False
 
@@ -456,6 +533,17 @@ def _response(value: KnowledgeSource) -> SourceResponse:
         row_version=value.row_version,
         created_at=value.created_at,
         updated_at=value.updated_at,
+        refresh_state=cast("RefreshState", value.refresh_state),
+        effective_refresh_state=cast(
+            "EffectiveRefreshState",
+            "RETIRED" if value.source_status == "RETIRED" else value.refresh_state,
+        ),
+        refresh_due_at=value.refresh_due_at,
+        last_refresh_requested_at=value.last_refresh_requested_at,
+        last_refresh_requested_by=value.last_refresh_requested_by,
+        last_refresh_completed_at=value.last_refresh_completed_at,
+        last_acquisition_status=value.last_acquisition_status,
+        last_acquisition_at=value.last_acquisition_at,
     )
 
 

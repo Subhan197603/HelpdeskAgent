@@ -52,6 +52,13 @@ def _work(**manifest_overrides: object) -> AcquisitionWork:
         2,
         NOW,
         NOW,
+        "CURRENT",
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
     )
     manifest_values: dict[str, object] = {
         "manifest_entry_id": UUID("26000000-0000-0000-0000-000000000001"),

@@ -35,6 +35,13 @@ class KnowledgeSource:
     row_version: int
     created_at: datetime
     updated_at: datetime
+    refresh_state: str
+    refresh_due_at: datetime | None
+    last_refresh_requested_at: datetime | None
+    last_refresh_requested_by: UUID | None
+    last_refresh_completed_at: datetime | None
+    last_acquisition_status: str | None
+    last_acquisition_at: datetime | None
 
 
 @dataclass(frozen=True, slots=True)

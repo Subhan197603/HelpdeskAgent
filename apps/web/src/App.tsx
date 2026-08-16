@@ -3780,6 +3780,7 @@ function AdminKnowledgePage() {
         description="Review tenant knowledge, governed versions, visibility, and publication state."
         title="Knowledge"
       />
+      <KnowledgeAdminTabs active="documents" />
       <TableToolbar label="Knowledge filters">
         <SearchField
           className="table-search"
@@ -3909,6 +3910,352 @@ function AdminKnowledgePage() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function KnowledgeAdminTabs({ active }: { active: "documents" | "sources" }) {
+  const identity = useCurrentIdentity();
+  const navigate = useNavigate();
+  const codes = identity?.permission_codes ?? [];
+  if (
+    !codes.includes("KNOWLEDGE_DOCUMENT_READ_ADMIN") ||
+    !codes.includes("KNOWLEDGE_SOURCE_READ_ADMIN")
+  )
+    return null;
+  return (
+    <Tabs
+      activeId={active}
+      items={[
+        { id: "documents", label: "Documents" },
+        { id: "sources", label: "Sources" },
+      ]}
+      label="Knowledge administration areas"
+      onChange={(id) => {
+        navigate(
+          id === "sources" ? "/admin/knowledge/sources" : "/admin/knowledge",
+        );
+      }}
+    />
+  );
+}
+
+type KnowledgeSourceSummary = components["schemas"]["SourceResponse"];
+type KnowledgeSourcesQuery = NonNullable<
+  paths["/api/v1/admin/knowledge/sources"]["get"]["parameters"]["query"]
+>;
+type SourceRefreshAction =
+  components["schemas"]["RefreshLifecycleCommand"]["action"];
+
+const SOURCE_REFRESH_ACTION_LABELS: Record<SourceRefreshAction, string> = {
+  MARK_CURRENT: "Mark current",
+  MARK_REFRESH_DUE: "Mark for refresh",
+  MARK_STALE: "Mark stale",
+};
+
+export function sourceRefreshPresentation(
+  state: KnowledgeSourceSummary["effective_refresh_state"],
+): { code: "SUCCESS" | "PARTIAL" | "DENIED"; label: string } {
+  if (state === "CURRENT") return { code: "SUCCESS", label: "Current" };
+  if (state === "REFRESH_DUE") return { code: "PARTIAL", label: "Refresh due" };
+  if (state === "REFRESHING") return { code: "PARTIAL", label: "Refreshing" };
+  if (state === "STALE") return { code: "DENIED", label: "Stale" };
+  return { code: "DENIED", label: "Retired" };
+}
+
+export function sourceRefreshActions(
+  state: KnowledgeSourceSummary["effective_refresh_state"],
+): SourceRefreshAction[] {
+  if (state === "CURRENT") return ["MARK_REFRESH_DUE", "MARK_STALE"];
+  if (state === "REFRESH_DUE") return ["MARK_CURRENT", "MARK_STALE"];
+  if (state === "STALE") return ["MARK_REFRESH_DUE", "MARK_CURRENT"];
+  return [];
+}
+
+function AdminKnowledgeSourcesPage() {
+  const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState("");
+  const [refreshState, setRefreshState] = useState("");
+  const [page, setPage] = useState(0);
+  const [pendingAction, setPendingAction] = useState<{
+    source: KnowledgeSourceSummary;
+    action: SourceRefreshAction;
+  } | null>(null);
+  const limit = 25;
+  const sources = useQuery({
+    queryKey: ["admin-knowledge-sources", page, search, status, refreshState],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/knowledge/sources", {
+          params: {
+            query: {
+              limit,
+              offset: page * limit,
+              ...(search.trim().length < 2 ? {} : { search: search.trim() }),
+              ...(status === ""
+                ? {}
+                : { status: status as KnowledgeSourcesQuery["status"] }),
+              ...(refreshState === ""
+                ? {}
+                : {
+                    refresh_state:
+                      refreshState as KnowledgeSourcesQuery["refresh_state"],
+                  }),
+            },
+          },
+        }),
+      ),
+  });
+  const lifecycleMutation = useMutation({
+    mutationFn: async (requested: {
+      source: KnowledgeSourceSummary;
+      action: SourceRefreshAction;
+    }) =>
+      unwrap(
+        await client.POST(
+          "/api/v1/admin/knowledge/sources/{source_id}/refresh-lifecycle",
+          {
+            params: {
+              path: { source_id: requested.source.id },
+              header: {
+                "Idempotency-Key": newIdempotencyKey(
+                  "knowledge-source-refresh",
+                ),
+              },
+            },
+            body: {
+              action: requested.action,
+              expected_version: requested.source.row_version,
+            },
+          },
+        ),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-knowledge-sources"],
+      });
+      setPendingAction(null);
+    },
+  });
+  const canManage =
+    identity?.permission_codes.includes("KNOWLEDGE_SOURCE_UPDATE") ?? false;
+  const resetPage = () => {
+    setPage(0);
+  };
+  const columns = [
+    {
+      header: "Source",
+      key: "source",
+      render: (row: KnowledgeSourceSummary) => (
+        <div className="admin-knowledge-title">
+          <strong>{row.code}</strong>
+          <span>{row.name}</span>
+        </div>
+      ),
+    },
+    {
+      header: "Type",
+      key: "type",
+      render: (row: KnowledgeSourceSummary) => humanizeCode(row.source_type),
+    },
+    {
+      header: "Governance",
+      key: "governance",
+      render: (row: KnowledgeSourceSummary) => (
+        <span>
+          {humanizeCode(row.status)} · {humanizeCode(row.approval_status)}
+        </span>
+      ),
+    },
+    {
+      header: "Refresh",
+      key: "refresh",
+      render: (row: KnowledgeSourceSummary) => {
+        const presentation = sourceRefreshPresentation(
+          row.effective_refresh_state,
+        );
+        return (
+          <div className="admin-knowledge-title">
+            <span>
+              <OutcomeBadge code={presentation.code} /> {presentation.label}
+            </span>
+            {row.refresh_due_at != null && (
+              <span>Due {formatDateTime(row.refresh_due_at)}</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      header: "Last refresh",
+      key: "last-refresh",
+      render: (row: KnowledgeSourceSummary) =>
+        row.last_refresh_completed_at == null
+          ? "—"
+          : formatDateTime(row.last_refresh_completed_at),
+    },
+    {
+      header: "Last acquisition",
+      key: "last-acquisition",
+      render: (row: KnowledgeSourceSummary) =>
+        row.last_acquisition_at == null
+          ? "—"
+          : `${humanizeCode(row.last_acquisition_status ?? "UNKNOWN")} · ${formatDateTime(row.last_acquisition_at)}`,
+    },
+    ...(canManage
+      ? [
+          {
+            header: "Actions",
+            key: "actions",
+            render: (row: KnowledgeSourceSummary) => {
+              const actions = sourceRefreshActions(row.effective_refresh_state);
+              if (actions.length === 0) return "—";
+              return (
+                <div className="admin-knowledge-title">
+                  {actions.map((action) => (
+                    <Button
+                      key={action}
+                      onClick={() => {
+                        lifecycleMutation.reset();
+                        setPendingAction({ source: row, action });
+                      }}
+                      variant="secondary"
+                    >
+                      {SOURCE_REFRESH_ACTION_LABELS[action]}
+                    </Button>
+                  ))}
+                </div>
+              );
+            },
+          },
+        ]
+      : []),
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Review approved knowledge sources and administer their refresh lifecycle."
+        title="Knowledge sources"
+      />
+      <KnowledgeAdminTabs active="sources" />
+      <TableToolbar label="Knowledge source filters">
+        <SearchField
+          className="table-search"
+          label="Search source code or name"
+          onChange={(value) => {
+            resetPage();
+            setSearch(value);
+          }}
+          placeholder="Enter at least 2 characters"
+          value={search}
+          withIcon={false}
+        />
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              resetPage();
+              setStatus(event.target.value);
+            }}
+            value={status}
+          >
+            <option value="">All statuses</option>
+            {["ACTIVE", "DISABLED", "RETIRED"].map((value) => (
+              <option key={value} value={value}>
+                {humanizeCode(value)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="sort-control">
+          Refresh state
+          <select
+            onChange={(event) => {
+              resetPage();
+              setRefreshState(event.target.value);
+            }}
+            value={refreshState}
+          >
+            <option value="">All refresh states</option>
+            {["CURRENT", "REFRESH_DUE", "REFRESHING", "STALE"].map((value) => (
+              <option key={value} value={value}>
+                {humanizeCode(value)}
+              </option>
+            ))}
+          </select>
+        </label>
+      </TableToolbar>
+      {search.trim().length === 1 && (
+        <p className="admin-note">
+          Enter one more character to search knowledge sources.
+        </p>
+      )}
+      {sources.isPending && (
+        <LoadingSkeleton label="Loading knowledge sources" />
+      )}
+      {sources.error && <ErrorSummary error={sources.error} />}
+      {sources.data && (
+        <>
+          <p className="admin-result-count">
+            {sources.data.total} governed sources
+          </p>
+          {lifecycleMutation.error != null && (
+            <ErrorSummary error={lifecycleMutation.error} />
+          )}
+          <DataTable
+            caption="Governed knowledge sources"
+            columns={columns}
+            empty={
+              <EmptyState
+                description="No sources match the current filters."
+                title="No knowledge sources"
+              />
+            }
+            getRowKey={(row) => row.id}
+            rows={sources.data.items}
+          />
+          {(page > 0 || sources.data.has_more) && (
+            <Pagination
+              hasNext={sources.data.has_more}
+              onNext={() => {
+                setPage((value) => value + 1);
+              }}
+              onPrevious={() => {
+                setPage((value) => Math.max(0, value - 1));
+              }}
+              page={page + 1}
+            />
+          )}
+        </>
+      )}
+      <ConfirmationDialog
+        confirmLabel={
+          pendingAction == null
+            ? "Confirm"
+            : SOURCE_REFRESH_ACTION_LABELS[pendingAction.action]
+        }
+        onCancel={() => {
+          setPendingAction(null);
+        }}
+        onConfirm={() => {
+          if (pendingAction != null) lifecycleMutation.mutate(pendingAction);
+        }}
+        open={pendingAction != null}
+        pending={lifecycleMutation.isPending}
+        title="Change refresh lifecycle"
+      >
+        {pendingAction != null && (
+          <p>
+            {SOURCE_REFRESH_ACTION_LABELS[pendingAction.action]} for source{" "}
+            <strong>{pendingAction.source.code}</strong>? This records
+            administrative refresh intent only and never starts an acquisition
+            run.
+          </p>
+        )}
+      </ConfirmationDialog>
     </div>
   );
 }
@@ -7731,6 +8078,16 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
                 <AdminKnowledgePage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge/sources"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_SOURCE_READ_ADMIN">
+                <AdminKnowledgeSourcesPage />
               </RequirePermission>
             </RequireSession>
           }

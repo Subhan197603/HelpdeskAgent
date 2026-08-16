@@ -1,5 +1,6 @@
 """Knowledge-source contracts and fail-closed URL validation."""
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 import pytest
@@ -8,11 +9,13 @@ from pydantic import ValidationError as PydanticValidationError
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import ValidationError
 from apps.api.app.identity.authorization import AuthorizationService, Permission
-from apps.api.app.knowledge.schemas import SourceCreate
-from apps.api.app.knowledge.service import _canonical
+from apps.api.app.knowledge.models import KnowledgeSource
+from apps.api.app.knowledge.schemas import RefreshLifecycleCommand, SourceCreate
+from apps.api.app.knowledge.service import _REFRESH_TRANSITIONS, _canonical, _response
 
 OWNER = UUID("22000000-0000-0000-0000-000000000007")
 TENANT = UUID("20000000-0000-0000-0000-000000000001")
+NOW = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 def _source(**overrides: object) -> SourceCreate:
@@ -111,3 +114,83 @@ def test_source_administration_roles_are_separated(
     authorization = AuthorizationService()
     assert authorization.is_allowed(context, allowed)
     assert not authorization.is_allowed(context, denied)
+
+
+def _knowledge_source(
+    *, source_status: str = "ACTIVE", refresh_state: str = "CURRENT"
+) -> KnowledgeSource:
+    return KnowledgeSource(
+        UUID("25000000-0000-0000-0000-000000000001"),
+        TENANT,
+        "POLICIES",
+        "Policies",
+        "COMPANY_POLICY",
+        None,
+        "repository:knowledge/policy",
+        "MANUAL_UPLOAD",
+        False,
+        None,
+        "EMPLOYEE",
+        source_status,
+        "APPROVED",
+        OWNER,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        "en",
+        None,
+        NOW,
+        1,
+        NOW,
+        NOW,
+        refresh_state,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+
+
+def test_refresh_due_date_is_only_accepted_with_mark_refresh_due() -> None:
+    command = RefreshLifecycleCommand.model_validate(
+        {"action": "MARK_REFRESH_DUE", "expected_version": 1, "refresh_due_at": NOW}
+    )
+    assert command.refresh_due_at == NOW
+    with pytest.raises(PydanticValidationError, match="MARK_REFRESH_DUE"):
+        RefreshLifecycleCommand.model_validate(
+            {"action": "MARK_CURRENT", "expected_version": 1, "refresh_due_at": NOW}
+        )
+
+
+def test_refresh_transitions_are_deterministic_and_never_enter_refreshing() -> None:
+    assert set(_REFRESH_TRANSITIONS) == {"MARK_REFRESH_DUE", "MARK_CURRENT", "MARK_STALE"}
+    for action, (target, allowed_from) in _REFRESH_TRANSITIONS.items():
+        assert target != "REFRESHING"
+        assert target not in allowed_from, action
+        assert allowed_from <= {"CURRENT", "REFRESH_DUE", "STALE"}
+
+
+@pytest.mark.parametrize(
+    ("source_status", "refresh_state", "effective"),
+    [
+        ("ACTIVE", "CURRENT", "CURRENT"),
+        ("ACTIVE", "REFRESH_DUE", "REFRESH_DUE"),
+        ("DISABLED", "STALE", "STALE"),
+        ("RETIRED", "CURRENT", "RETIRED"),
+        ("RETIRED", "REFRESH_DUE", "RETIRED"),
+    ],
+)
+def test_effective_refresh_state_derives_retired_from_source_status(
+    source_status: str, refresh_state: str, effective: str
+) -> None:
+    response = _response(
+        _knowledge_source(source_status=source_status, refresh_state=refresh_state)
+    )
+    assert response.effective_refresh_state == effective

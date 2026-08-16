@@ -9,6 +9,8 @@ import {
   DynamicField,
   insertCannedResponse,
   LoginPage,
+  sourceRefreshActions,
+  sourceRefreshPresentation,
   ticketClassificationDisplay,
   watchActionLabel,
 } from "./App";
@@ -210,6 +212,48 @@ describe("personal ticket watchlist state", () => {
     expect(watchActionLabel(true, false)).toBe("Unwatch");
     expect(watchActionLabel(false, true)).toBe("Watching…");
     expect(watchActionLabel(true, true)).toBe("Unwatching…");
+  });
+});
+
+describe("knowledge source refresh lifecycle presentation", () => {
+  it("maps every effective refresh state to a deterministic badge and label", () => {
+    expect(sourceRefreshPresentation("CURRENT")).toEqual({
+      code: "SUCCESS",
+      label: "Current",
+    });
+    expect(sourceRefreshPresentation("REFRESH_DUE")).toEqual({
+      code: "PARTIAL",
+      label: "Refresh due",
+    });
+    expect(sourceRefreshPresentation("REFRESHING")).toEqual({
+      code: "PARTIAL",
+      label: "Refreshing",
+    });
+    expect(sourceRefreshPresentation("STALE")).toEqual({
+      code: "DENIED",
+      label: "Stale",
+    });
+    expect(sourceRefreshPresentation("RETIRED")).toEqual({
+      code: "DENIED",
+      label: "Retired",
+    });
+  });
+
+  it("offers admin transitions only from administrable states", () => {
+    expect(sourceRefreshActions("CURRENT")).toEqual([
+      "MARK_REFRESH_DUE",
+      "MARK_STALE",
+    ]);
+    expect(sourceRefreshActions("REFRESH_DUE")).toEqual([
+      "MARK_CURRENT",
+      "MARK_STALE",
+    ]);
+    expect(sourceRefreshActions("STALE")).toEqual([
+      "MARK_REFRESH_DUE",
+      "MARK_CURRENT",
+    ]);
+    expect(sourceRefreshActions("REFRESHING")).toEqual([]);
+    expect(sourceRefreshActions("RETIRED")).toEqual([]);
   });
 });
 

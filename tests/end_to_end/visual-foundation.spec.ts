@@ -360,6 +360,100 @@ test("approved employee and analyst screens remain visually stable", async ({
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("admin-knowledge.png", screenshotOptions);
 
+  const sourcesRoute = "**/api/v1/admin/knowledge/sources*";
+  await page.route(sourcesRoute, async (route) => {
+    const source = (
+      key: string,
+      code: string,
+      name: string,
+      sourceType: string,
+      overrides: Record<string, unknown>,
+    ) => ({
+      acquisition_method: "MANUAL_UPLOAD",
+      approval_status: "APPROVED",
+      approved_at: "2026-07-01T09:00:00Z",
+      approved_by: null,
+      audience_scope: "EMPLOYEE",
+      automated_access_allowed: false,
+      canonical_location: `https://kb.example.invalid/${key}`,
+      code,
+      created_at: "2026-07-01T09:00:00Z",
+      effective_refresh_state: "CURRENT",
+      id: `a0000000-0000-4000-8000-00000000000${key}`,
+      language_code: "en",
+      last_acquisition_at: null,
+      last_acquisition_status: null,
+      last_refresh_completed_at: null,
+      last_refresh_requested_at: null,
+      last_refresh_requested_by: null,
+      module_code: null,
+      module_node_id: null,
+      name,
+      owner_group_id: null,
+      owner_user_id: null,
+      permission_reference: null,
+      product_code: null,
+      product_node_id: null,
+      publisher_name: null,
+      refresh_due_at: null,
+      refresh_state: "CURRENT",
+      release_code: null,
+      release_family: null,
+      release_id: null,
+      row_version: 1,
+      scope: "TENANT",
+      source_type: sourceType,
+      status: "ACTIVE",
+      updated_at: "2026-07-01T09:00:00Z",
+      ...overrides,
+    });
+    await route.fulfill({
+      json: {
+        has_more: false,
+        items: [
+          source("1", "DEV_HANDBOOK", "IT Handbook", "INTERNAL_KNOWLEDGE", {
+            effective_refresh_state: "REFRESH_DUE",
+            last_refresh_completed_at: "2026-08-01T10:00:00Z",
+            refresh_due_at: "2026-08-02T09:00:00Z",
+            refresh_state: "REFRESH_DUE",
+          }),
+          source(
+            "2",
+            "ORACLE_FDI_DOCS",
+            "Oracle Fusion Data Intelligence Documentation",
+            "ORACLE_PUBLIC_DOCUMENTATION",
+            { scope: "GLOBAL" },
+          ),
+          source(
+            "3",
+            "ORACLE_PUBLIC_DOCS",
+            "Oracle Public Documentation",
+            "ORACLE_PUBLIC_DOCUMENTATION",
+            { scope: "GLOBAL" },
+          ),
+        ],
+        offset: 0,
+        total: 3,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Sources" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Knowledge sources", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("3 governed sources")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-knowledge-sources.png",
+    screenshotOptions,
+  );
+  await page.unroute(sourcesRoute);
+
+  await page.getByRole("tab", { name: "Documents" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Knowledge", exact: true }),
+  ).toBeVisible();
   await page.getByRole("link", { name: "Invoice validation runbook" }).click();
   await expect(
     page.getByRole("heading", { name: "Invoice validation runbook" }),

@@ -15,6 +15,8 @@ from apps.api.app.knowledge.schemas import (
     AcquisitionPermissionResponse,
     ApprovalStatus,
     AudienceScope,
+    RefreshLifecycleCommand,
+    RefreshState,
     SourceApprovalCommand,
     SourceCreate,
     SourceList,
@@ -58,7 +60,10 @@ async def list_sources(
     audience: AudienceScope | None = None,
     status: SourceStatus | None = None,
     approval_status: ApprovalStatus | None = None,
+    refresh_state: RefreshState | None = None,
+    search: Annotated[str | None, Query(min_length=2, max_length=100)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> SourceList:
     return await _service(request).list(
         context,
@@ -66,7 +71,10 @@ async def list_sources(
         audience=audience,
         status=status,
         approval_status=approval_status,
+        refresh_state=refresh_state,
+        search=search,
         limit=limit,
+        offset=offset,
     )
 
 
@@ -127,6 +135,26 @@ async def decide_source_approval(
     ],
 ) -> SourceResponse:
     result, replayed = await _service(request).approve(context, source_id, command, idempotency_key)
+    if replayed:
+        response.headers["Idempotent-Replayed"] = "true"
+    return result
+
+
+@router.post("/{source_id}/refresh-lifecycle", response_model=SourceResponse, responses=ERRORS)
+async def change_refresh_lifecycle(
+    response: Response,
+    request: Request,
+    source_id: UUID,
+    command: RefreshLifecycleCommand,
+    idempotency_key: IdempotencyKey,
+    context: Annotated[
+        RequestContext,
+        Depends(require_permission(Permission.KNOWLEDGE_SOURCE_UPDATE, privileged_access=True)),
+    ],
+) -> SourceResponse:
+    result, replayed = await _service(request).refresh_lifecycle(
+        context, source_id, command, idempotency_key
+    )
     if replayed:
         response.headers["Idempotent-Replayed"] = "true"
     return result

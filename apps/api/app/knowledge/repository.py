@@ -27,11 +27,39 @@ SELECT source.source_id,source.tenant_id,source.source_code,source.source_name,
   source.product_node_id,product.product_code,source.module_node_id,
   module.product_code,source.release_id,release.release_family,
   release.release_code,source.language_code,source.approved_by,source.approved_at,
-  source.row_version,source.created_at,source.updated_at
+  source.row_version,source.created_at,source.updated_at,
+  source.refresh_state,source.refresh_due_at,source.last_refresh_requested_at,
+  source.last_refresh_requested_by,source.last_refresh_completed_at,
+  acquisition.item_status,acquisition.created_at
 FROM kb.source AS source
 LEFT JOIN kb.product_node AS product ON product.product_node_id=source.product_node_id
 LEFT JOIN kb.product_node AS module ON module.product_node_id=source.module_node_id
 LEFT JOIN kb.release AS release ON release.release_id=source.release_id
+LEFT JOIN LATERAL (
+  SELECT item.item_status,item.created_at
+  FROM kb.ingestion_run_item AS item
+  JOIN kb.ingestion_manifest_entry AS entry
+    ON entry.manifest_entry_id=item.manifest_entry_id
+  WHERE entry.source_id=source.source_id
+  ORDER BY item.created_at DESC LIMIT 1
+) AS acquisition ON true
+"""
+
+_SOURCE_LIST_FILTER = """
+WHERE (source.tenant_id=:tenant_id OR source.tenant_id IS NULL)
+  AND (CAST(:source_type AS varchar) IS NULL
+    OR source.source_type=:source_type)
+  AND (CAST(:audience AS varchar) IS NULL
+    OR source.audience_scope=:audience)
+  AND (CAST(:status AS varchar) IS NULL
+    OR source.source_status=:status)
+  AND (CAST(:approval_status AS varchar) IS NULL
+    OR source.approval_status=:approval_status)
+  AND (CAST(:refresh_state AS varchar) IS NULL
+    OR source.refresh_state=:refresh_state)
+  AND (CAST(:search AS varchar) IS NULL
+    OR source.source_code ILIKE '%' || :search || '%'
+    OR source.source_name ILIKE '%' || :search || '%')
 """
 
 
@@ -47,36 +75,36 @@ class KnowledgeSourceRepository:
         audience: str | None,
         status: str | None,
         approval_status: str | None,
+        refresh_state: str | None = None,
+        search: str | None = None,
         limit: int,
-    ) -> list[KnowledgeSource]:
+        offset: int = 0,
+    ) -> tuple[list[KnowledgeSource], int]:
+        parameters = {
+            "tenant_id": tenant_id,
+            "source_type": source_type,
+            "audience": audience,
+            "status": status,
+            "approval_status": approval_status,
+            "refresh_state": refresh_state,
+            "search": search,
+        }
         rows = (
             await self._session.execute(
                 text(
                     _SOURCE_SELECT
-                    + """
-                    WHERE (source.tenant_id=:tenant_id OR source.tenant_id IS NULL)
-                      AND (CAST(:source_type AS varchar) IS NULL
-                        OR source.source_type=:source_type)
-                      AND (CAST(:audience AS varchar) IS NULL
-                        OR source.audience_scope=:audience)
-                      AND (CAST(:status AS varchar) IS NULL
-                        OR source.source_status=:status)
-                      AND (CAST(:approval_status AS varchar) IS NULL
-                        OR source.approval_status=:approval_status)
-                    ORDER BY source.source_code,source.source_id LIMIT :limit
-                    """
+                    + _SOURCE_LIST_FILTER
+                    + "ORDER BY source.source_code,source.source_id "
+                    + "LIMIT :limit OFFSET :offset"
                 ),
-                {
-                    "tenant_id": tenant_id,
-                    "source_type": source_type,
-                    "audience": audience,
-                    "status": status,
-                    "approval_status": approval_status,
-                    "limit": limit,
-                },
+                {**parameters, "limit": limit, "offset": offset},
             )
         ).all()
-        return [KnowledgeSource(*tuple(row)) for row in rows]
+        total = await self._session.scalar(
+            text("SELECT count(*) FROM kb.source AS source " + _SOURCE_LIST_FILTER),
+            parameters,
+        )
+        return [KnowledgeSource(*tuple(row)) for row in rows], int(total or 0)
 
     async def get(
         self, tenant_id: UUID, source_id: UUID, *, lock: bool = False
@@ -273,6 +301,74 @@ class KnowledgeSourceRepository:
             source_id,
             "KNOWLEDGE_SOURCE_APPROVAL_DECIDED",
             {"decision": decision, "new_version": expected_version + 1},
+            correlation_id,
+            request_id,
+        )
+        return True
+
+    async def set_refresh_state(
+        self,
+        tenant_id: UUID,
+        source_id: UUID,
+        actor_user_id: UUID,
+        *,
+        action: str,
+        target_state: str,
+        previous_state: str,
+        refresh_due_at: datetime | None,
+        expected_version: int,
+        correlation_id: str,
+        request_id: str,
+    ) -> bool:
+        result = cast(
+            "CursorResult[Any]",
+            await self._session.execute(
+                text("""
+                UPDATE kb.source SET refresh_state=:target_state,
+                  refresh_due_at=CASE
+                    WHEN CAST(:action AS varchar)='MARK_REFRESH_DUE'
+                      THEN coalesce(:refresh_due_at,now())
+                    WHEN CAST(:action AS varchar)='MARK_CURRENT' THEN NULL
+                    ELSE refresh_due_at END,
+                  last_refresh_requested_at=CASE
+                    WHEN CAST(:action AS varchar)='MARK_REFRESH_DUE' THEN now()
+                    ELSE last_refresh_requested_at END,
+                  last_refresh_requested_by=CASE
+                    WHEN CAST(:action AS varchar)='MARK_REFRESH_DUE' THEN :actor_user_id
+                    ELSE last_refresh_requested_by END,
+                  last_refresh_completed_at=CASE
+                    WHEN CAST(:action AS varchar)='MARK_CURRENT' THEN now()
+                    ELSE last_refresh_completed_at END,
+                  updated_by=:actor_user_id,row_version=row_version+1
+                WHERE source_id=:source_id AND (tenant_id=:tenant_id OR tenant_id IS NULL)
+                  AND row_version=:expected_version AND source_status<>'RETIRED'
+                  AND refresh_state=:previous_state
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "source_id": source_id,
+                    "actor_user_id": actor_user_id,
+                    "action": action,
+                    "target_state": target_state,
+                    "previous_state": previous_state,
+                    "refresh_due_at": refresh_due_at,
+                    "expected_version": expected_version,
+                },
+            ),
+        )
+        if result.rowcount != 1:
+            return False
+        await self._audit(
+            tenant_id,
+            actor_user_id,
+            source_id,
+            "KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED",
+            {
+                "action": action,
+                "from_state": previous_state,
+                "to_state": target_state,
+                "new_version": expected_version + 1,
+            },
             correlation_id,
             request_id,
         )

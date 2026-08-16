@@ -516,6 +516,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/sources/{source_id}/refresh-lifecycle": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Change Refresh Lifecycle */
+    post: operations["change_refresh_lifecycle_api_v1_admin_knowledge_sources__source_id__refresh_lifecycle_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/overview": {
     parameters: {
       query?: never;
@@ -5472,6 +5489,18 @@ export interface components {
        */
       updated_at: string;
     };
+    /** RefreshLifecycleCommand */
+    RefreshLifecycleCommand: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "MARK_REFRESH_DUE" | "MARK_CURRENT" | "MARK_STALE";
+      /** Expected Version */
+      expected_version: number;
+      /** Refresh Due At */
+      refresh_due_at?: string | null;
+    };
     /** RequestFormResponse */
     RequestFormResponse: {
       /** Code */
@@ -6017,8 +6046,23 @@ export interface components {
     };
     /** SourceList */
     SourceList: {
+      /**
+       * Has More
+       * @default false
+       */
+      has_more: boolean;
       /** Items */
       items: components["schemas"]["SourceResponse"][];
+      /**
+       * Offset
+       * @default 0
+       */
+      offset: number;
+      /**
+       * Total
+       * @default 0
+       */
+      total: number;
     };
     /** SourceResponse */
     SourceResponse: {
@@ -6058,12 +6102,28 @@ export interface components {
        */
       created_at: string;
       /**
+       * Effective Refresh State
+       * @enum {string}
+       */
+      effective_refresh_state:
+        "CURRENT" | "REFRESH_DUE" | "REFRESHING" | "STALE" | "RETIRED";
+      /**
        * Id
        * Format: uuid
        */
       id: string;
       /** Language Code */
       language_code: string;
+      /** Last Acquisition At */
+      last_acquisition_at: string | null;
+      /** Last Acquisition Status */
+      last_acquisition_status: string | null;
+      /** Last Refresh Completed At */
+      last_refresh_completed_at: string | null;
+      /** Last Refresh Requested At */
+      last_refresh_requested_at: string | null;
+      /** Last Refresh Requested By */
+      last_refresh_requested_by: string | null;
       /** Module Code */
       module_code: string | null;
       /** Module Node Id */
@@ -6082,6 +6142,13 @@ export interface components {
       product_node_id: string | null;
       /** Publisher Name */
       publisher_name: string | null;
+      /** Refresh Due At */
+      refresh_due_at: string | null;
+      /**
+       * Refresh State
+       * @enum {string}
+       */
+      refresh_state: "CURRENT" | "REFRESH_DUE" | "REFRESHING" | "STALE";
       /** Release Code */
       release_code: string | null;
       /** Release Family */
@@ -8386,7 +8453,11 @@ export interface operations {
         status?: ("ACTIVE" | "DISABLED" | "RETIRED") | null;
         approval_status?:
           ("DRAFT" | "UNDER_REVIEW" | "APPROVED" | "REJECTED") | null;
+        refresh_state?:
+          ("CURRENT" | "REFRESH_DUE" | "REFRESHING" | "STALE") | null;
+        search?: string | null;
         limit?: number;
+        offset?: number;
       };
       header?: never;
       path?: never;
@@ -8815,6 +8886,79 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["SourceApprovalCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  change_refresh_lifecycle_api_v1_admin_knowledge_sources__source_id__refresh_lifecycle_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshLifecycleCommand"];
       };
     };
     responses: {

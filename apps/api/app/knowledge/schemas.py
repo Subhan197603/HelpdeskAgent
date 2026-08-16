@@ -25,6 +25,9 @@ AudienceScope = Literal["EMPLOYEE", "ANALYST", "RESTRICTED", "ADMINISTRATIVE"]
 SourceStatus = Literal["ACTIVE", "DISABLED", "RETIRED"]
 ApprovalStatus = Literal["DRAFT", "UNDER_REVIEW", "APPROVED", "REJECTED"]
 SourceScope = Literal["TENANT", "GLOBAL"]
+RefreshState = Literal["CURRENT", "REFRESH_DUE", "REFRESHING", "STALE"]
+EffectiveRefreshState = Literal["CURRENT", "REFRESH_DUE", "REFRESHING", "STALE", "RETIRED"]
+RefreshLifecycleAction = Literal["MARK_REFRESH_DUE", "MARK_CURRENT", "MARK_STALE"]
 SourceCode = Annotated[
     str,
     StringConstraints(
@@ -78,6 +81,18 @@ class SourceApprovalCommand(BaseModel):
     expected_version: Annotated[int, Field(ge=1)]
 
 
+class RefreshLifecycleCommand(BaseModel):
+    action: RefreshLifecycleAction
+    expected_version: Annotated[int, Field(ge=1)]
+    refresh_due_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def validate_due_date(self) -> "RefreshLifecycleCommand":
+        if self.refresh_due_at is not None and self.action != "MARK_REFRESH_DUE":
+            raise ValueError("refresh_due_at is only accepted with MARK_REFRESH_DUE")
+        return self
+
+
 class AcquisitionAuthorizationCommand(BaseModel):
     decision: Literal["APPROVED", "REVOKED"]
     acquisition_method: Literal["APPROVED_DIRECT_DOWNLOAD", "API_FEED", "REPOSITORY_CONNECTOR"]
@@ -122,10 +137,21 @@ class SourceResponse(BaseModel):
     row_version: int
     created_at: datetime
     updated_at: datetime
+    refresh_state: RefreshState
+    effective_refresh_state: EffectiveRefreshState
+    refresh_due_at: datetime | None
+    last_refresh_requested_at: datetime | None
+    last_refresh_requested_by: UUID | None
+    last_refresh_completed_at: datetime | None
+    last_acquisition_status: str | None
+    last_acquisition_at: datetime | None
 
 
 class SourceList(BaseModel):
     items: list[SourceResponse]
+    total: int = 0
+    offset: int = 0
+    has_more: bool = False
 
 
 class AcquisitionAuthorizationResponse(BaseModel):

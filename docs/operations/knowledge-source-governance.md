@@ -45,3 +45,21 @@ content are not accepted or recorded.
 
 The migration applies tenant-or-global row-level policies to both registry tables. The application
 also scopes every query explicitly and enforces role permissions in the service layer.
+
+## Refresh lifecycle administration
+
+Milestone 13 Task 13.1 adds an administrative refresh lifecycle to each governed source. The
+stored state is `CURRENT`, `REFRESH_DUE`, `REFRESHING`, or `STALE`; a retired source always
+reports the derived effective state `RETIRED`. Administrators holding `KNOWLEDGE_SOURCE_UPDATE`
+may mark a source for refresh, mark it current, or mark it stale through
+`POST /api/v1/admin/knowledge/sources/{source_id}/refresh-lifecycle`. Transitions require an
+`Idempotency-Key` and the expected row version, reject retired sources and out-of-order
+transitions deterministically, and write a `KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED` audit
+event with the from/to states.
+
+The lifecycle records administrative intent only. No transition acquires content, creates an
+ingestion run, changes retrieval eligibility, or alters approval or acquisition permission. The
+reserved `REFRESHING` value is not reachable through the administrative endpoint; the later
+pipeline-integration task owns it. The source inventory endpoint additionally reports the latest
+acquisition evidence (most recent ingestion item status and time) derived read-only from existing
+pipeline tables.

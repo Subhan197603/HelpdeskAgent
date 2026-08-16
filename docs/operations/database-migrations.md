@@ -42,6 +42,7 @@ The only post-v1 revisions currently present are:
 → 0024_analyst_saved_filters
 → 0025_analyst_canned_responses
 → 0026_analyst_ticket_watchlist
+→ 0027_knowledge_source_lifecycle
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -72,10 +73,18 @@ narrow runtime CRUD grants, optimistic row versions, and owner-scoped
 uniqueness and ordering indexes. It follows `0024_analyst_saved_filters`; the
 physical PostgreSQL baseline is unchanged.
 
-Milestone 12 Task 12.3 introduced `0026_analyst_ticket_watchlist`, the current
-development head. It adds private ticket-watch preferences with tenant-and-owner
+Milestone 12 Task 12.3 introduced `0026_analyst_ticket_watchlist`. It adds
+private ticket-watch preferences with tenant-and-owner
 row-level security, visibility-safe indexes, and narrow runtime select, insert,
 and delete grants. It follows `0025_analyst_canned_responses`; the physical
+PostgreSQL baseline is unchanged.
+
+Milestone 13 Task 13.1 introduces `0027_knowledge_source_lifecycle`, the
+current development head. It adds five additive refresh-lifecycle columns and
+one check constraint and index to `kb.source`, recording administrative
+refresh intent only. Existing `kb.source` row-level security and runtime
+grants cover the new columns; no new table, privilege, or retrieval behavior
+is introduced. It follows `0026_analyst_ticket_watchlist`; the physical
 PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database

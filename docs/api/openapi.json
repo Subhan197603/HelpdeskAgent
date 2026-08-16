@@ -9366,6 +9366,35 @@
         "title": "QueueTicketResponse",
         "type": "object"
       },
+      "RefreshLifecycleCommand": {
+        "properties": {
+          "action": {
+            "enum": ["MARK_REFRESH_DUE", "MARK_CURRENT", "MARK_STALE"],
+            "title": "Action",
+            "type": "string"
+          },
+          "expected_version": {
+            "minimum": 1.0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "refresh_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Due At"
+          }
+        },
+        "required": ["action", "expected_version"],
+        "title": "RefreshLifecycleCommand",
+        "type": "object"
+      },
       "RequestFormResponse": {
         "properties": {
           "code": {
@@ -10924,12 +10953,27 @@
       },
       "SourceList": {
         "properties": {
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/SourceResponse"
             },
             "title": "Items",
             "type": "array"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": ["items"],
@@ -11000,6 +11044,17 @@
             "title": "Created At",
             "type": "string"
           },
+          "effective_refresh_state": {
+            "enum": [
+              "CURRENT",
+              "REFRESH_DUE",
+              "REFRESHING",
+              "STALE",
+              "RETIRED"
+            ],
+            "title": "Effective Refresh State",
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -11008,6 +11063,65 @@
           "language_code": {
             "title": "Language Code",
             "type": "string"
+          },
+          "last_acquisition_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Acquisition At"
+          },
+          "last_acquisition_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Acquisition Status"
+          },
+          "last_refresh_completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Refresh Completed At"
+          },
+          "last_refresh_requested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Refresh Requested At"
+          },
+          "last_refresh_requested_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Refresh Requested By"
           },
           "module_code": {
             "anyOf": [
@@ -11105,6 +11219,23 @@
             ],
             "title": "Publisher Name"
           },
+          "refresh_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refresh Due At"
+          },
+          "refresh_state": {
+            "enum": ["CURRENT", "REFRESH_DUE", "REFRESHING", "STALE"],
+            "title": "Refresh State",
+            "type": "string"
+          },
           "release_code": {
             "anyOf": [
               {
@@ -11199,7 +11330,15 @@
           "approved_at",
           "row_version",
           "created_at",
-          "updated_at"
+          "updated_at",
+          "refresh_state",
+          "effective_refresh_state",
+          "refresh_due_at",
+          "last_refresh_requested_at",
+          "last_refresh_requested_by",
+          "last_refresh_completed_at",
+          "last_acquisition_status",
+          "last_acquisition_at"
         ],
         "title": "SourceResponse",
         "type": "object"
@@ -15316,6 +15455,41 @@
           },
           {
             "in": "query",
+            "name": "refresh_state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["CURRENT", "REFRESH_DUE", "REFRESHING", "STALE"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Refresh State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 2,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -15323,6 +15497,17 @@
               "maximum": 100,
               "minimum": 1,
               "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
               "type": "integer"
             }
           }
@@ -15985,6 +16170,114 @@
           }
         ],
         "summary": "Decide Source Approval",
+        "tags": ["knowledge-admin"]
+      }
+    },
+    "/api/v1/admin/knowledge/sources/{source_id}/refresh-lifecycle": {
+      "post": {
+        "operationId": "change_refresh_lifecycle_api_v1_admin_knowledge_sources__source_id__refresh_lifecycle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshLifecycleCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Access denied"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Knowledge source validation failed"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Change Refresh Lifecycle",
         "tags": ["knowledge-admin"]
       }
     },
