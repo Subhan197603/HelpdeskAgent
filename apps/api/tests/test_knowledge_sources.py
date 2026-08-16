@@ -10,6 +10,7 @@ from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import ValidationError
 from apps.api.app.identity.authorization import AuthorizationService, Permission
 from apps.api.app.ingestion.schemas import (
+    ChangeClassification,
     ChangeReportPageResponse,
     ChangeReportSummary,
     RefreshRunCommand,
@@ -209,6 +210,13 @@ def test_refresh_run_command_requires_a_positive_expected_version() -> None:
 
 
 def test_change_report_summarizes_every_classification_deterministically() -> None:
+    cases: list[tuple[str, ChangeClassification | None, bool]] = [
+        ("SKIPPED_UNCHANGED", "UNCHANGED", False),
+        ("ACQUIRED", "CHANGED", False),
+        ("SKIPPED_REMOVED", "REMOVED", False),
+        ("SKIPPED_REDIRECTED", "REDIRECTED", False),
+        ("FAILED", None, True),
+    ]
     pages = [
         ChangeReportPageResponse(
             item_id=UUID(f"29000000-0000-0000-0000-00000000000{index}"),
@@ -224,15 +232,7 @@ def test_change_report_summarizes_every_classification_deterministically() -> No
             final_failure=final_failure,
             completed_at=None,
         )
-        for index, (status, classification, final_failure) in enumerate(
-            [
-                ("SKIPPED_UNCHANGED", "UNCHANGED", False),
-                ("ACQUIRED", "CHANGED", False),
-                ("SKIPPED_REMOVED", "REMOVED", False),
-                ("SKIPPED_REDIRECTED", "REDIRECTED", False),
-                ("FAILED", None, True),
-            ]
-        )
+        for index, (status, classification, final_failure) in enumerate(cases)
     ]
     report = SourceChangeReportResponse(
         source_id=UUID("25000000-0000-0000-0000-000000000001"),

@@ -37,6 +37,7 @@ from apps.api.app.retrieval.models import (
 from apps.api.app.retrieval.service import RetrievalService
 from apps.worker.worker.acquisition_worker import (
     AcquisitionWorker,
+    DocumentFetcher,
     FetchedDocument,
     RedirectedPageError,
     RemovedPageError,
@@ -410,7 +411,7 @@ def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
 
 async def _process(
     storage: MemoryStorage,
-    fetcher: SequenceFetcher,
+    fetcher: DocumentFetcher,
     *,
     concurrent: bool = False,
     scanner: MalwareScanner | None = None,
