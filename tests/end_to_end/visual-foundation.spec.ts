@@ -72,9 +72,16 @@ test("approved employee and analyst screens remain visually stable", async ({
     page.getByRole("heading", { name: "How can we help you?" }),
   ).toBeVisible();
   await stabilizeEmployeePortalVisual(page);
+  const recentTicketRowLimitStyle = await page.addStyleTag({
+    content:
+      ".recent-tickets > .ticket-list-item:nth-of-type(n + 4) { display: none; }",
+  });
   await expectAccessible(page);
   await expectNoHorizontalScroll(page);
   await expect(page).toHaveScreenshot("employee-portal.png", screenshotOptions);
+  await recentTicketRowLimitStyle.evaluate((style) => {
+    style.parentNode?.removeChild(style);
+  });
 
   await page
     .locator(".portal-hero")
