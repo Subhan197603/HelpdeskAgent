@@ -59,7 +59,33 @@ event with the from/to states.
 
 The lifecycle records administrative intent only. No transition acquires content, creates an
 ingestion run, changes retrieval eligibility, or alters approval or acquisition permission. The
-reserved `REFRESHING` value is not reachable through the administrative endpoint; the later
-pipeline-integration task owns it. The source inventory endpoint additionally reports the latest
-acquisition evidence (most recent ingestion item status and time) derived read-only from existing
-pipeline tables.
+reserved `REFRESHING` value is not reachable through the administrative endpoint; refresh runs
+(below) own it. The source inventory endpoint additionally reports the latest acquisition
+evidence (most recent ingestion item status and time) derived read-only from existing pipeline
+tables.
+
+## Content-change detection
+
+Milestone 13 Task 13.2 adds governed refresh runs over already-approved sources.
+`POST /api/v1/admin/knowledge/sources/{source_id}/refresh-runs` requires
+`KNOWLEDGE_INGESTION_RUN_CREATE`, an `Idempotency-Key`, and the expected source row version. It
+creates a `REFRESH` ingestion run over the source's approved, enabled manifest entries — the
+same acquisition permission gate as ordinary runs applies to every entry — and moves the source
+to `REFRESHING`. Retired sources, sources already refreshing, and sources without approved
+entries are rejected deterministically. Starting or completing a refresh never increments the
+source row version, so the row-version-pinned acquisition authorization stays valid for the run.
+
+The acquisition worker classifies each page by content hash against the latest stored document
+version: `UNCHANGED`, `CHANGED` (a new draft document version is stored), `REMOVED` (HTTP 404 or
+410, recorded as terminal `SKIPPED_REMOVED`), or `REDIRECTED` (HTTP 3xx; the target is recorded
+and never followed, terminal `SKIPPED_REDIRECTED`). Classification, previous checksum, redirect
+target, and observed HTTP status persist on the run item as evidence. Changed content never
+republishes automatically — publication remains the separate, explicitly approved
+administrative action.
+
+When the refresh run drains, the worker feeds the Task 13.1 lifecycle deterministically: all
+pages unchanged with no final failures returns the source to `CURRENT`; any changed, removed,
+redirected, or finally-failed page marks it `STALE`. The completion writes a system-attributed
+`KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED` audit event.
+`GET /api/v1/admin/knowledge/sources/{source_id}/change-report` returns the latest refresh run
+with per-page evidence and summary counts for the knowledge-administration screens.

@@ -9,6 +9,12 @@ from pydantic import ValidationError as PydanticValidationError
 from apps.api.app.core.context import RequestContext
 from apps.api.app.core.exceptions import ValidationError
 from apps.api.app.identity.authorization import AuthorizationService, Permission
+from apps.api.app.ingestion.schemas import (
+    ChangeReportPageResponse,
+    ChangeReportSummary,
+    RefreshRunCommand,
+    SourceChangeReportResponse,
+)
 from apps.api.app.knowledge.models import KnowledgeSource
 from apps.api.app.knowledge.schemas import RefreshLifecycleCommand, SourceCreate
 from apps.api.app.knowledge.service import _REFRESH_TRANSITIONS, _canonical, _response
@@ -194,3 +200,60 @@ def test_effective_refresh_state_derives_retired_from_source_status(
         _knowledge_source(source_status=source_status, refresh_state=refresh_state)
     )
     assert response.effective_refresh_state == effective
+
+
+def test_refresh_run_command_requires_a_positive_expected_version() -> None:
+    assert RefreshRunCommand.model_validate({"expected_version": 3}).expected_version == 3
+    with pytest.raises(PydanticValidationError):
+        RefreshRunCommand.model_validate({"expected_version": 0})
+
+
+def test_change_report_summarizes_every_classification_deterministically() -> None:
+    pages = [
+        ChangeReportPageResponse(
+            item_id=UUID(f"29000000-0000-0000-0000-00000000000{index}"),
+            manifest_key=f"page-{index}",
+            document_title=f"Page {index}",
+            status=status,
+            classification=classification,
+            previous_sha256=None,
+            observed_sha256=None,
+            redirect_target_url=None,
+            observed_http_status=None,
+            error_code=None,
+            final_failure=final_failure,
+            completed_at=None,
+        )
+        for index, (status, classification, final_failure) in enumerate(
+            [
+                ("SKIPPED_UNCHANGED", "UNCHANGED", False),
+                ("ACQUIRED", "CHANGED", False),
+                ("SKIPPED_REMOVED", "REMOVED", False),
+                ("SKIPPED_REDIRECTED", "REDIRECTED", False),
+                ("FAILED", None, True),
+            ]
+        )
+    ]
+    report = SourceChangeReportResponse(
+        source_id=UUID("25000000-0000-0000-0000-000000000001"),
+        run_id=None,
+        run_status=None,
+        requested_by=None,
+        created_at=None,
+        completed_at=None,
+        summary=ChangeReportSummary(
+            unchanged=sum(1 for page in pages if page.classification == "UNCHANGED"),
+            changed=sum(1 for page in pages if page.classification == "CHANGED"),
+            removed=sum(1 for page in pages if page.classification == "REMOVED"),
+            redirected=sum(1 for page in pages if page.classification == "REDIRECTED"),
+            failed=sum(1 for page in pages if page.final_failure),
+        ),
+        pages=pages,
+    )
+    assert report.summary.model_dump() == {
+        "unchanged": 1,
+        "changed": 1,
+        "removed": 1,
+        "redirected": 1,
+        "failed": 1,
+    }

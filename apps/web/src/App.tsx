@@ -3972,6 +3972,29 @@ export function sourceRefreshActions(
   return [];
 }
 
+export function sourceRefreshRunnable(
+  state: KnowledgeSourceSummary["effective_refresh_state"],
+): boolean {
+  return state === "CURRENT" || state === "REFRESH_DUE" || state === "STALE";
+}
+
+type SourceChangePage = components["schemas"]["ChangeReportPageResponse"];
+
+export function sourceChangePresentation(
+  classification: SourceChangePage["classification"],
+  finalFailure: boolean,
+): { code: "SUCCESS" | "PARTIAL" | "DENIED"; label: string } {
+  if (classification === "UNCHANGED")
+    return { code: "SUCCESS", label: "Unchanged" };
+  if (classification === "CHANGED")
+    return { code: "PARTIAL", label: "Changed" };
+  if (classification === "REDIRECTED")
+    return { code: "PARTIAL", label: "Redirected" };
+  if (classification === "REMOVED") return { code: "DENIED", label: "Removed" };
+  if (finalFailure) return { code: "DENIED", label: "Failed" };
+  return { code: "PARTIAL", label: "Pending" };
+}
+
 function AdminKnowledgeSourcesPage() {
   const client = useIdentityClient();
   const identity = useCurrentIdentity();
@@ -3984,6 +4007,10 @@ function AdminKnowledgeSourcesPage() {
     source: KnowledgeSourceSummary;
     action: SourceRefreshAction;
   } | null>(null);
+  const [pendingRefreshRun, setPendingRefreshRun] =
+    useState<KnowledgeSourceSummary | null>(null);
+  const [reportSource, setReportSource] =
+    useState<KnowledgeSourceSummary | null>(null);
   const limit = 25;
   const sources = useQuery({
     queryKey: ["admin-knowledge-sources", page, search, status, refreshState],
@@ -4040,8 +4067,50 @@ function AdminKnowledgeSourcesPage() {
       setPendingAction(null);
     },
   });
+  const refreshRunMutation = useMutation({
+    mutationFn: async (source: KnowledgeSourceSummary) =>
+      unwrap(
+        await client.POST(
+          "/api/v1/admin/knowledge/sources/{source_id}/refresh-runs",
+          {
+            params: {
+              path: { source_id: source.id },
+              header: {
+                "Idempotency-Key": newIdempotencyKey(
+                  "knowledge-source-refresh-run",
+                ),
+              },
+            },
+            body: { expected_version: source.row_version },
+          },
+        ),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-knowledge-sources"],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-knowledge-source-changes"],
+      });
+      setPendingRefreshRun(null);
+    },
+  });
+  const changeReport = useQuery({
+    enabled: reportSource != null,
+    queryKey: ["admin-knowledge-source-changes", reportSource?.id],
+    queryFn: async () =>
+      unwrap(
+        await client.GET(
+          "/api/v1/admin/knowledge/sources/{source_id}/change-report",
+          { params: { path: { source_id: reportSource?.id ?? "" } } },
+        ),
+      ),
+  });
   const canManage =
     identity?.permission_codes.includes("KNOWLEDGE_SOURCE_UPDATE") ?? false;
+  const canRunRefresh =
+    identity?.permission_codes.includes("KNOWLEDGE_INGESTION_RUN_CREATE") ??
+    false;
   const resetPage = () => {
     setPage(0);
   };
@@ -4105,34 +4174,51 @@ function AdminKnowledgeSourcesPage() {
           ? "—"
           : `${humanizeCode(row.last_acquisition_status ?? "UNKNOWN")} · ${formatDateTime(row.last_acquisition_at)}`,
     },
-    ...(canManage
-      ? [
-          {
-            header: "Actions",
-            key: "actions",
-            render: (row: KnowledgeSourceSummary) => {
-              const actions = sourceRefreshActions(row.effective_refresh_state);
-              if (actions.length === 0) return "—";
-              return (
-                <div className="admin-knowledge-title">
-                  {actions.map((action) => (
-                    <Button
-                      key={action}
-                      onClick={() => {
-                        lifecycleMutation.reset();
-                        setPendingAction({ source: row, action });
-                      }}
-                      variant="secondary"
-                    >
-                      {SOURCE_REFRESH_ACTION_LABELS[action]}
-                    </Button>
-                  ))}
-                </div>
-              );
-            },
-          },
-        ]
-      : []),
+    {
+      header: "Actions",
+      key: "actions",
+      render: (row: KnowledgeSourceSummary) => {
+        const actions = canManage
+          ? sourceRefreshActions(row.effective_refresh_state)
+          : [];
+        return (
+          <div className="admin-knowledge-title">
+            {actions.map((action) => (
+              <Button
+                key={action}
+                onClick={() => {
+                  lifecycleMutation.reset();
+                  setPendingAction({ source: row, action });
+                }}
+                variant="secondary"
+              >
+                {SOURCE_REFRESH_ACTION_LABELS[action]}
+              </Button>
+            ))}
+            {canRunRefresh &&
+              sourceRefreshRunnable(row.effective_refresh_state) && (
+                <Button
+                  onClick={() => {
+                    refreshRunMutation.reset();
+                    setPendingRefreshRun(row);
+                  }}
+                  variant="secondary"
+                >
+                  Run refresh
+                </Button>
+              )}
+            <Button
+              onClick={() => {
+                setReportSource(row);
+              }}
+              variant="secondary"
+            >
+              View changes
+            </Button>
+          </div>
+        );
+      },
+    },
   ];
   return (
     <div className="page admin-page">
@@ -4205,6 +4291,9 @@ function AdminKnowledgeSourcesPage() {
           {lifecycleMutation.error != null && (
             <ErrorSummary error={lifecycleMutation.error} />
           )}
+          {refreshRunMutation.error != null && (
+            <ErrorSummary error={refreshRunMutation.error} />
+          )}
           <DataTable
             caption="Governed knowledge sources"
             columns={columns}
@@ -4231,6 +4320,112 @@ function AdminKnowledgeSourcesPage() {
           )}
         </>
       )}
+      {reportSource != null && (
+        <section
+          aria-label={`Change report for ${reportSource.code}`}
+          className="review-card"
+        >
+          <div className="admin-knowledge-title">
+            <h2>Change report — {reportSource.code}</h2>
+            <Button
+              onClick={() => {
+                setReportSource(null);
+              }}
+              variant="secondary"
+            >
+              Close report
+            </Button>
+          </div>
+          {changeReport.isPending && (
+            <LoadingSkeleton label="Loading change report" />
+          )}
+          {changeReport.error != null && (
+            <ErrorSummary error={changeReport.error} />
+          )}
+          {changeReport.data != null &&
+            (changeReport.data.run_id == null ? (
+              <EmptyState
+                description="No refresh run has been recorded for this source yet."
+                title="No change report"
+              />
+            ) : (
+              <>
+                <p className="admin-result-count">
+                  Run {humanizeCode(changeReport.data.run_status ?? "UNKNOWN")}{" "}
+                  · {changeReport.data.summary.unchanged} unchanged ·{" "}
+                  {changeReport.data.summary.changed} changed ·{" "}
+                  {changeReport.data.summary.removed} removed ·{" "}
+                  {changeReport.data.summary.redirected} redirected ·{" "}
+                  {changeReport.data.summary.failed} failed
+                </p>
+                <DataTable
+                  caption={`Per-page change evidence for ${reportSource.code}`}
+                  columns={[
+                    {
+                      header: "Page",
+                      key: "page",
+                      render: (row: SourceChangePage) => (
+                        <div className="admin-knowledge-title">
+                          <strong>{row.manifest_key}</strong>
+                          <span>{row.document_title}</span>
+                        </div>
+                      ),
+                    },
+                    {
+                      header: "Change",
+                      key: "change",
+                      render: (row: SourceChangePage) => {
+                        const presentation = sourceChangePresentation(
+                          row.classification,
+                          row.final_failure,
+                        );
+                        return (
+                          <span>
+                            <OutcomeBadge code={presentation.code} />{" "}
+                            {presentation.label}
+                          </span>
+                        );
+                      },
+                    },
+                    {
+                      header: "Evidence",
+                      key: "evidence",
+                      render: (row: SourceChangePage) => {
+                        if (row.classification === "REDIRECTED")
+                          return row.redirect_target_url ?? "—";
+                        if (row.classification === "REMOVED")
+                          return row.observed_http_status == null
+                            ? "—"
+                            : `HTTP ${String(row.observed_http_status)}`;
+                        if (row.error_code != null)
+                          return humanizeCode(row.error_code);
+                        return row.observed_sha256 == null
+                          ? "—"
+                          : `Checksum ${row.observed_sha256.slice(0, 12)}…`;
+                      },
+                    },
+                    {
+                      header: "Completed",
+                      key: "completed",
+                      render: (row: SourceChangePage) =>
+                        row.completed_at == null
+                          ? "—"
+                          : formatDateTime(row.completed_at),
+                    },
+                  ]}
+                  empty={
+                    <EmptyState
+                      description="The refresh run has no page items."
+                      title="No pages"
+                    />
+                  }
+                  getRowKey={(row) => row.item_id}
+                  rows={changeReport.data.pages}
+                />
+              </>
+            ))}
+        </section>
+      )}
       <ConfirmationDialog
         confirmLabel={
           pendingAction == null
@@ -4253,6 +4448,27 @@ function AdminKnowledgeSourcesPage() {
             <strong>{pendingAction.source.code}</strong>? This records
             administrative refresh intent only and never starts an acquisition
             run.
+          </p>
+        )}
+      </ConfirmationDialog>
+      <ConfirmationDialog
+        confirmLabel="Run refresh"
+        onCancel={() => {
+          setPendingRefreshRun(null);
+        }}
+        onConfirm={() => {
+          if (pendingRefreshRun != null)
+            refreshRunMutation.mutate(pendingRefreshRun);
+        }}
+        open={pendingRefreshRun != null}
+        pending={refreshRunMutation.isPending}
+        title="Run refresh acquisition"
+      >
+        {pendingRefreshRun != null && (
+          <p>
+            Re-acquire the approved pages of source{" "}
+            <strong>{pendingRefreshRun.code}</strong> and record per-page change
+            evidence? Changed content is never republished automatically.
           </p>
         )}
       </ConfirmationDialog>

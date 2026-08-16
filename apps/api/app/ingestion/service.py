@@ -6,6 +6,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlsplit, urlunsplit
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from apps.api.app.core.exceptions import (
     ConcurrencyError,
     ConflictError,
     ExternalDependencyError,
+    InvalidTransitionError,
     NotFoundError,
     UnsupportedFileError,
     ValidationError,
@@ -27,6 +29,9 @@ from apps.api.app.ingestion.models import IngestionRunItem, ManifestEntry
 from apps.api.app.ingestion.repository import IngestionRepository
 from apps.api.app.ingestion.schemas import (
     AcquisitionRunCommand,
+    ChangeClassification,
+    ChangeReportPageResponse,
+    ChangeReportSummary,
     ManifestApprovalCommand,
     ManifestEntryInput,
     ManifestEntryResponse,
@@ -34,8 +39,10 @@ from apps.api.app.ingestion.schemas import (
     ManifestImportResponse,
     ManualUploadCommand,
     ManualUploadResponse,
+    RefreshRunCommand,
     RunItemResponse,
     RunResponse,
+    SourceChangeReportResponse,
     UploadCompleteResponse,
 )
 from apps.api.app.knowledge.models import IdempotencyClaim, KnowledgeSource
@@ -208,6 +215,126 @@ class IngestionService:
             response = await _run_response(repo, tenant_id, run_id, False)
             await uow.commit()
         return response
+
+    async def create_refresh_run(
+        self,
+        context: RequestContext,
+        source_id: UUID,
+        command: RefreshRunCommand,
+        idempotency_key: str,
+    ) -> RunResponse:
+        self._require(context, Permission.KNOWLEDGE_INGESTION_RUN_CREATE)
+        tenant_id, user_id = _identity(context)
+        request_hash = _hash(
+            "refresh-run", {"source_id": str(source_id), **command.model_dump(mode="json")}
+        )
+        async with self._factory(context) as uow:
+            repo = IngestionRepository(uow.session)
+            claim = await repo.claim_idempotency(
+                tenant_id, user_id, idempotency_key, request_hash, "KNOWLEDGE_REFRESH_RUN"
+            )
+            _validate_claim(claim, user_id, request_hash)
+            if claim.processing_status == "COMPLETED":
+                if claim.result_resource_id is None:
+                    raise ConflictError("Refresh run result is unavailable.")
+                response = await _run_response(
+                    repo, tenant_id, UUID(claim.result_resource_id), True
+                )
+                await uow.commit()
+                return response
+            sources = KnowledgeSourceRepository(uow.session)
+            source = await sources.get(tenant_id, source_id, lock=True)
+            if source is None:
+                raise NotFoundError("Knowledge source was not found.")
+            if source.tenant_id is None:
+                self._require(context, Permission.KNOWLEDGE_SOURCE_MANAGE_GLOBAL)
+            if source.source_status == "RETIRED":
+                raise InvalidTransitionError("A retired source cannot be refreshed.")
+            if source.refresh_state == "REFRESHING":
+                raise InvalidTransitionError("A refresh run is already in progress.")
+            entries = await repo.approved_entries_for_source(tenant_id, source_id)
+            if not entries:
+                raise ConflictError("The source has no approved, enabled manifest entries.")
+            authorization = await sources.effective_authorization(tenant_id, source)
+            snapshots: list[tuple[ManifestEntry, int, str | None]] = []
+            for entry in entries:
+                reasons = _entry_permission_reasons(entry, source, authorization, self._settings)
+                if reasons:
+                    raise AuthorizationError(
+                        "Refresh acquisition permission denied: " + ",".join(reasons)
+                    )
+                snapshots.append((entry, source.row_version, entry.permission_reference))
+            if not await sources.start_refresh(
+                tenant_id,
+                source_id,
+                user_id,
+                previous_state=source.refresh_state,
+                expected_version=command.expected_version,
+                correlation_id=context.correlation_id,
+                request_id=context.request_id,
+            ):
+                raise ConcurrencyError("Knowledge source row version is stale.")
+            run_id, _ = await repo.create_run(
+                tenant_id,
+                user_id,
+                snapshots,
+                context.correlation_id,
+                context.request_id,
+                run_type="REFRESH",
+            )
+            await repo.complete_idempotency(claim.record_id, "INGESTION_RUN", run_id, 201)
+            response = await _run_response(repo, tenant_id, run_id, False)
+            await uow.commit()
+        return response
+
+    async def change_report(
+        self, context: RequestContext, source_id: UUID
+    ) -> SourceChangeReportResponse:
+        self._require(context, Permission.KNOWLEDGE_SOURCE_READ_ADMIN)
+        tenant_id, _ = _identity(context)
+        async with self._factory(context) as uow:
+            await _source(uow, tenant_id, source_id)
+            repo = IngestionRepository(uow.session)
+            run = await repo.latest_refresh_run(tenant_id, source_id)
+            pages = (
+                await repo.change_report_pages(tenant_id, run.ingestion_run_id)
+                if run is not None
+                else []
+            )
+        summary = ChangeReportSummary(
+            unchanged=sum(1 for page in pages if page.change_classification == "UNCHANGED"),
+            changed=sum(1 for page in pages if page.change_classification == "CHANGED"),
+            removed=sum(1 for page in pages if page.change_classification == "REMOVED"),
+            redirected=sum(1 for page in pages if page.change_classification == "REDIRECTED"),
+            failed=sum(1 for page in pages if page.final_failure),
+        )
+        return SourceChangeReportResponse(
+            source_id=source_id,
+            run_id=run.ingestion_run_id if run is not None else None,
+            run_status=run.run_status if run is not None else None,
+            requested_by=run.requested_by if run is not None else None,
+            created_at=run.created_at if run is not None else None,
+            completed_at=run.completed_at if run is not None else None,
+            total_items=run.total_items if run is not None else 0,
+            summary=summary,
+            pages=[
+                ChangeReportPageResponse(
+                    item_id=page.ingestion_run_item_id,
+                    manifest_key=page.manifest_key,
+                    document_title=page.document_title,
+                    status=page.item_status,
+                    classification=cast("ChangeClassification | None", page.change_classification),
+                    previous_sha256=page.previous_sha256,
+                    observed_sha256=page.observed_sha256,
+                    redirect_target_url=page.redirect_target_url,
+                    observed_http_status=page.observed_http_status,
+                    error_code=page.error_code,
+                    final_failure=page.final_failure,
+                    completed_at=page.completed_at,
+                )
+                for page in pages
+            ],
+        )
 
     async def authorize_manual_upload(
         self, context: RequestContext, command: ManualUploadCommand, idempotency_key: str

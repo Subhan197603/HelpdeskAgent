@@ -179,3 +179,45 @@ class RunResponse(BaseModel):
     row_version: int
     items: list[RunItemResponse]
     replayed: bool = False
+
+
+ChangeClassification = Literal["UNCHANGED", "CHANGED", "REMOVED", "REDIRECTED"]
+
+
+class RefreshRunCommand(BaseModel):
+    expected_version: Annotated[int, Field(ge=1)]
+
+
+class ChangeReportPageResponse(BaseModel):
+    item_id: UUID
+    manifest_key: str
+    document_title: str
+    status: str
+    classification: ChangeClassification | None
+    previous_sha256: str | None
+    observed_sha256: str | None
+    redirect_target_url: str | None
+    observed_http_status: int | None
+    error_code: str | None
+    final_failure: bool
+    completed_at: datetime | None
+
+
+class ChangeReportSummary(BaseModel):
+    unchanged: int = 0
+    changed: int = 0
+    removed: int = 0
+    redirected: int = 0
+    failed: int = 0
+
+
+class SourceChangeReportResponse(BaseModel):
+    source_id: UUID
+    run_id: UUID | None
+    run_status: str | None
+    requested_by: UUID | None
+    created_at: datetime | None
+    completed_at: datetime | None
+    total_items: int = 0
+    summary: ChangeReportSummary
+    pages: list[ChangeReportPageResponse]

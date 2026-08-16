@@ -38,6 +38,8 @@ from apps.api.app.retrieval.service import RetrievalService
 from apps.worker.worker.acquisition_worker import (
     AcquisitionWorker,
     FetchedDocument,
+    RedirectedPageError,
+    RemovedPageError,
     RetryableAcquisitionError,
 )
 from apps.worker.worker.knowledge_processing_worker import KnowledgeProcessingWorker
@@ -368,8 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
     assert (
-        _value("SELECT version_num FROM config.alembic_version")
-        == "0027_knowledge_source_lifecycle"
+        _value("SELECT version_num FROM config.alembic_version") == "0028_content_change_detection"
     )
     assert (
         _value(
@@ -1100,6 +1101,218 @@ def test_failed_parsing_cannot_be_published(
     assert publication.status_code == 409, publication.text
     assert (
         _value(f"SELECT count(*) FROM kb.v_active_document_chunk WHERE document_id='{document_id}'")
+        == "0"
+    )
+
+
+class RefreshFetcher:
+    """Serve a deterministic outcome per refresh page: bytes or a page signal."""
+
+    def __init__(self, outcomes: dict[str, bytes | Exception]) -> None:
+        self.outcomes = outcomes
+
+    async def fetch(self, url: str, maximum_bytes: int) -> FetchedDocument:
+        assert url.startswith("https://docs.example.invalid/")
+        key = url.rsplit("/", 1)[1].removesuffix(".pdf")
+        outcome = self.outcomes[key]
+        if isinstance(outcome, Exception):
+            raise outcome
+        assert len(outcome) <= maximum_bytes
+        return FetchedDocument(outcome, "application/pdf")
+
+
+def _item_evidence(run_id: str, manifest_key: str) -> list[str]:
+    return _value(
+        "SELECT item.item_status||'|'||coalesce(item.change_classification,'-')"
+        "||'|'||coalesce(item.previous_sha256,'-')"
+        "||'|'||coalesce(item.redirect_target_url,'-')"
+        "||'|'||coalesce(item.observed_http_status::text,'-') "
+        "FROM kb.ingestion_run_item AS item "
+        "JOIN kb.ingestion_manifest_entry AS entry "
+        "ON entry.manifest_entry_id=item.manifest_entry_id "
+        f"WHERE item.ingestion_run_id='{run_id}' AND entry.manifest_key='{manifest_key}'"
+    ).split("|")
+
+
+@pytest.mark.integration
+def test_refresh_run_classifies_pages_and_feeds_the_source_lifecycle(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, storage = application
+    source = _create_approved_source(client, "REFRESH_DOCS", "APPROVED_DIRECT_DOWNLOAD")
+    entries = []
+    for index in (1, 2, 3):
+        pending = _import_manifest(client, source["id"], f"refresh-doc-{index}")
+        entries.append(_approve_manifest(client, pending, f"refresh-doc-{index}"))
+    initial = client.post(
+        "/api/v1/admin/ingestion/runs",
+        headers=_headers("knowledge-author", "refresh-docs-initial"),
+        json={"manifest_entry_ids": [entry["id"] for entry in entries]},
+    )
+    assert initial.status_code == 201, initial.text
+    base_content = b"%PDF-1.7\nrefresh baseline\n"
+    base_checksum = hashlib.sha256(base_content).hexdigest()
+    for _ in range(3):
+        processed, _unused = asyncio.run(
+            _process(storage, SequenceFetcher(base_content)),
+            loop_factory=asyncio.SelectorEventLoop,
+        )
+        assert processed is True
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.document_version WHERE acquisition_run_id="
+            f"'{initial.json()['id']}'"
+        )
+        == "3"
+    )
+
+    refresh_runs_url = f"/api/v1/admin/knowledge/sources/{source['id']}/refresh-runs"
+    refresh = client.post(
+        refresh_runs_url,
+        headers=_headers("knowledge-author", "refresh-docs-run-1"),
+        json={"expected_version": source["row_version"]},
+    )
+    assert refresh.status_code == 201, refresh.text
+    run_id = refresh.json()["id"]
+    assert refresh.json()["total_items"] == 3
+    refreshing = client.get(
+        f"/api/v1/admin/knowledge/sources/{source['id']}",
+        headers=_headers("knowledge-author"),
+    ).json()
+    assert refreshing["refresh_state"] == "REFRESHING"
+    assert refreshing["row_version"] == source["row_version"]
+    concurrent = client.post(
+        refresh_runs_url,
+        headers=_headers("knowledge-author", "refresh-docs-run-concurrent"),
+        json={"expected_version": source["row_version"]},
+    )
+    assert concurrent.status_code == 409
+    assert concurrent.json()["type"].endswith("/problems/invalid_transition")
+    replay = client.post(
+        refresh_runs_url,
+        headers=_headers("knowledge-author", "refresh-docs-run-1"),
+        json={"expected_version": source["row_version"]},
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["id"] == run_id
+
+    changed_content = b"%PDF-1.7\nrefresh changed content\n"
+    first_refresh = RefreshFetcher(
+        {
+            "refresh-doc-1": changed_content,
+            "refresh-doc-2": RemovedPageError(404),
+            "refresh-doc-3": RedirectedPageError(
+                301, "https://docs.example.invalid/refresh-doc-3-moved.pdf"
+            ),
+        }
+    )
+    for _ in range(3):
+        processed, _unused = asyncio.run(
+            _process(storage, first_refresh), loop_factory=asyncio.SelectorEventLoop
+        )
+        assert processed is True
+
+    assert _item_evidence(run_id, "refresh-doc-1") == [
+        "ACQUIRED",
+        "CHANGED",
+        base_checksum,
+        "-",
+        "-",
+    ]
+    assert _item_evidence(run_id, "refresh-doc-2") == [
+        "SKIPPED_REMOVED",
+        "REMOVED",
+        base_checksum,
+        "-",
+        "404",
+    ]
+    assert _item_evidence(run_id, "refresh-doc-3") == [
+        "SKIPPED_REDIRECTED",
+        "REDIRECTED",
+        base_checksum,
+        "https://docs.example.invalid/refresh-doc-3-moved.pdf",
+        "301",
+    ]
+    changed_checksum = hashlib.sha256(changed_content).hexdigest()
+    assert (
+        _value(
+            "SELECT current_version_flag||'|'||validation_status FROM kb.document_version "
+            f"WHERE sha256_checksum='{changed_checksum}'"
+        )
+        == "false|PENDING"
+    )
+    stale = client.get(
+        f"/api/v1/admin/knowledge/sources/{source['id']}",
+        headers=_headers("knowledge-author"),
+    ).json()
+    assert stale["refresh_state"] == "STALE"
+    assert stale["row_version"] == source["row_version"]
+    assert stale["last_refresh_completed_at"] is not None
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event WHERE actor_type='SYSTEM' AND "
+            f"resource_id='{source['id']}' AND "
+            "action_code='KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED'"
+        )
+        == "1"
+    )
+
+    report = client.get(
+        f"/api/v1/admin/knowledge/sources/{source['id']}/change-report",
+        headers=_headers("knowledge-author"),
+    )
+    assert report.status_code == 200, report.text
+    body = report.json()
+    assert body["run_id"] == run_id
+    assert body["run_status"] == "COMPLETED"
+    assert body["summary"] == {
+        "unchanged": 0,
+        "changed": 1,
+        "removed": 1,
+        "redirected": 1,
+        "failed": 0,
+    }
+    assert [page["manifest_key"] for page in body["pages"]] == [
+        "refresh-doc-1",
+        "refresh-doc-2",
+        "refresh-doc-3",
+    ]
+
+    second = client.post(
+        refresh_runs_url,
+        headers=_headers("knowledge-author", "refresh-docs-run-2"),
+        json={"expected_version": source["row_version"]},
+    )
+    assert second.status_code == 201, second.text
+    second_refresh = RefreshFetcher(
+        {
+            "refresh-doc-1": changed_content,
+            "refresh-doc-2": base_content,
+            "refresh-doc-3": base_content,
+        }
+    )
+    for _ in range(3):
+        processed, _unused = asyncio.run(
+            _process(storage, second_refresh), loop_factory=asyncio.SelectorEventLoop
+        )
+        assert processed is True
+    assert _item_evidence(second.json()["id"], "refresh-doc-1")[:2] == [
+        "SKIPPED_UNCHANGED",
+        "UNCHANGED",
+    ]
+    current = client.get(
+        f"/api/v1/admin/knowledge/sources/{source['id']}",
+        headers=_headers("knowledge-author"),
+    ).json()
+    assert current["refresh_state"] == "CURRENT"
+    assert current["refresh_due_at"] is None
+    assert current["row_version"] == source["row_version"]
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.document_version WHERE acquisition_run_id="
+            f"'{second.json()['id']}'"
+        )
         == "0"
     )
 

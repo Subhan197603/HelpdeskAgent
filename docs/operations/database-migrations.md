@@ -43,6 +43,7 @@ The only post-v1 revisions currently present are:
 → 0025_analyst_canned_responses
 → 0026_analyst_ticket_watchlist
 → 0027_knowledge_source_lifecycle
+→ 0028_content_change_detection
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -79,13 +80,24 @@ row-level security, visibility-safe indexes, and narrow runtime select, insert,
 and delete grants. It follows `0025_analyst_canned_responses`; the physical
 PostgreSQL baseline is unchanged.
 
-Milestone 13 Task 13.1 introduces `0027_knowledge_source_lifecycle`, the
-current development head. It adds five additive refresh-lifecycle columns and
-one check constraint and index to `kb.source`, recording administrative
-refresh intent only. Existing `kb.source` row-level security and runtime
-grants cover the new columns; no new table, privilege, or retrieval behavior
-is introduced. It follows `0026_analyst_ticket_watchlist`; the physical
-PostgreSQL baseline is unchanged.
+Milestone 13 Task 13.1 introduces `0027_knowledge_source_lifecycle`. It adds
+five additive refresh-lifecycle columns and one check constraint and index to
+`kb.source`, recording administrative refresh intent only. Existing
+`kb.source` row-level security and runtime grants cover the new columns; no
+new table, privilege, or retrieval behavior is introduced. It follows
+`0026_analyst_ticket_watchlist`; the physical PostgreSQL baseline is
+unchanged.
+
+Milestone 13 Task 13.2 introduces `0028_content_change_detection`, the current
+development head. It adds four additive per-page change-evidence columns to
+`kb.ingestion_run_item` (classification, previous checksum, redirect target,
+observed HTTP status), widens the ingestion-run type constraint with the
+`REFRESH` run type and the ingestion-item status constraint with the terminal
+`SKIPPED_REMOVED` and `SKIPPED_REDIRECTED` outcomes (approved by ADR-0030),
+and grants the worker role a column-scoped `UPDATE` on the three `kb.source`
+refresh-lifecycle columns. No retrieval behavior changes; it follows
+`0027_knowledge_source_lifecycle`; the physical PostgreSQL baseline is
+unchanged.
 
 ## Adopt a new local database
 

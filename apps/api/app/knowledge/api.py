@@ -9,6 +9,12 @@ from apps.api.app.catalog.schemas import ProblemResponse
 from apps.api.app.core.context import RequestContext
 from apps.api.app.dependencies.request_context import require_permission
 from apps.api.app.identity.authorization import Permission
+from apps.api.app.ingestion.schemas import (
+    RefreshRunCommand,
+    RunResponse,
+    SourceChangeReportResponse,
+)
+from apps.api.app.ingestion.service import IngestionService
 from apps.api.app.knowledge.schemas import (
     AcquisitionAuthorizationCommand,
     AcquisitionAuthorizationResponse,
@@ -48,6 +54,10 @@ IdempotencyKey = Annotated[
 
 def _service(request: Request) -> KnowledgeSourceService:
     return cast("KnowledgeSourceService", request.app.state.knowledge_source_service)
+
+
+def _ingestion_service(request: Request) -> IngestionService:
+    return cast("IngestionService", request.app.state.ingestion_service)
 
 
 @router.get("", response_model=SourceList, responses=ERRORS)
@@ -158,6 +168,49 @@ async def change_refresh_lifecycle(
     if replayed:
         response.headers["Idempotent-Replayed"] = "true"
     return result
+
+
+@router.post(
+    "/{source_id}/refresh-runs",
+    response_model=RunResponse,
+    status_code=201,
+    responses=ERRORS,
+)
+async def create_source_refresh_run(
+    response: Response,
+    request: Request,
+    source_id: UUID,
+    command: RefreshRunCommand,
+    idempotency_key: IdempotencyKey,
+    context: Annotated[
+        RequestContext,
+        Depends(
+            require_permission(Permission.KNOWLEDGE_INGESTION_RUN_CREATE, privileged_access=True)
+        ),
+    ],
+) -> RunResponse:
+    result = await _ingestion_service(request).create_refresh_run(
+        context, source_id, command, idempotency_key
+    )
+    if result.replayed:
+        response.status_code = 200
+        response.headers["Idempotent-Replayed"] = "true"
+    return result
+
+
+@router.get(
+    "/{source_id}/change-report",
+    response_model=SourceChangeReportResponse,
+    responses=ERRORS,
+)
+async def source_change_report(
+    request: Request,
+    source_id: UUID,
+    context: Annotated[
+        RequestContext, Depends(require_permission(Permission.KNOWLEDGE_SOURCE_READ_ADMIN))
+    ],
+) -> SourceChangeReportResponse:
+    return await _ingestion_service(request).change_report(context, source_id)
 
 
 @router.post(

@@ -9,8 +9,10 @@ import {
   DynamicField,
   insertCannedResponse,
   LoginPage,
+  sourceChangePresentation,
   sourceRefreshActions,
   sourceRefreshPresentation,
+  sourceRefreshRunnable,
   ticketClassificationDisplay,
   watchActionLabel,
 } from "./App";
@@ -254,6 +256,41 @@ describe("knowledge source refresh lifecycle presentation", () => {
     ]);
     expect(sourceRefreshActions("REFRESHING")).toEqual([]);
     expect(sourceRefreshActions("RETIRED")).toEqual([]);
+  });
+
+  it("allows starting a refresh run only from settled states", () => {
+    expect(sourceRefreshRunnable("CURRENT")).toBe(true);
+    expect(sourceRefreshRunnable("REFRESH_DUE")).toBe(true);
+    expect(sourceRefreshRunnable("STALE")).toBe(true);
+    expect(sourceRefreshRunnable("REFRESHING")).toBe(false);
+    expect(sourceRefreshRunnable("RETIRED")).toBe(false);
+  });
+
+  it("maps every page change classification to a deterministic badge", () => {
+    expect(sourceChangePresentation("UNCHANGED", false)).toEqual({
+      code: "SUCCESS",
+      label: "Unchanged",
+    });
+    expect(sourceChangePresentation("CHANGED", false)).toEqual({
+      code: "PARTIAL",
+      label: "Changed",
+    });
+    expect(sourceChangePresentation("REDIRECTED", false)).toEqual({
+      code: "PARTIAL",
+      label: "Redirected",
+    });
+    expect(sourceChangePresentation("REMOVED", false)).toEqual({
+      code: "DENIED",
+      label: "Removed",
+    });
+    expect(sourceChangePresentation(null, true)).toEqual({
+      code: "DENIED",
+      label: "Failed",
+    });
+    expect(sourceChangePresentation(null, false)).toEqual({
+      code: "PARTIAL",
+      label: "Pending",
+    });
   });
 });
 

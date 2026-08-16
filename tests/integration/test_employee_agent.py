@@ -285,7 +285,7 @@ def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
     )
     assert _psql("SELECT to_regnamespace('reporting')") == "reporting"
     assert (
-        _psql("SELECT version_num FROM config.alembic_version") == "0027_knowledge_source_lifecycle"
+        _psql("SELECT version_num FROM config.alembic_version") == "0028_content_change_detection"
     )
 
 

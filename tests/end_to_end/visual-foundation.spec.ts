@@ -448,6 +448,90 @@ test("approved employee and analyst screens remain visually stable", async ({
     "admin-knowledge-sources.png",
     screenshotOptions,
   );
+
+  const changeReportRoute = "**/api/v1/admin/knowledge/sources/*/change-report";
+  await page.route(changeReportRoute, async (route) => {
+    const reportPage = (
+      key: string,
+      title: string,
+      status: string,
+      classification: string | null,
+      overrides: Record<string, unknown>,
+    ) => ({
+      classification,
+      completed_at: "2026-08-03T09:30:00Z",
+      document_title: title,
+      error_code: null,
+      final_failure: false,
+      item_id: `b0000000-0000-4000-8000-00000000000${key}`,
+      manifest_key: `handbook-page-${key}`,
+      observed_http_status: null,
+      observed_sha256: null,
+      previous_sha256:
+        "6a5f0000000000000000000000000000000000000000000000000000000000aa",
+      redirect_target_url: null,
+      status,
+      ...overrides,
+    });
+    await route.fulfill({
+      json: {
+        completed_at: "2026-08-03T09:30:00Z",
+        created_at: "2026-08-03T09:00:00Z",
+        pages: [
+          reportPage("1", "Getting started", "SKIPPED_UNCHANGED", "UNCHANGED", {
+            observed_sha256:
+              "6a5f0000000000000000000000000000000000000000000000000000000000aa",
+          }),
+          reportPage("2", "Device policies", "ACQUIRED", "CHANGED", {
+            observed_sha256:
+              "9c1e0000000000000000000000000000000000000000000000000000000000bb",
+          }),
+          reportPage("3", "Legacy VPN guide", "SKIPPED_REMOVED", "REMOVED", {
+            observed_http_status: 404,
+          }),
+          reportPage(
+            "4",
+            "Password portal",
+            "SKIPPED_REDIRECTED",
+            "REDIRECTED",
+            {
+              observed_http_status: 301,
+              redirect_target_url:
+                "https://kb.example.invalid/handbook/password-portal-v2",
+            },
+          ),
+        ],
+        requested_by: null,
+        run_id: "c0000000-0000-4000-8000-000000000001",
+        run_status: "COMPLETED",
+        source_id: "a0000000-0000-4000-8000-000000000001",
+        summary: {
+          changed: 1,
+          failed: 0,
+          redirected: 1,
+          removed: 1,
+          unchanged: 1,
+        },
+        total_items: 4,
+      },
+    });
+  });
+  await page
+    .getByRole("row", { name: /DEV_HANDBOOK/ })
+    .getByRole("button", { name: "View changes" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Change report — DEV_HANDBOOK" }),
+  ).toBeVisible();
+  await expect(page.getByText("1 unchanged · 1 changed")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-knowledge-source-changes.png",
+    screenshotOptions,
+  );
+  await page.getByRole("button", { name: "Close report" }).click();
+  await page.unroute(changeReportRoute);
   await page.unroute(sourcesRoute);
 
   await page.getByRole("tab", { name: "Documents" }).click();

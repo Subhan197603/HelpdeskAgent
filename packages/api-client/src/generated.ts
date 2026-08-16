@@ -516,6 +516,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/sources/{source_id}/change-report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Source Change Report */
+    get: operations["source_change_report_api_v1_admin_knowledge_sources__source_id__change_report_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/sources/{source_id}/refresh-lifecycle": {
     parameters: {
       query?: never;
@@ -527,6 +544,23 @@ export interface paths {
     put?: never;
     /** Change Refresh Lifecycle */
     post: operations["change_refresh_lifecycle_api_v1_admin_knowledge_sources__source_id__refresh_lifecycle_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/sources/{source_id}/refresh-runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Source Refresh Run */
+    post: operations["create_source_refresh_run_api_v1_admin_knowledge_sources__source_id__refresh_runs_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -3574,6 +3608,65 @@ export interface components {
       /** Row Version */
       row_version: number;
     };
+    /** ChangeReportPageResponse */
+    ChangeReportPageResponse: {
+      /** Classification */
+      classification:
+        ("UNCHANGED" | "CHANGED" | "REMOVED" | "REDIRECTED") | null;
+      /** Completed At */
+      completed_at: string | null;
+      /** Document Title */
+      document_title: string;
+      /** Error Code */
+      error_code: string | null;
+      /** Final Failure */
+      final_failure: boolean;
+      /**
+       * Item Id
+       * Format: uuid
+       */
+      item_id: string;
+      /** Manifest Key */
+      manifest_key: string;
+      /** Observed Http Status */
+      observed_http_status: number | null;
+      /** Observed Sha256 */
+      observed_sha256: string | null;
+      /** Previous Sha256 */
+      previous_sha256: string | null;
+      /** Redirect Target Url */
+      redirect_target_url: string | null;
+      /** Status */
+      status: string;
+    };
+    /** ChangeReportSummary */
+    ChangeReportSummary: {
+      /**
+       * Changed
+       * @default 0
+       */
+      changed: number;
+      /**
+       * Failed
+       * @default 0
+       */
+      failed: number;
+      /**
+       * Redirected
+       * @default 0
+       */
+      redirected: number;
+      /**
+       * Removed
+       * @default 0
+       */
+      removed: number;
+      /**
+       * Unchanged
+       * @default 0
+       */
+      unchanged: number;
+    };
     /** CircuitStatusResponse */
     CircuitStatusResponse: {
       /** Model Alias */
@@ -5501,6 +5594,11 @@ export interface components {
       /** Refresh Due At */
       refresh_due_at?: string | null;
     };
+    /** RefreshRunCommand */
+    RefreshRunCommand: {
+      /** Expected Version */
+      expected_version: number;
+    };
     /** RequestFormResponse */
     RequestFormResponse: {
       /** Code */
@@ -5977,6 +6075,32 @@ export interface components {
       decision: "APPROVED" | "REJECTED";
       /** Expected Version */
       expected_version: number;
+    };
+    /** SourceChangeReportResponse */
+    SourceChangeReportResponse: {
+      /** Completed At */
+      completed_at: string | null;
+      /** Created At */
+      created_at: string | null;
+      /** Pages */
+      pages: components["schemas"]["ChangeReportPageResponse"][];
+      /** Requested By */
+      requested_by: string | null;
+      /** Run Id */
+      run_id: string | null;
+      /** Run Status */
+      run_status: string | null;
+      /**
+       * Source Id
+       * Format: uuid
+       */
+      source_id: string;
+      summary: components["schemas"]["ChangeReportSummary"];
+      /**
+       * Total Items
+       * @default 0
+       */
+      total_items: number;
     };
     /** SourceCreate */
     SourceCreate: {
@@ -8945,6 +9069,73 @@ export interface operations {
       };
     };
   };
+  source_change_report_api_v1_admin_knowledge_sources__source_id__change_report_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SourceChangeReportResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   change_refresh_lifecycle_api_v1_admin_knowledge_sources__source_id__refresh_lifecycle_post: {
     parameters: {
       query?: never;
@@ -8969,6 +9160,79 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SourceResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Access denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Knowledge source validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  create_source_refresh_run_api_v1_admin_knowledge_sources__source_id__refresh_runs_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path: {
+        source_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RefreshRunCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunResponse"];
         };
       };
       /** @description Authentication required */

@@ -408,8 +408,7 @@ def test_canonical_location_and_global_scope_are_fail_closed(client: TestClient)
 @pytest.mark.integration
 def test_refresh_lifecycle_migration_is_minimal_and_backfilled() -> None:
     assert (
-        _value("SELECT version_num FROM config.alembic_version")
-        == "0027_knowledge_source_lifecycle"
+        _value("SELECT version_num FROM config.alembic_version") == "0028_content_change_detection"
     )
     assert (
         _value(
@@ -562,3 +561,119 @@ def test_refresh_lifecycle_administration_is_governed(client: TestClient) -> Non
         )
         == "2"
     )
+
+
+@pytest.mark.integration
+def test_content_change_migration_is_minimal_and_privileged() -> None:
+    assert (
+        _value(
+            "SELECT count(*) FROM information_schema.columns "
+            "WHERE table_schema='kb' AND table_name='ingestion_run_item' AND column_name IN "
+            "('change_classification','previous_sha256','redirect_target_url',"
+            "'observed_http_status')"
+        )
+        == "4"
+    )
+    for constraint in (
+        "ingestion_item_change_classification_ck",
+        "ingestion_item_previous_sha256_ck",
+        "ingestion_item_http_status_ck",
+    ):
+        assert _value(f"SELECT count(*) FROM pg_constraint WHERE conname='{constraint}'") == "1", (
+            constraint
+        )
+    status_definition = _value(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
+        "WHERE conname='ingestion_item_status_ck'"
+    )
+    assert "SKIPPED_REMOVED" in status_definition
+    assert "SKIPPED_REDIRECTED" in status_definition
+    run_type_definition = _value(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname='ingestion_run_type_ck'"
+    )
+    assert "REFRESH" in run_type_definition
+    for column, expected in (
+        ("refresh_state", "t"),
+        ("refresh_due_at", "t"),
+        ("last_refresh_completed_at", "t"),
+        ("source_code", "f"),
+        ("approval_status", "f"),
+    ):
+        assert (
+            _value(
+                f"SELECT has_column_privilege('helpdesk_worker','kb.source','{column}','UPDATE')"
+            )
+            == expected
+        ), column
+    assert _value("SELECT has_table_privilege('helpdesk_worker','kb.source','DELETE')") == "f"
+
+
+@pytest.mark.integration
+def test_refresh_run_creation_and_change_report_are_governed(client: TestClient) -> None:
+    created = client.post(
+        "/api/v1/admin/knowledge/sources",
+        headers=_headers("knowledge-author", "create-change-detection"),
+        json=_source_payload(code="CHANGE_DETECTION"),
+    )
+    assert created.status_code == 201, created.text
+    source = created.json()
+    refresh_runs_url = f"/api/v1/admin/knowledge/sources/{source['id']}/refresh-runs"
+    report_url = f"/api/v1/admin/knowledge/sources/{source['id']}/change-report"
+
+    assert (
+        client.post(
+            refresh_runs_url,
+            headers=_headers("customer", "employee-refresh-run-denied"),
+            json={"expected_version": 1},
+        ).status_code
+        == 403
+    )
+    assert client.get(report_url, headers=_headers("customer")).status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/admin/knowledge/sources/{OTHER_SOURCE_ID}/refresh-runs",
+            headers=_headers("knowledge-author", "cross-tenant-refresh-run"),
+            json={"expected_version": 1},
+        ).status_code
+        == 404
+    )
+    assert (
+        client.get(
+            f"/api/v1/admin/knowledge/sources/{OTHER_SOURCE_ID}/change-report",
+            headers=_headers("knowledge-author"),
+        ).status_code
+        == 404
+    )
+
+    no_entries = client.post(
+        refresh_runs_url,
+        headers=_headers("knowledge-author", "refresh-run-no-entries"),
+        json={"expected_version": 1},
+    )
+    assert no_entries.status_code == 409, no_entries.text
+    assert no_entries.json()["type"].endswith("/problems/conflict")
+
+    empty_report = client.get(report_url, headers=_headers("knowledge-author"))
+    assert empty_report.status_code == 200, empty_report.text
+    assert empty_report.json()["run_id"] is None
+    assert empty_report.json()["pages"] == []
+
+    retire = _source_payload(code="CHANGE_DETECTION") | {
+        "expected_version": 1,
+        "status": "RETIRED",
+    }
+    retire.pop("scope")
+    retired = client.put(
+        f"/api/v1/admin/knowledge/sources/{source['id']}",
+        headers=_headers("knowledge-author", "retire-change-detection"),
+        json=retire,
+    )
+    assert retired.status_code == 200, retired.text
+    retired_run = client.post(
+        refresh_runs_url,
+        headers=_headers("knowledge-author", "refresh-run-retired"),
+        json={"expected_version": 2},
+    )
+    assert retired_run.status_code == 409
+    assert retired_run.json()["type"].endswith("/problems/invalid_transition")
+    assert _value("SELECT count(*) FROM kb.ingestion_run WHERE run_type='REFRESH'") == "0"

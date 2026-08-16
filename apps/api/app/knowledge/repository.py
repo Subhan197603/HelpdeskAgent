@@ -374,6 +374,57 @@ class KnowledgeSourceRepository:
         )
         return True
 
+    async def start_refresh(
+        self,
+        tenant_id: UUID,
+        source_id: UUID,
+        actor_user_id: UUID,
+        *,
+        previous_state: str,
+        expected_version: int,
+        correlation_id: str,
+        request_id: str,
+    ) -> bool:
+        # row_version stays unchanged: acquisition authorizations are pinned to
+        # the exact source row version, and starting a refresh must not
+        # invalidate the allowlist entry the run relies on.
+        result = cast(
+            "CursorResult[Any]",
+            await self._session.execute(
+                text("""
+                UPDATE kb.source SET refresh_state='REFRESHING',
+                  last_refresh_requested_at=now(),
+                  last_refresh_requested_by=:actor_user_id
+                WHERE source_id=:source_id AND (tenant_id=:tenant_id OR tenant_id IS NULL)
+                  AND row_version=:expected_version AND source_status<>'RETIRED'
+                  AND refresh_state=:previous_state
+                """),
+                {
+                    "tenant_id": tenant_id,
+                    "source_id": source_id,
+                    "actor_user_id": actor_user_id,
+                    "previous_state": previous_state,
+                    "expected_version": expected_version,
+                },
+            ),
+        )
+        if result.rowcount != 1:
+            return False
+        await self._audit(
+            tenant_id,
+            actor_user_id,
+            source_id,
+            "KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED",
+            {
+                "action": "START_REFRESH",
+                "from_state": previous_state,
+                "to_state": "REFRESHING",
+            },
+            correlation_id,
+            request_id,
+        )
+        return True
+
     async def authorize_acquisition(
         self,
         tenant_id: UUID,

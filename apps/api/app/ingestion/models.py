@@ -52,6 +52,22 @@ class IngestionRun:
 
 
 @dataclass(frozen=True, slots=True)
+class ChangeReportPage:
+    ingestion_run_item_id: UUID
+    manifest_key: str
+    document_title: str
+    item_status: str
+    change_classification: str | None
+    previous_sha256: str | None
+    observed_sha256: str | None
+    redirect_target_url: str | None
+    observed_http_status: int | None
+    error_code: str | None
+    final_failure: bool
+    completed_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
 class IngestionRunItem:
     ingestion_run_item_id: UUID
     manifest_entry_id: UUID

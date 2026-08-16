@@ -76,6 +76,24 @@ test("administrator manages the approved-source refresh lifecycle", async ({
     .click();
   await expect(handbook.getByText("Refresh due")).toBeHidden();
   await expect(handbook.getByText("Current")).toBeVisible();
+
+  await expect(
+    handbook.getByRole("button", { name: "Run refresh" }),
+  ).toBeVisible();
+  await handbook.getByRole("button", { name: "View changes" }).click();
+  await expect(
+    page.getByRole("heading", { name: /Change report — DEV_HANDBOOK/ }),
+  ).toBeVisible();
+  await expect(page.getByText("No change report")).toBeVisible();
+  await expect(
+    page.getByText("No refresh run has been recorded for this source yet."),
+  ).toBeVisible();
+  const reportAccessibility = await new AxeBuilder({ page }).analyze();
+  expect(reportAccessibility.violations).toEqual([]);
+  await page.getByRole("button", { name: "Close report" }).click();
+  await expect(
+    page.getByRole("heading", { name: /Change report — DEV_HANDBOOK/ }),
+  ).toBeHidden();
 });
 
 test("caller without knowledge administration permission is denied", async ({

@@ -44,6 +44,23 @@ class PermanentAcquisitionError(RuntimeError):
     """Invalid or forbidden content that must not be retried."""
 
 
+class RemovedPageError(PermanentAcquisitionError):
+    """The remote page no longer exists (HTTP 404 or 410)."""
+
+    def __init__(self, status_code: int) -> None:
+        super().__init__("REMOTE_PAGE_REMOVED")
+        self.status_code = status_code
+
+
+class RedirectedPageError(PermanentAcquisitionError):
+    """The remote page moved; the redirect is recorded and never followed."""
+
+    def __init__(self, status_code: int, target: str | None) -> None:
+        super().__init__("REMOTE_PAGE_REDIRECTED")
+        self.status_code = status_code
+        self.target = target
+
+
 @dataclass(frozen=True, slots=True)
 class FetchedDocument:
     content: bytes
@@ -72,6 +89,12 @@ class HttpDocumentFetcher:
                 ) as client,
                 client.stream("GET", url, headers={"Accept-Encoding": "identity"}) as response,
             ):
+                if response.status_code in {404, 410}:
+                    raise RemovedPageError(response.status_code)
+                if 300 <= response.status_code < 400:
+                    raise RedirectedPageError(
+                        response.status_code, response.headers.get("location")
+                    )
                 if 400 <= response.status_code < 500:
                     raise PermanentAcquisitionError("REMOTE_REQUEST_REJECTED")
                 if response.status_code >= 500:
@@ -110,6 +133,8 @@ class AcquisitionWork:
     manifest: ManifestEntry
     source: KnowledgeSource
     authorization: SourceAuthorization | None
+    run_type: str = "ACQUISITION"
+    previous_sha256: str | None = None
 
 
 class AcquisitionWorker:
@@ -140,7 +165,13 @@ class AcquisitionWorker:
             if reasons:
                 await self._blocked(work, reasons)
                 return True
-            content, provider_type = await self._acquire(work)
+            try:
+                content, provider_type = await self._acquire(work)
+            except (RemovedPageError, RedirectedPageError) as signal:
+                if work.run_type != "REFRESH":
+                    raise
+                await self._skipped_remote(work, signal)
+                return True
             detected = _validate_content(work, content, provider_type, self._settings)
             checksum = hashlib.sha256(content).hexdigest()
             if work.manifest.expected_sha256 and checksum != work.manifest.expected_sha256:
@@ -194,11 +225,14 @@ class AcquisitionWorker:
             row = (
                 await session.execute(
                     text("""
-                        SELECT ingestion_run_id,manifest_entry_id,attempt_count,
-                          source_row_version,manifest_entry_row_version,quarantine_object_key
-                        FROM kb.ingestion_run_item
-                        WHERE tenant_id=:tenant_id AND ingestion_run_item_id=:item_id
-                          AND item_status='ACQUIRING' AND locked_by=:worker_id
+                        SELECT item.ingestion_run_id,item.manifest_entry_id,item.attempt_count,
+                          item.source_row_version,item.manifest_entry_row_version,
+                          item.quarantine_object_key,run.run_type
+                        FROM kb.ingestion_run_item AS item
+                        JOIN kb.ingestion_run AS run
+                          ON run.ingestion_run_id=item.ingestion_run_id
+                        WHERE item.tenant_id=:tenant_id AND item.ingestion_run_item_id=:item_id
+                          AND item.item_status='ACQUIRING' AND item.locked_by=:worker_id
                     """),
                     {
                         "tenant_id": claim.tenant_id,
@@ -219,6 +253,22 @@ class AcquisitionWorker:
             if source is None:
                 raise PermanentAcquisitionError("SOURCE_NOT_FOUND")
             authorization = await sources.effective_authorization(claim.tenant_id, source)
+            previous_sha256 = (
+                await session.scalar(
+                    text("""
+                        SELECT version.sha256_checksum
+                        FROM kb.document AS doc
+                        JOIN kb.document_version AS version
+                          ON version.document_id=doc.document_id
+                        WHERE doc.source_id=:source_id
+                          AND doc.external_document_key=:manifest_key
+                        ORDER BY version.version_number DESC LIMIT 1
+                    """),
+                    {"source_id": source.source_id, "manifest_key": manifest.manifest_key},
+                )
+                if row.run_type == "REFRESH"
+                else None
+            )
             return AcquisitionWork(
                 claim.item_id,
                 row.ingestion_run_id,
@@ -230,6 +280,8 @@ class AcquisitionWorker:
                 manifest,
                 source,
                 authorization,
+                row.run_type,
+                previous_sha256,
             )
 
     async def _acquire(self, work: AcquisitionWork) -> tuple[bytes, str]:
@@ -255,6 +307,9 @@ class AcquisitionWorker:
         scanner_version: str,
     ) -> None:
         filename = work.manifest.original_filename or "document.bin"
+        classification: str | None = None
+        if work.run_type == "REFRESH":
+            classification = "UNCHANGED" if checksum == work.previous_sha256 else "CHANGED"
         document_id = uuid5(
             NAMESPACE_URL, f"helpdesk:{work.source.source_id}:{work.manifest.manifest_key}"
         )
@@ -308,6 +363,7 @@ class AcquisitionWorker:
                     scanner_version,
                     document_id,
                     None,
+                    classification=classification,
                 )
                 await _event(
                     session,
@@ -316,7 +372,7 @@ class AcquisitionWorker:
                     "SUCCESS",
                     {"checksum": checksum},
                 )
-                await _refresh_run(session, work.run_id)
+                await _finalize_run(session, work)
                 return
             version_id = uuid5(NAMESPACE_URL, f"helpdesk:{document_id}:{checksum}")
             original_key = (
@@ -401,6 +457,7 @@ class AcquisitionWorker:
                 document_id,
                 version_id,
                 original_key,
+                classification=classification,
             )
             await _event(
                 session,
@@ -409,7 +466,7 @@ class AcquisitionWorker:
                 "SUCCESS",
                 {"checksum": checksum, "document_version_id": str(version_id)},
             )
-            await _refresh_run(session, work.run_id)
+            await _finalize_run(session, work)
         await self._safe_reject(work.quarantine_key)
 
     async def _blocked(self, work: AcquisitionWork, reasons: list[str]) -> None:
@@ -426,7 +483,7 @@ class AcquisitionWorker:
                 {"item_id": work.item_id, "tenant_id": work.tenant_id},
             )
             await _event(session, work, "ACQUISITION_BLOCKED", "BLOCKED", {"reasons": reasons})
-            await _refresh_run(session, work.run_id)
+            await _finalize_run(session, work)
 
     async def _failed(
         self,
@@ -481,7 +538,48 @@ class AcquisitionWorker:
             await _event(
                 session, work, "ACQUISITION_FAILED", outcome, {"error_code": error_code[:100]}
             )
-            await _refresh_run(session, work.run_id)
+            await _finalize_run(session, work)
+
+    async def _skipped_remote(
+        self, work: AcquisitionWork, signal: RemovedPageError | RedirectedPageError
+    ) -> None:
+        removed = isinstance(signal, RemovedPageError)
+        target = None if removed else cast("RedirectedPageError", signal).target
+        async with self._sessions() as session, session.begin():
+            await _context(session, work.tenant_id, work.item_id)
+            await session.execute(
+                text("""
+                    UPDATE kb.ingestion_run_item SET
+                      item_status=CAST(:status AS varchar),
+                      change_classification=CAST(:classification AS varchar),
+                      previous_sha256=:previous_sha256,
+                      observed_http_status=:http_status,
+                      redirect_target_url=:redirect_target,
+                      completed_at=now(),error_code=NULL,error_message=NULL,
+                      final_failure=false,pipeline_stage='COMPLETE',
+                      locked_at=NULL,locked_by=NULL,row_version=row_version+1
+                    WHERE ingestion_run_item_id=:item_id AND tenant_id=:tenant_id
+                      AND item_status='ACQUIRING'
+                """),
+                {
+                    "status": "SKIPPED_REMOVED" if removed else "SKIPPED_REDIRECTED",
+                    "classification": "REMOVED" if removed else "REDIRECTED",
+                    "previous_sha256": work.previous_sha256,
+                    "http_status": signal.status_code,
+                    "redirect_target": target,
+                    "item_id": work.item_id,
+                    "tenant_id": work.tenant_id,
+                },
+            )
+            await _event(
+                session,
+                work,
+                "REFRESH_PAGE_REMOVED" if removed else "REFRESH_PAGE_REDIRECTED",
+                "SUCCESS",
+                {"status_code": signal.status_code, "redirect_target": target},
+            )
+            await _finalize_run(session, work)
+        await self._safe_reject(work.quarantine_key)
 
     async def _safe_reject(self, key: str) -> None:
         try:
@@ -610,6 +708,8 @@ async def _finish_item(
     document_id: UUID,
     version_id: UUID | None,
     original_key: str | None = None,
+    *,
+    classification: str | None = None,
 ) -> None:
     await session.execute(
         text("""
@@ -620,6 +720,8 @@ async def _finish_item(
               file_size_bytes=:file_size,malware_scan_status='CLEAN',malware_scanned_at=now(),
               scanner_engine=:scanner_engine,scanner_version=:scanner_version,threat_name=NULL,
               error_code=:error_code,error_message=NULL,final_failure=false,
+              change_classification=CAST(:classification AS varchar),
+              previous_sha256=:previous_sha256,
               pipeline_stage=CASE WHEN CAST(:status AS varchar)='ACQUIRED' THEN 'PROCESSING'
                 WHEN CAST(:status AS varchar)='SKIPPED_UNCHANGED' THEN 'COMPLETE'
                 ELSE pipeline_stage END,
@@ -641,6 +743,8 @@ async def _finish_item(
             "scanner_engine": scanner_engine,
             "scanner_version": scanner_version,
             "error_code": error_code,
+            "classification": classification,
+            "previous_sha256": work.previous_sha256,
             "item_id": work.item_id,
             "tenant_id": work.tenant_id,
         },
@@ -675,16 +779,84 @@ async def _event(
     )
 
 
+async def _finalize_run(session: AsyncSession, work: AcquisitionWork) -> None:
+    await _refresh_run(session, work.run_id)
+    if work.run_type == "REFRESH":
+        await _complete_refresh_source(session, work)
+
+
+async def _complete_refresh_source(session: AsyncSession, work: AcquisitionWork) -> None:
+    """Feed the Task 13.1 lifecycle deterministically once a refresh run drains.
+
+    All pages unchanged and no final failures -> CURRENT; any changed, removed,
+    redirected, or finally-failed page -> STALE. Content is never republished.
+    """
+    row = (
+        await session.execute(
+            text("""
+                WITH totals AS (
+                  SELECT count(*) FILTER (WHERE item_status NOT IN (
+                      'ACQUIRED','SKIPPED_UNCHANGED','SKIPPED_REMOVED','SKIPPED_REDIRECTED',
+                      'BLOCKED_PERMISSION','FAILED'
+                    ) OR (item_status='FAILED' AND NOT final_failure)) AS pending,
+                    count(*) FILTER (WHERE
+                      change_classification IN ('CHANGED','REMOVED','REDIRECTED')
+                      OR (item_status IN ('BLOCKED_PERMISSION','FAILED') AND final_failure)
+                    ) AS stale
+                  FROM kb.ingestion_run_item WHERE ingestion_run_id=:run_id
+                )
+                UPDATE kb.source SET
+                  refresh_state=CASE WHEN totals.stale>0 THEN 'STALE' ELSE 'CURRENT' END,
+                  refresh_due_at=CASE WHEN totals.stale>0 THEN refresh_due_at ELSE NULL END,
+                  last_refresh_completed_at=now()
+                FROM totals
+                WHERE source_id=:source_id AND refresh_state='REFRESHING' AND totals.pending=0
+                RETURNING (totals.stale>0) AS stale
+            """),
+            {"run_id": work.run_id, "source_id": work.source.source_id},
+        )
+    ).one_or_none()
+    if row is None:
+        return
+    await session.execute(
+        text("""
+            INSERT INTO audit.audit_event(
+              tenant_id,actor_id,actor_type,action_code,resource_type,resource_id,
+              change_summary_json,correlation_id,request_id,source_channel,outcome_code)
+            VALUES (:tenant_id,'acquisition-worker','SYSTEM',
+              'KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED','KNOWLEDGE_SOURCE',
+              CAST(:source_id AS varchar),CAST(:summary AS jsonb),
+              CAST(:correlation_id AS uuid),:request_id,'WORKER','SUCCESS')
+        """),
+        {
+            "tenant_id": work.tenant_id,
+            "source_id": work.source.source_id,
+            "summary": json.dumps(
+                {
+                    "action": "COMPLETE_REFRESH",
+                    "from_state": "REFRESHING",
+                    "to_state": "STALE" if row.stale else "CURRENT",
+                    "run_id": str(work.run_id),
+                }
+            ),
+            "correlation_id": str(work.item_id),
+            "request_id": f"acquisition-worker:{work.item_id}",
+        },
+    )
+
+
 async def _refresh_run(session: AsyncSession, run_id: UUID) -> None:
     await session.execute(
         text("""
             WITH totals AS (
-              SELECT count(*) FILTER (WHERE item_status IN ('ACQUIRED','SKIPPED_UNCHANGED'))
-                  AS completed,
+              SELECT count(*) FILTER (WHERE item_status IN (
+                  'ACQUIRED','SKIPPED_UNCHANGED','SKIPPED_REMOVED','SKIPPED_REDIRECTED'
+                )) AS completed,
                 count(*) FILTER (WHERE item_status IN ('BLOCKED_PERMISSION','FAILED')
                   AND final_failure) AS failed,
                 count(*) FILTER (WHERE item_status NOT IN (
-                  'ACQUIRED','SKIPPED_UNCHANGED','BLOCKED_PERMISSION','FAILED'
+                  'ACQUIRED','SKIPPED_UNCHANGED','SKIPPED_REMOVED','SKIPPED_REDIRECTED',
+                  'BLOCKED_PERMISSION','FAILED'
                 ) OR (item_status='FAILED' AND NOT final_failure)) AS pending
               FROM kb.ingestion_run_item WHERE ingestion_run_id=:run_id
             )
