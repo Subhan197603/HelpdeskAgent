@@ -532,6 +532,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/retrieval-analytics/dispositions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Put Gap Disposition */
+    put: operations["put_gap_disposition_api_v1_admin_knowledge_retrieval_analytics_dispositions_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries": {
     parameters: {
       query?: never;
@@ -5312,6 +5329,44 @@ export interface components {
       /** Title */
       title: string;
     };
+    /** KnowledgeGapDispositionCommand */
+    KnowledgeGapDispositionCommand: {
+      /** Disposition Note */
+      disposition_note?: string | null;
+      /**
+       * Disposition Status
+       * @enum {string}
+       */
+      disposition_status:
+        "ACKNOWLEDGED" | "SOURCE_CANDIDATE" | "NOT_A_GAP" | "RESOLVED";
+      /** Expected Row Version */
+      expected_row_version?: number | null;
+      /** Normalized Query */
+      normalized_query: string;
+    };
+    /** KnowledgeGapDispositionResponse */
+    KnowledgeGapDispositionResponse: {
+      /**
+       * Decided At
+       * Format: date-time
+       */
+      decided_at: string;
+      /** Disposition Note */
+      disposition_note: string | null;
+      /**
+       * Disposition Status
+       * @enum {string}
+       */
+      disposition_status:
+        "ACKNOWLEDGED" | "SOURCE_CANDIDATE" | "NOT_A_GAP" | "RESOLVED";
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Row Version */
+      row_version: number;
+    };
     /** ManifestApprovalCommand */
     ManifestApprovalCommand: {
       /**
@@ -6152,6 +6207,8 @@ export interface components {
     RetrievalQueryGroupResponse: {
       /** Best Top Score */
       best_top_score: number | null;
+      disposition?:
+        components["schemas"]["KnowledgeGapDispositionResponse"] | null;
       /** Event Count */
       event_count: number;
       /**
@@ -9435,6 +9492,68 @@ export interface operations {
       };
     };
   };
+  put_gap_disposition_api_v1_admin_knowledge_retrieval_analytics_dispositions_put: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["KnowledgeGapDispositionCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["KnowledgeGapDispositionResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Gap disposition conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
   low_confidence_queries_api_v1_admin_knowledge_retrieval_analytics_low_confidence_queries_get: {
     parameters: {
       query?: {
@@ -9468,6 +9587,15 @@ export interface operations {
       };
       /** @description Retrieval analytics permission denied */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Gap disposition conflict */
+      409: {
         headers: {
           [name: string]: unknown;
         };
@@ -9524,6 +9652,15 @@ export interface operations {
           "application/json": components["schemas"]["ProblemResponse"];
         };
       };
+      /** @description Gap disposition conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
       /** @description Retrieval analytics request invalid */
       422: {
         headers: {
@@ -9568,6 +9705,15 @@ export interface operations {
       };
       /** @description Retrieval analytics permission denied */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Gap disposition conflict */
+      409: {
         headers: {
           [name: string]: unknown;
         };

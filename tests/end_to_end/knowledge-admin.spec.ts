@@ -263,6 +263,8 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
       },
     });
   });
+  const dispositionRoute =
+    "**/api/v1/admin/knowledge/retrieval-analytics/dispositions";
   await page.route(zeroRoute, async (route) => {
     await route.fulfill({
       json: {
@@ -275,6 +277,7 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
             normalized_query: "printer offline error",
             matching_count: 3,
             best_top_score: null,
+            disposition: null,
           },
         ],
         has_more: false,
@@ -293,9 +296,28 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
             normalized_query: "expense report rejection",
             matching_count: 2,
             best_top_score: 0.008,
+            disposition: {
+              disposition_status: "ACKNOWLEDGED",
+              disposition_note: "Expense guidance exists",
+              decided_at: "2026-08-16T11:00:00Z",
+              row_version: 1,
+              replayed: false,
+            },
           },
         ],
         has_more: false,
+      },
+    });
+  });
+  await page.route(dispositionRoute, async (route) => {
+    await route.fulfill({
+      status: 201,
+      json: {
+        disposition_status: "SOURCE_CANDIDATE",
+        disposition_note: null,
+        decided_at: "2026-08-16T12:00:00Z",
+        row_version: 1,
+        replayed: false,
       },
     });
   });
@@ -317,13 +339,41 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
   await expect(page.getByText("Employee agent, Evidence search")).toHaveCount(
     2,
   );
+  await expect(page.getByRole("cell", { name: "Acknowledged" })).toBeVisible();
   await page.getByLabel("Window").selectOption("7");
   await expect(page.getByText("40 retrieval queries")).toBeVisible();
+
+  await page
+    .getByRole("table", { name: "Zero-result queries" })
+    .getByRole("button", { name: "Disposition" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Record gap disposition" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/never creates sources, starts acquisition/),
+  ).toBeVisible();
+  await page
+    .getByRole("dialog")
+    .getByRole("combobox")
+    .selectOption("SOURCE_CANDIDATE");
+  await page
+    .getByRole("dialog")
+    .getByLabel("Note")
+    .fill("Propose printer troubleshooting source");
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Record disposition" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Record gap disposition" }),
+  ).toBeHidden();
   await page.unroute(summaryRoute);
   await page.unroute(zeroRoute);
   await page.unroute(lowRoute);
+  await page.unroute(dispositionRoute);
 });
 
 test("caller without knowledge administration permission is denied", async ({

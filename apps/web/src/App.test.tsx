@@ -9,6 +9,7 @@ import {
   corpusBlockerLabel,
   corpusFindingPresentation,
   DynamicField,
+  gapDispositionLabel,
   insertCannedResponse,
   LoginPage,
   retrievalAnalyticsRate,
@@ -334,6 +335,13 @@ describe("knowledge source refresh lifecycle presentation", () => {
     expect(retrievalAnalyticsRate(0)).toBe("0.0%");
     expect(retrievalAnalyticsRate(0.1234)).toBe("12.3%");
     expect(retrievalAnalyticsRate(1)).toBe("100.0%");
+  });
+
+  it("labels every gap disposition status deterministically", () => {
+    expect(gapDispositionLabel("ACKNOWLEDGED")).toBe("Acknowledged");
+    expect(gapDispositionLabel("SOURCE_CANDIDATE")).toBe("Source candidate");
+    expect(gapDispositionLabel("NOT_A_GAP")).toBe("Not a gap");
+    expect(gapDispositionLabel("RESOLVED")).toBe("Resolved");
   });
 });
 

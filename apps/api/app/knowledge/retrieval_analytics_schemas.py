@@ -1,12 +1,33 @@
-"""Contracts for read-only retrieval quality analytics."""
+"""Contracts for retrieval quality analytics and gap dispositions."""
 
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 RetrievalAnalyticsGroupKind = Literal["ZERO_RESULT", "LOW_CONFIDENCE"]
+GapDispositionStatus = Literal[
+    "ACKNOWLEDGED",
+    "SOURCE_CANDIDATE",
+    "NOT_A_GAP",
+    "RESOLVED",
+]
+
+
+class KnowledgeGapDispositionResponse(BaseModel):
+    disposition_status: GapDispositionStatus
+    disposition_note: str | None
+    decided_at: datetime
+    row_version: int
+    replayed: bool = False
+
+
+class KnowledgeGapDispositionCommand(BaseModel):
+    normalized_query: str = Field(min_length=1, max_length=500)
+    disposition_status: GapDispositionStatus
+    disposition_note: str | None = Field(default=None, max_length=500)
+    expected_row_version: int | None = Field(default=None, ge=1)
 
 
 class RetrievalAnalyticsSummaryResponse(BaseModel):
@@ -30,6 +51,7 @@ class RetrievalQueryGroupResponse(BaseModel):
     first_seen_at: datetime
     last_seen_at: datetime
     last_corpus_version_id: UUID | None
+    disposition: KnowledgeGapDispositionResponse | None = None
 
 
 class RetrievalQueryGroupListResponse(BaseModel):

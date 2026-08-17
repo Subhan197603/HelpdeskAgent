@@ -370,7 +370,9 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0031_retrieval_query_events"
+    assert (
+        _value("SELECT version_num FROM config.alembic_version") == "0032_knowledge_gap_disposition"
+    )
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -2604,4 +2606,127 @@ def test_retrieval_analytics_summary_groups_windows_and_authorization(
             f"{base}/summary", params={"days": 9999}, headers=_headers("platform-admin")
         ).status_code
         == 422
+    )
+
+    # Task 14.3: audited gap dispositions with optimistic concurrency.
+    dispositions = f"{base}/dispositions"
+    assert (
+        client.put(
+            dispositions,
+            headers=_headers("customer", "gap-denied"),
+            json={
+                "normalized_query": "printer offline error",
+                "disposition_status": "ACKNOWLEDGED",
+            },
+        ).status_code
+        == 403
+    )
+    created = client.put(
+        dispositions,
+        headers=_headers("platform-admin", "gap-create"),
+        json={
+            "normalized_query": "printer offline error",
+            "disposition_status": "ACKNOWLEDGED",
+            "disposition_note": "Printer runbook coverage under review",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["disposition_status"] == "ACKNOWLEDGED"
+    assert created.json()["row_version"] == 1
+    assert created.json()["replayed"] is False
+
+    listed = client.get(f"{base}/zero-result-queries", headers=_headers("platform-admin"))
+    printer = listed.json()["items"][0]
+    assert printer["normalized_query"] == "printer offline error"
+    assert printer["disposition"]["disposition_status"] == "ACKNOWLEDGED"
+    assert printer["disposition"]["row_version"] == 1
+
+    duplicate_create = client.put(
+        dispositions,
+        headers=_headers("platform-admin", "gap-duplicate"),
+        json={
+            "normalized_query": "printer offline error",
+            "disposition_status": "RESOLVED",
+        },
+    )
+    assert duplicate_create.status_code == 409
+    stale_update = client.put(
+        dispositions,
+        headers=_headers("platform-admin", "gap-stale"),
+        json={
+            "normalized_query": "printer offline error",
+            "disposition_status": "RESOLVED",
+            "expected_row_version": 99,
+        },
+    )
+    assert stale_update.status_code == 409
+    updated = client.put(
+        dispositions,
+        headers=_headers("platform-admin", "gap-update"),
+        json={
+            "normalized_query": "printer offline error",
+            "disposition_status": "SOURCE_CANDIDATE",
+            "disposition_note": "Propose printer troubleshooting source",
+            "expected_row_version": 1,
+        },
+    )
+    assert updated.status_code == 201, updated.text
+    assert updated.json()["disposition_status"] == "SOURCE_CANDIDATE"
+    assert updated.json()["row_version"] == 2
+    replayed = client.put(
+        dispositions,
+        headers=_headers("platform-admin", "gap-update"),
+        json={
+            "normalized_query": "printer offline error",
+            "disposition_status": "SOURCE_CANDIDATE",
+            "disposition_note": "Propose printer troubleshooting source",
+            "expected_row_version": 1,
+        },
+    )
+    assert replayed.status_code == 200
+    assert replayed.headers["Idempotent-Replayed"] == "true"
+    assert replayed.json()["replayed"] is True
+    assert replayed.json()["row_version"] == 2
+
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event WHERE action_code='KNOWLEDGE_GAP_DISPOSITION'"
+        )
+        == "2"
+    )
+
+    # Migration surface: RLS, grant matrix, and tenant containment.
+    table = "kb.knowledge_gap_disposition"
+    assert _value(f"SELECT relrowsecurity FROM pg_class WHERE oid='{table}'::regclass") == "t"
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_policies "
+            "WHERE schemaname='kb' AND tablename='knowledge_gap_disposition'"
+        )
+        == "1"
+    )
+    assert _value(
+        "SELECT string_agg(grantee||':'||privilege_type,',' ORDER BY grantee,privilege_type) "
+        "FROM information_schema.role_table_grants "
+        "WHERE table_schema='kb' AND table_name='knowledge_gap_disposition' "
+        "AND grantee LIKE 'helpdesk%'"
+    ) == (
+        "helpdesk_app:INSERT,helpdesk_app:SELECT,helpdesk_app:UPDATE,"
+        "helpdesk_readonly:SELECT,helpdesk_reporting:SELECT"
+    )
+    delete_denied = _psql(f"SET ROLE helpdesk_app; DELETE FROM {table} WHERE false", check=False)
+    assert delete_denied.returncode != 0
+    forged_disposition = _psql(
+        "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
+        f"INSERT INTO {table} (tenant_id,normalized_query,disposition_status,decided_by) "
+        f"VALUES ('{TENANT_ID}','forged disposition','ACKNOWLEDGED','{AUTHOR_ID}')",
+        check=False,
+    )
+    assert forged_disposition.returncode != 0
+    assert (
+        _value(
+            "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
+            f"SELECT count(*) FROM {table} WHERE tenant_id='{TENANT_ID}'"
+        )
+        == "0"
     )

@@ -5000,7 +5000,42 @@ export function retrievalAnalyticsRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`;
 }
 
-function retrievalGroupColumns(matchingHeader: string) {
+type GapDispositionStatus =
+  components["schemas"]["KnowledgeGapDispositionCommand"]["disposition_status"];
+
+const GAP_DISPOSITION_LABELS: Record<string, string> = {
+  ACKNOWLEDGED: "Acknowledged",
+  SOURCE_CANDIDATE: "Source candidate",
+  NOT_A_GAP: "Not a gap",
+  RESOLVED: "Resolved",
+};
+
+export function gapDispositionLabel(status: string): string {
+  return GAP_DISPOSITION_LABELS[status] ?? humanizeCode(status);
+}
+
+function retrievalGroupColumns(
+  matchingHeader: string,
+  onDisposition?: (row: RetrievalQueryGroupRow) => void,
+) {
+  const actions = onDisposition
+    ? [
+        {
+          header: "Actions",
+          key: "actions",
+          render: (row: RetrievalQueryGroupRow) => (
+            <Button
+              onClick={() => {
+                onDisposition(row);
+              }}
+              variant="secondary"
+            >
+              Disposition
+            </Button>
+          ),
+        },
+      ]
+    : [];
   return [
     {
       header: "Query",
@@ -5036,12 +5071,28 @@ function retrievalGroupColumns(matchingHeader: string) {
       key: "last-seen",
       render: (row: RetrievalQueryGroupRow) => formatDateTime(row.last_seen_at),
     },
+    {
+      header: "Disposition",
+      key: "disposition",
+      render: (row: RetrievalQueryGroupRow) =>
+        row.disposition == null
+          ? "—"
+          : gapDispositionLabel(row.disposition.disposition_status),
+    },
+    ...actions,
   ];
 }
 
 function AdminKnowledgeAnalyticsPage() {
   const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
   const [windowDays, setWindowDays] = useState(30);
+  const [dispositionRow, setDispositionRow] =
+    useState<RetrievalQueryGroupRow | null>(null);
+  const [dispositionStatus, setDispositionStatus] =
+    useState<GapDispositionStatus>("ACKNOWLEDGED");
+  const [dispositionNote, setDispositionNote] = useState("");
   const summary = useQuery({
     queryKey: ["admin-retrieval-analytics-summary", windowDays],
     queryFn: async () =>
@@ -5074,11 +5125,50 @@ function AdminKnowledgeAnalyticsPage() {
         ),
       ),
   });
+  const dispositionMutation = useMutation({
+    mutationFn: async (row: RetrievalQueryGroupRow) =>
+      unwrap(
+        await client.PUT(
+          "/api/v1/admin/knowledge/retrieval-analytics/dispositions",
+          {
+            params: {
+              header: {
+                "Idempotency-Key": newIdempotencyKey("gap-disposition"),
+              },
+            },
+            body: {
+              normalized_query: row.normalized_query,
+              disposition_status: dispositionStatus,
+              disposition_note:
+                dispositionNote.trim() === "" ? null : dispositionNote.trim(),
+              expected_row_version: row.disposition?.row_version ?? null,
+            },
+          },
+        ),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-retrieval-analytics-zero", windowDays],
+      });
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-retrieval-analytics-low", windowDays],
+      });
+      setDispositionRow(null);
+    },
+  });
+  const canDisposition =
+    identity?.permission_codes.includes("KNOWLEDGE_SOURCE_UPDATE") ?? false;
+  const openDisposition = (row: RetrievalQueryGroupRow) => {
+    dispositionMutation.reset();
+    setDispositionStatus(row.disposition?.disposition_status ?? "ACKNOWLEDGED");
+    setDispositionNote(row.disposition?.disposition_note ?? "");
+    setDispositionRow(row);
+  };
   const totals = summary.data;
   return (
     <div className="page admin-page">
       <PageHeader
-        description="Review where retrieval returned nothing or only low-confidence evidence, grouped by normalized query. Read-only analytics over captured query events."
+        description="Review where retrieval returned nothing or only low-confidence evidence, grouped by normalized query, and record an audited gap disposition."
         title="Search analytics"
       />
       <KnowledgeAdminTabs active="analytics" />
@@ -5123,10 +5213,16 @@ function AdminKnowledgeAnalyticsPage() {
           title="No retrieval queries captured in this window"
         />
       )}
+      {dispositionMutation.error != null && (
+        <ErrorSummary error={dispositionMutation.error} />
+      )}
       {zeroResult.data != null && zeroResult.data.items.length > 0 && (
         <DataTable
           caption="Zero-result queries"
-          columns={retrievalGroupColumns("Zero results")}
+          columns={retrievalGroupColumns(
+            "Zero results",
+            canDisposition ? openDisposition : undefined,
+          )}
           empty={
             <EmptyState
               description="No zero-result queries in this window."
@@ -5140,7 +5236,10 @@ function AdminKnowledgeAnalyticsPage() {
       {lowConfidence.data != null && lowConfidence.data.items.length > 0 && (
         <DataTable
           caption="Low-confidence queries"
-          columns={retrievalGroupColumns("Low confidence")}
+          columns={retrievalGroupColumns(
+            "Low confidence",
+            canDisposition ? openDisposition : undefined,
+          )}
           empty={
             <EmptyState
               description="No low-confidence queries in this window."
@@ -5151,6 +5250,52 @@ function AdminKnowledgeAnalyticsPage() {
           rows={lowConfidence.data.items}
         />
       )}
+      <ConfirmationDialog
+        confirmLabel="Record disposition"
+        onCancel={() => {
+          setDispositionRow(null);
+        }}
+        onConfirm={() => {
+          if (dispositionRow != null)
+            dispositionMutation.mutate(dispositionRow);
+        }}
+        open={dispositionRow != null}
+        pending={dispositionMutation.isPending}
+        title="Record gap disposition"
+      >
+        <p>
+          Record an audited decision for{" "}
+          <span className="mono">{dispositionRow?.normalized_query}</span>. A
+          disposition never creates sources, starts acquisition, or changes
+          retrieval behavior.
+        </p>
+        <label className="sort-control">
+          Disposition
+          <select
+            onChange={(event) => {
+              setDispositionStatus(event.target.value as GapDispositionStatus);
+            }}
+            value={dispositionStatus}
+          >
+            {Object.entries(GAP_DISPOSITION_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="sort-control">
+          Note
+          <input
+            maxLength={500}
+            onChange={(event) => {
+              setDispositionNote(event.target.value);
+            }}
+            type="text"
+            value={dispositionNote}
+          />
+        </label>
+      </ConfirmationDialog>
     </div>
   );
 }

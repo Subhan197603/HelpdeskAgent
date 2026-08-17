@@ -29,7 +29,7 @@ USER = UUID("22000000-0000-0000-0000-000000000001")
 SEEN = datetime(2026, 8, 17, 12, 0, 0, tzinfo=UTC)
 
 
-def _row(query: str, matching: int) -> SimpleNamespace:
+def _row(query: str, matching: int, *, disposition_status: str | None = None) -> SimpleNamespace:
     return SimpleNamespace(
         normalized_query=query,
         event_count=matching + 1,
@@ -39,6 +39,10 @@ def _row(query: str, matching: int) -> SimpleNamespace:
         first_seen_at=SEEN,
         last_seen_at=SEEN,
         last_corpus_version_id=None,
+        disposition_status=disposition_status,
+        disposition_note="Covered by runbook" if disposition_status else None,
+        disposition_decided_at=SEEN if disposition_status else None,
+        disposition_row_version=2 if disposition_status else None,
     )
 
 
@@ -62,7 +66,11 @@ def test_rate_is_bounded_and_zero_safe() -> None:
 def test_listing_maps_rows_and_reports_has_more() -> None:
     listing = _service()._listing(
         "ZERO_RESULT",
-        [_row("first", 3), _row("second", 1), _row("overflow", 1)],
+        [
+            _row("first", 3, disposition_status="SOURCE_CANDIDATE"),
+            _row("second", 1),
+            _row("overflow", 1),
+        ],
         window_days=30,
         limit=2,
     )
@@ -72,6 +80,10 @@ def test_listing_maps_rows_and_reports_has_more() -> None:
     assert listing.items[0].kind == "ZERO_RESULT"
     assert listing.items[0].surfaces == ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"]
     assert listing.items[0].best_top_score == 0.005
+    assert listing.items[0].disposition is not None
+    assert listing.items[0].disposition.disposition_status == "SOURCE_CANDIDATE"
+    assert listing.items[0].disposition.row_version == 2
+    assert listing.items[1].disposition is None
     assert listing.low_confidence_threshold == 0.01
 
 
@@ -131,3 +143,11 @@ def test_analytics_requires_authentication(client: TestClient) -> None:
     for path in ("summary", "zero-result-queries", "low-confidence-queries"):
         response = client.get(f"/api/v1/admin/knowledge/retrieval-analytics/{path}")
         assert response.status_code == 401
+    assert (
+        client.put(
+            "/api/v1/admin/knowledge/retrieval-analytics/dispositions",
+            json={"normalized_query": "q", "disposition_status": "ACKNOWLEDGED"},
+            headers={"Idempotency-Key": "gap-disposition-401"},
+        ).status_code
+        == 401
+    )

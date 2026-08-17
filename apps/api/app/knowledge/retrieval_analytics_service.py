@@ -1,16 +1,24 @@
-"""Read-only retrieval quality analytics for knowledge administrators."""
+"""Retrieval quality analytics and audited gap dispositions."""
 
 from collections.abc import Callable
 from typing import Any
 from uuid import UUID
 
 from apps.api.app.core.context import RequestContext
-from apps.api.app.core.exceptions import AuthorizationError
+from apps.api.app.core.exceptions import AuthorizationError, ConflictError
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService, Permission
+from apps.api.app.knowledge.corpus_validation_service import (
+    _hash,
+    _identity,
+    _validate_claim,
+)
+from apps.api.app.knowledge.repository import KnowledgeSourceRepository
 from apps.api.app.knowledge.retrieval_analytics_repository import RetrievalAnalyticsRepository
 from apps.api.app.knowledge.retrieval_analytics_schemas import (
+    KnowledgeGapDispositionCommand,
+    KnowledgeGapDispositionResponse,
     RetrievalAnalyticsGroupKind,
     RetrievalAnalyticsSummaryResponse,
     RetrievalQueryGroupListResponse,
@@ -96,6 +104,84 @@ class RetrievalAnalyticsService:
             has_more=len(rows) > limit,
         )
 
+    async def disposition(
+        self,
+        context: RequestContext,
+        command: KnowledgeGapDispositionCommand,
+        idempotency_key: str,
+    ) -> KnowledgeGapDispositionResponse:
+        if not self._authorization.is_allowed(context, Permission.KNOWLEDGE_SOURCE_UPDATE):
+            raise AuthorizationError()
+        tenant_id, user_id = _identity(context)
+        request_hash = _hash(
+            "knowledge-gap-disposition",
+            {
+                "tenant_id": str(tenant_id),
+                "normalized_query": command.normalized_query,
+                "disposition_status": command.disposition_status,
+                "disposition_note": command.disposition_note,
+                "expected_row_version": command.expected_row_version,
+            },
+        )
+        async with self._factory(context) as uow:
+            sources = KnowledgeSourceRepository(uow.session)
+            claim = await sources.claim_idempotency(
+                tenant_id, user_id, idempotency_key, request_hash, "KNOWLEDGE_GAP_DISPOSITION"
+            )
+            _validate_claim(claim, user_id, request_hash)
+            repository = RetrievalAnalyticsRepository(uow.session)
+            if claim.processing_status == "COMPLETED":
+                row = await repository.disposition(tenant_id, command.normalized_query)
+                if row is None:
+                    raise ConflictError("Gap disposition result is unavailable.")
+                await uow.commit()
+                return _disposition_response(row, replayed=True)
+            previous = await repository.disposition(tenant_id, command.normalized_query)
+            if command.expected_row_version is None:
+                if previous is not None:
+                    raise ConflictError(
+                        "Gap disposition already exists; supply expected_row_version."
+                    )
+                row = await repository.insert_disposition(
+                    tenant_id,
+                    normalized_query=command.normalized_query,
+                    status=command.disposition_status,
+                    note=command.disposition_note,
+                    decided_by=user_id,
+                )
+            else:
+                row = await repository.update_disposition(
+                    tenant_id,
+                    normalized_query=command.normalized_query,
+                    status=command.disposition_status,
+                    note=command.disposition_note,
+                    decided_by=user_id,
+                    expected_row_version=command.expected_row_version,
+                )
+            if row is None:
+                raise ConflictError("Gap disposition was changed concurrently; reload and retry.")
+            await repository.audit_disposition(
+                tenant_id,
+                user_id,
+                row.disposition_id,
+                {
+                    "normalized_query": command.normalized_query,
+                    "disposition_status": command.disposition_status,
+                    "disposition_note": command.disposition_note,
+                    "previous_status": (
+                        previous.disposition_status if previous is not None else None
+                    ),
+                    "row_version": int(row.row_version),
+                },
+                context.correlation_id,
+                context.request_id,
+            )
+            await sources.complete_idempotency(
+                claim.record_id, "KNOWLEDGE_GAP", row.disposition_id, 201
+            )
+            await uow.commit()
+        return _disposition_response(row, replayed=False)
+
     def _tenant(self, context: RequestContext) -> UUID:
         if not self._authorization.is_allowed(context, Permission.KNOWLEDGE_DOCUMENT_READ_ADMIN):
             raise AuthorizationError()
@@ -109,6 +195,14 @@ def _rate(part: int, total: int) -> float:
 
 
 def _group(kind: RetrievalAnalyticsGroupKind, row: Any) -> RetrievalQueryGroupResponse:
+    disposition = None
+    if row.disposition_status is not None:
+        disposition = KnowledgeGapDispositionResponse(
+            disposition_status=row.disposition_status,
+            disposition_note=row.disposition_note,
+            decided_at=row.disposition_decided_at,
+            row_version=int(row.disposition_row_version),
+        )
     return RetrievalQueryGroupResponse(
         kind=kind,
         normalized_query=row.normalized_query,
@@ -119,4 +213,15 @@ def _group(kind: RetrievalAnalyticsGroupKind, row: Any) -> RetrievalQueryGroupRe
         first_seen_at=row.first_seen_at,
         last_seen_at=row.last_seen_at,
         last_corpus_version_id=row.last_corpus_version_id,
+        disposition=disposition,
+    )
+
+
+def _disposition_response(row: Any, *, replayed: bool) -> KnowledgeGapDispositionResponse:
+    return KnowledgeGapDispositionResponse(
+        disposition_status=row.disposition_status,
+        disposition_note=row.disposition_note,
+        decided_at=row.decided_at,
+        row_version=int(row.row_version),
+        replayed=replayed,
     )

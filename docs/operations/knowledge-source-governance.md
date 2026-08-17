@@ -161,3 +161,18 @@ mirroring the employee agent's minimum evidence score); the threshold is an anal
 classification and is never read by the retrieval path. The knowledge administration
 Analytics tab presents the summary and both group tables read-only: no mutation, no export,
 and no retrieval behavior change.
+
+## Knowledge-gap dispositions
+
+Milestone 14 Task 14.3 adds the one governed mutation on the analytics surface:
+`PUT /api/v1/admin/knowledge/retrieval-analytics/dispositions` requires
+`KNOWLEDGE_SOURCE_UPDATE` and an `Idempotency-Key`, and records one audited current-state
+disposition per tenant and normalized query from the bounded set `ACKNOWLEDGED`,
+`SOURCE_CANDIDATE`, `NOT_A_GAP`, and `RESOLVED`, with an optional bounded note. Creation
+requires no `expected_row_version`; every later change must supply the current row version and
+conflicts deterministically when stale, while replaying the same idempotency key returns the
+recorded result with `Idempotent-Replayed`. Every mutation appends an immutable
+`KNOWLEDGE_GAP_DISPOSITION` audit event; disposition rows are never deleted. Group listings
+carry the current disposition, and the Analytics tab offers the disposition dialog to
+authorized administrators. A disposition records a human decision only — it never creates
+sources, starts acquisition, or changes retrieval behavior.
