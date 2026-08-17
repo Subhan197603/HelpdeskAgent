@@ -262,6 +262,7 @@ class AnalystCopilotService:
             filters=RetrievalFilters(),
             limit=12,
             persona="ANALYST",
+            surface="ANALYST_COPILOT",
         )
         released = general
         if release_family and release_code:
@@ -273,6 +274,7 @@ class AnalystCopilotService:
                 ),
                 limit=12,
                 persona="ANALYST",
+                surface="ANALYST_COPILOT",
             )
             if (
                 released.retrieval_configuration_version_id

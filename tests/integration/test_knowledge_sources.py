@@ -407,7 +407,7 @@ def test_canonical_location_and_global_scope_are_fail_closed(client: TestClient)
 
 @pytest.mark.integration
 def test_refresh_lifecycle_migration_is_minimal_and_backfilled() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0030_corpus_publication"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0031_retrieval_query_events"
     assert (
         _value(
             "SELECT count(*) FROM information_schema.columns "

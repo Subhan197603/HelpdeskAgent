@@ -1,6 +1,7 @@
 """Authorization and cancellation boundary for independent retrieval strategies."""
 
 import asyncio
+import logging
 import math
 from collections.abc import Callable
 from uuid import UUID
@@ -25,6 +26,7 @@ from apps.api.app.retrieval.providers import (
     RerankingProvider,
     RetrievalProviderError,
 )
+from apps.api.app.retrieval.query_events import RetrievalQueryEventRepository, RetrievalSurface
 from apps.api.app.retrieval.repository import (
     RetrievalPrincipal,
     RetrievalQueryTimeout,
@@ -32,6 +34,8 @@ from apps.api.app.retrieval.repository import (
 )
 
 UnitOfWorkFactory = Callable[[RequestContext], SqlAlchemyUnitOfWork]
+
+logger = logging.getLogger(__name__)
 
 
 class RetrievalRequestError(ConflictError):
@@ -69,6 +73,7 @@ class RetrievalService:
         filters: RetrievalFilters,
         limit: int,
         persona: str,
+        surface: RetrievalSurface = "EVIDENCE_SEARCH",
     ) -> RetrievalEvidenceSet:
         self._principal(context, persona)
         normalized_query = _query(query)
@@ -108,11 +113,49 @@ class RetrievalService:
             rerank_scores,
             limit=limit,
         )
+        await self._capture_query_event(
+            context,
+            surface=surface,
+            normalized_query=normalized_query,
+            result_count=len(evidence),
+            top_score=evidence[0].score if evidence else None,
+        )
         return RetrievalEvidenceSet(
             normalized_query=normalized_query,
             retrieval_configuration_version_id=configuration.version_id,
             evidence=evidence,
         )
+
+    async def _capture_query_event(
+        self,
+        context: RequestContext,
+        *,
+        surface: RetrievalSurface,
+        normalized_query: str,
+        result_count: int,
+        top_score: float | None,
+    ) -> None:
+        # Observation only: a capture failure must never change the retrieval
+        # response, so every error is contained here.
+        try:
+            if context.tenant_id is None:
+                raise AuthorizationError("Authenticated retrieval identity is required.")
+            async with self._factory(context) as uow:
+                repository = RetrievalQueryEventRepository(uow.session)
+                await repository.insert_event(
+                    tenant_id=context.tenant_id,
+                    surface=surface,
+                    normalized_query=normalized_query,
+                    result_count=result_count,
+                    top_score=top_score,
+                )
+                await repository.enforce_retention(
+                    tenant_id=context.tenant_id,
+                    retention_days=self._settings.retrieval_query_event_retention_days,
+                )
+                await uow.commit()
+        except Exception:
+            logger.warning("Retrieval query event capture failed.", exc_info=True)
 
     async def _configuration(self, context: RequestContext) -> RetrievalConfiguration:
         if context.tenant_id is None:

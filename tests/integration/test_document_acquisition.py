@@ -370,7 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0030_corpus_publication"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0031_retrieval_query_events"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -2354,3 +2354,159 @@ def test_retrieval_regression_corpus_quality_acl_evidence_and_latency(
     )
     assert retired.evidence == ()
     _psql(f"UPDATE kb.document SET active_flag=true WHERE document_id='{ids['apps']}'")
+
+
+@pytest.mark.integration
+def test_retrieval_query_event_capture_privileges_and_retention(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    del application
+    _ensure_retrieval_corpus()
+    customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
+    filters = RetrievalFilters(
+        module_codes=("ACCOUNTS_PAYABLE",),
+        release_families=("FUSION_APPLICATIONS",),
+        release_codes=("26C",),
+    )
+    # Vector search always returns nearest neighbours for any query text, so a
+    # zero-result event needs a filter that no eligible document can satisfy.
+    empty_filters = RetrievalFilters(product_codes=("ZZ_NO_PRODUCT",))
+    events = "kb.retrieval_query_event"
+
+    assert _value(f"SELECT relrowsecurity FROM pg_class WHERE oid='{events}'::regclass") == "t"
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_policies "
+            "WHERE schemaname='kb' AND tablename='retrieval_query_event'"
+        )
+        == "1"
+    )
+    assert (
+        _value("SELECT count(*) FROM pg_trigger WHERE tgname='immutable_kb_retrieval_query_event'")
+        == "1"
+    )
+    assert _value(
+        "SELECT string_agg(grantee||':'||privilege_type,',' ORDER BY grantee,privilege_type) "
+        "FROM information_schema.role_table_grants "
+        "WHERE table_schema='kb' AND table_name='retrieval_query_event' "
+        "AND grantee LIKE 'helpdesk%'"
+    ) == (
+        "helpdesk_app:DELETE,helpdesk_app:INSERT,helpdesk_app:SELECT,"
+        "helpdesk_readonly:SELECT,helpdesk_reporting:SELECT"
+    )
+
+    before = int(_value(f"SELECT count(*) FROM {events} WHERE tenant_id='{TENANT_ID}'"))
+    hit = asyncio.run(
+        _retrieve_evidence(
+            customer, "AP-810 invoice validation holds for 26C Accounts Payable", filters
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert hit.evidence
+    zero = asyncio.run(
+        _retrieve_evidence(customer, "Completely Unmatched Zero Result Query", empty_filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert zero.evidence == ()
+    assert int(_value(f"SELECT count(*) FROM {events} WHERE tenant_id='{TENANT_ID}'")) == before + 2
+    assert (
+        _value(
+            "SELECT concat_ws('|',surface,result_count::text,zero_result_flag::text,"
+            "(top_score IS NOT NULL)::text,(corpus_version_id IS NULL)::text) "
+            f"FROM {events} WHERE tenant_id='{TENANT_ID}' AND normalized_query="
+            "'ap-810 invoice validation holds for 26c accounts payable' "
+            "ORDER BY captured_at DESC LIMIT 1"
+        )
+        == f"EVIDENCE_SEARCH|{len(hit.evidence)}|false|true|true"
+    )
+    assert (
+        _value(
+            "SELECT concat_ws('|',surface,result_count::text,zero_result_flag::text,"
+            f"(top_score IS NULL)::text) FROM {events} WHERE tenant_id='{TENANT_ID}' "
+            "AND normalized_query='completely unmatched zero result query' "
+            "ORDER BY captured_at DESC LIMIT 1"
+        )
+        == "EVIDENCE_SEARCH|0|true|true"
+    )
+
+    # The active corpus version at query time is stamped onto the event.
+    _psql(
+        "UPDATE kb.corpus_version SET active_flag=true WHERE corpus_version_id="
+        "(SELECT corpus_version_id FROM kb.corpus_version "
+        f"WHERE tenant_id='{TENANT_ID}' ORDER BY version_number DESC LIMIT 1)"
+    )
+    try:
+        active_version = _value(
+            f"SELECT corpus_version_id FROM kb.corpus_version "
+            f"WHERE tenant_id='{TENANT_ID}' AND active_flag"
+        )
+        assert active_version
+        contextual = asyncio.run(
+            _retrieve_evidence(customer, "Corpus Context Probe Query", empty_filters),
+            loop_factory=asyncio.SelectorEventLoop,
+        )
+        assert contextual.evidence == ()
+        assert (
+            _value(
+                f"SELECT corpus_version_id::text FROM {events} "
+                f"WHERE tenant_id='{TENANT_ID}' "
+                "AND normalized_query='corpus context probe query'"
+            )
+            == active_version
+        )
+    finally:
+        _psql(f"UPDATE kb.corpus_version SET active_flag=false WHERE tenant_id='{TENANT_ID}'")
+
+    assert (
+        _value(
+            "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
+            f"SELECT count(*) FROM {events} WHERE tenant_id='{TENANT_ID}'"
+        )
+        == "0"
+    )
+    forged_insert = _psql(
+        "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
+        f"INSERT INTO {events} (tenant_id,surface,normalized_query,result_count,"
+        f"zero_result_flag,top_score) VALUES ('{TENANT_ID}','EVIDENCE_SEARCH',"
+        "'forged tenant event',0,true,NULL)",
+        check=False,
+    )
+    assert forged_insert.returncode != 0
+    update_denied = _psql(
+        f"SET ROLE helpdesk_app; UPDATE {events} SET result_count=1 WHERE false",
+        check=False,
+    )
+    assert update_denied.returncode != 0
+    update_rejected = _psql(f"UPDATE {events} SET result_count=result_count", check=False)
+    assert update_rejected.returncode != 0
+    readonly_delete = _psql(
+        f"SET ROLE helpdesk_readonly; DELETE FROM {events} WHERE false", check=False
+    )
+    assert readonly_delete.returncode != 0
+
+    # Events older than the bounded retention window expire on the next capture.
+    _psql(
+        f"INSERT INTO {events} (tenant_id,surface,normalized_query,result_count,"
+        f"zero_result_flag,top_score,captured_at) VALUES ('{TENANT_ID}','EVIDENCE_SEARCH',"
+        "'expired retention probe',0,true,NULL,now()-interval '365 days')"
+    )
+    assert (
+        _value(f"SELECT count(*) FROM {events} WHERE normalized_query='expired retention probe'")
+        == "1"
+    )
+    swept = asyncio.run(
+        _retrieve_evidence(customer, "Retention Sweep Probe Query", empty_filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert swept.evidence == ()
+    assert (
+        _value(f"SELECT count(*) FROM {events} WHERE normalized_query='expired retention probe'")
+        == "0"
+    )
+    assert (
+        _value(
+            f"SELECT count(*) FROM {events} "
+            f"WHERE tenant_id='{TENANT_ID}' AND normalized_query='retention sweep probe query'"
+        )
+        == "1"
+    )

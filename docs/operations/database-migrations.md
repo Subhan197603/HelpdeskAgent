@@ -52,6 +52,7 @@ The only post-v1 revisions currently present are:
 → 0028_content_change_detection
 → 0029_corpus_validation
 → 0030_corpus_publication
+→ 0031_retrieval_query_events
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -114,8 +115,7 @@ changes retrieval eligibility, which only a later approved publication may
 apply. It follows `0028_content_change_detection`; the physical PostgreSQL
 baseline is unchanged.
 
-Milestone 13 Task 13.4 introduces `0030_corpus_publication`, the current
-development head. It adds `kb.corpus_version` (immutable per-tenant publication
+Milestone 13 Task 13.4 introduces `0030_corpus_publication`. It adds `kb.corpus_version` (immutable per-tenant publication
 records with a single-active partial unique index), the append-only,
 trigger-immutable `kb.corpus_version_suppressed_chunk` snapshot and
 `kb.corpus_publication_event` tables, and redefines
@@ -124,6 +124,17 @@ tenant's active corpus version — with no active version, eligibility is
 unchanged. The new tables follow the baseline ownership convention
 (`helpdesk_owner`) so the owner-executed view stays deterministic under
 optional row-level security. It follows `0029_corpus_validation`; the physical
+PostgreSQL baseline is unchanged.
+
+Milestone 14 Task 14.1 introduces `0031_retrieval_query_events`, the current
+development head. It adds the single append-only, tenant-isolated
+`kb.retrieval_query_event` table that records one observational event per
+successful retrieval invocation: the bounded normalized query text, the
+requesting surface, the result count, the zero-result flag, the top fused
+score, and the tenant's active corpus version at query time. Rows are
+trigger-immutable against updates; `DELETE` stays granted to the application
+role solely for the bounded tenant-scoped retention sweep. No retrieval
+behavior changes; it follows `0030_corpus_publication`; the physical
 PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database

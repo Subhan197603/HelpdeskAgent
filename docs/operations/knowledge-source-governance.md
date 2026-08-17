@@ -132,3 +132,17 @@ deleted or rewritten; every publication and rollback appends an immutable
 `KNOWLEDGE_CORPUS_ROLLBACK` audit event. `GET .../corpus-publications/active` reports the active
 version with publication readiness and blockers; `GET .../corpus-publications` lists the version
 and event history. Automatic or scheduled publication remains out of scope.
+
+## Retrieval query events
+
+Milestone 14 Task 14.1 records one append-only, tenant-isolated
+`kb.retrieval_query_event` row per successful retrieval invocation across employee evidence
+search, the employee agent, and the analyst copilot. Each event stores only the bounded
+normalized query text (never the raw input), the requesting surface, the result count, the
+zero-result flag, the top fused score, and the tenant's active corpus version at query time; no
+user identity is recorded. Capture is strictly observational: a capture failure is contained and
+logged and never changes the retrieval response, and no retrieval ranking, eligibility, or
+configuration behavior is affected. Events carry no runtime read endpoint yet — they are the raw
+evidence for the later Task 14.2 zero-result and low-confidence analytics. Rows are immutable
+against updates and expire through a bounded, tenant-scoped retention sweep controlled by
+`RETRIEVAL_QUERY_EVENT_RETENTION_DAYS` (default 180 days); captured events are never exported.

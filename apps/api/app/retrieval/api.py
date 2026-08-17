@@ -50,6 +50,7 @@ async def search_evidence(
         filters=filters,
         limit=command.limit,
         persona=command.persona,
+        surface="EVIDENCE_SEARCH",
     )
     return EvidenceSearchResponse(
         normalized_query=result.normalized_query,

@@ -417,6 +417,7 @@ class EmployeeAgentService:
                 filters=RetrievalFilters(),
                 limit=self._settings.ai_employee_max_evidence,
                 persona="EMPLOYEE",
+                surface="EMPLOYEE_AGENT",
             )
         except ExternalDependencyError:
             machine.advance(AgentState.COLLECTING_TICKET_FIELDS)

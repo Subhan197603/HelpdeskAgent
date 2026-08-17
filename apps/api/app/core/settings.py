@@ -147,6 +147,7 @@ class Settings(BaseSettings):
     retrieval_reranker_endpoint: str | None = None
     retrieval_reranker_api_key: SecretStr | None = None
     retrieval_reranker_model_code: str = "APPROVED_RERANKER"
+    retrieval_query_event_retention_days: int = Field(default=180, ge=1, le=730)
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:
