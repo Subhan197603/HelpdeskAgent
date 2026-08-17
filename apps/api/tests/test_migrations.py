@@ -40,6 +40,7 @@ def test_alembic_configuration_and_linear_history_load() -> None:
     script = ScriptDirectory.from_config(config)
     revisions = list(script.walk_revisions())
     assert [revision.revision for revision in revisions] == [
+        "0030_corpus_publication",
         "0029_corpus_validation",
         "0028_content_change_detection",
         "0027_knowledge_source_lifecycle",
@@ -71,7 +72,7 @@ def test_alembic_configuration_and_linear_history_load() -> None:
         "0001_migration_metadata",
         BASELINE_MARKER,
     ]
-    assert script.get_heads() == ["0029_corpus_validation"]
+    assert script.get_heads() == ["0030_corpus_publication"]
     assert config.get_main_option("sqlalchemy.url") is None
     assert VERSION_TABLE_SCHEMA == "config"
 

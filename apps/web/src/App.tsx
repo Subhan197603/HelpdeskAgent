@@ -3917,7 +3917,7 @@ function AdminKnowledgePage() {
 function KnowledgeAdminTabs({
   active,
 }: {
-  active: "documents" | "sources" | "validation";
+  active: "documents" | "sources" | "validation" | "publication";
 }) {
   const identity = useCurrentIdentity();
   const navigate = useNavigate();
@@ -3934,11 +3934,13 @@ function KnowledgeAdminTabs({
         { id: "documents", label: "Documents" },
         { id: "sources", label: "Sources" },
         { id: "validation", label: "Validation" },
+        { id: "publication", label: "Publication" },
       ]}
       label="Knowledge administration areas"
       onChange={(id) => {
         if (id === "sources") navigate("/admin/knowledge/sources");
         else if (id === "validation") navigate("/admin/knowledge/validation");
+        else if (id === "publication") navigate("/admin/knowledge/publication");
         else navigate("/admin/knowledge");
       }}
     />
@@ -4681,6 +4683,298 @@ function AdminKnowledgeValidationPage() {
           Scan the corpus and persist a validation report? Suppression flags are
           advisory: nothing is published, removed, or hidden from retrieval by
           this run.
+        </p>
+      </ConfirmationDialog>
+    </div>
+  );
+}
+
+type CorpusVersionRow = components["schemas"]["CorpusVersionResponse"];
+type CorpusPublicationEventRow =
+  components["schemas"]["CorpusPublicationEventResponse"];
+type CorpusPublicationBlocker =
+  components["schemas"]["CorpusPublicationReadinessResponse"]["blockers"][number];
+
+const CORPUS_BLOCKER_LABELS: Record<string, string> = {
+  NO_VALIDATION_RUN: "No validation run",
+  VALIDATION_RUN_INCOMPLETE: "Validation run incomplete",
+  VALIDATION_RUN_TRUNCATED: "Validation run truncated",
+  VALIDATION_STALE: "Validation stale",
+};
+
+export function corpusBlockerLabel(blocker: CorpusPublicationBlocker): string {
+  return CORPUS_BLOCKER_LABELS[blocker] ?? humanizeCode(blocker);
+}
+
+function AdminKnowledgePublicationPage() {
+  const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [confirmRollback, setConfirmRollback] = useState(false);
+  const active = useQuery({
+    queryKey: ["admin-corpus-publication-active"],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/knowledge/corpus-publications/active"),
+      ),
+  });
+  const history = useQuery({
+    queryKey: ["admin-corpus-publication-history"],
+    queryFn: async () =>
+      unwrap(await client.GET("/api/v1/admin/knowledge/corpus-publications")),
+  });
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["admin-corpus-publication-active"],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["admin-corpus-publication-history"],
+    });
+  };
+  const publishMutation = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.POST("/api/v1/admin/knowledge/corpus-publications", {
+          params: {
+            header: {
+              "Idempotency-Key": newIdempotencyKey("corpus-publish"),
+            },
+          },
+        }),
+      ),
+    onSuccess: () => {
+      invalidate();
+      setConfirmPublish(false);
+    },
+  });
+  const rollbackMutation = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.POST(
+          "/api/v1/admin/knowledge/corpus-publications/rollback",
+          {
+            params: {
+              header: {
+                "Idempotency-Key": newIdempotencyKey("corpus-rollback"),
+              },
+            },
+          },
+        ),
+      ),
+    onSuccess: () => {
+      invalidate();
+      setConfirmRollback(false);
+    },
+  });
+  const canRun =
+    identity?.permission_codes.includes("KNOWLEDGE_DOCUMENT_PUBLISH") ?? false;
+  const data = active.data;
+  const readiness = data?.readiness;
+  const activeVersion = data?.active_version ?? null;
+  const versions = history.data?.versions ?? [];
+  const events = history.data?.events ?? [];
+  const canRollback = versions.length > 1 && activeVersion != null;
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Publish the validated corpus state to retrieval, review version history, and roll back to the prior published version."
+        title="Corpus publication"
+      />
+      <KnowledgeAdminTabs active="publication" />
+      <TableToolbar label="Corpus publication controls">
+        {canRun && (
+          <Button
+            disabled={!readiness?.publishable}
+            onClick={() => {
+              publishMutation.reset();
+              setConfirmPublish(true);
+            }}
+          >
+            Publish corpus
+          </Button>
+        )}
+        {canRun && (
+          <Button
+            disabled={!canRollback}
+            onClick={() => {
+              rollbackMutation.reset();
+              setConfirmRollback(true);
+            }}
+            variant="secondary"
+          >
+            Roll back
+          </Button>
+        )}
+      </TableToolbar>
+      {(active.isPending || history.isPending) && (
+        <LoadingSkeleton label="Loading corpus publication" />
+      )}
+      {active.error != null && <ErrorSummary error={active.error} />}
+      {history.error != null && <ErrorSummary error={history.error} />}
+      {publishMutation.error != null && (
+        <ErrorSummary error={publishMutation.error} />
+      )}
+      {rollbackMutation.error != null && (
+        <ErrorSummary error={rollbackMutation.error} />
+      )}
+      {readiness != null && (
+        <p className="admin-result-count">
+          {readiness.publishable ? (
+            <span>
+              <OutcomeBadge code="SUCCESS" /> Ready to publish
+            </span>
+          ) : (
+            <span>
+              <OutcomeBadge code="DENIED" /> Publication blocked:{" "}
+              {readiness.blockers.map(corpusBlockerLabel).join(", ")}
+            </span>
+          )}{" "}
+          · {readiness.suppression_flagged_chunks} chunks flagged for
+          suppression
+          {activeVersion != null
+            ? ` · active version ${String(activeVersion.version_number)}`
+            : " · no published version"}
+        </p>
+      )}
+      {data != null && activeVersion == null && versions.length === 0 && (
+        <EmptyState
+          description="Publishing applies the validated corpus state, including suppression flags, to retrieval."
+          title="No corpus version published yet"
+        />
+      )}
+      {versions.length > 0 && (
+        <DataTable
+          caption="Corpus version history"
+          columns={[
+            {
+              header: "Version",
+              key: "version",
+              render: (row: CorpusVersionRow) => (
+                <span>
+                  <strong>{row.version_number}</strong>{" "}
+                  {row.active && <OutcomeBadge code="SUCCESS" />}
+                  {row.active ? " Active" : ""}
+                </span>
+              ),
+            },
+            {
+              header: "Published",
+              key: "published",
+              render: (row: CorpusVersionRow) =>
+                formatDateTime(row.published_at),
+            },
+            {
+              header: "Documents",
+              key: "documents",
+              render: (row: CorpusVersionRow) => String(row.document_count),
+            },
+            {
+              header: "Chunks",
+              key: "chunks",
+              render: (row: CorpusVersionRow) => String(row.chunk_count),
+            },
+            {
+              header: "Suppressed",
+              key: "suppressed",
+              render: (row: CorpusVersionRow) =>
+                String(row.suppressed_chunk_count),
+            },
+          ]}
+          empty={
+            <EmptyState
+              description="Publish the corpus to create the first version."
+              title="No versions"
+            />
+          }
+          getRowKey={(row) => row.id}
+          rows={versions}
+        />
+      )}
+      {events.length > 0 && (
+        <DataTable
+          caption="Corpus publication events"
+          columns={[
+            {
+              header: "Action",
+              key: "action",
+              render: (row: CorpusPublicationEventRow) => (
+                <span>
+                  <OutcomeBadge
+                    code={row.action === "PUBLISHED" ? "SUCCESS" : "PARTIAL"}
+                  />{" "}
+                  {row.action === "PUBLISHED" ? "Published" : "Rolled back"}
+                </span>
+              ),
+            },
+            {
+              header: "Version",
+              key: "version",
+              render: (row: CorpusPublicationEventRow) =>
+                row.previous_corpus_version_number == null
+                  ? String(row.corpus_version_number)
+                  : `${String(row.previous_corpus_version_number)} → ${String(
+                      row.corpus_version_number,
+                    )}`,
+            },
+            {
+              header: "Occurred",
+              key: "occurred",
+              render: (row: CorpusPublicationEventRow) =>
+                formatDateTime(row.occurred_at),
+            },
+          ]}
+          empty={
+            <EmptyState
+              description="Publication and rollback actions appear here."
+              title="No events"
+            />
+          }
+          getRowKey={(row) => row.id}
+          rows={events}
+        />
+      )}
+      <ConfirmationDialog
+        confirmLabel="Publish corpus"
+        onCancel={() => {
+          setConfirmPublish(false);
+        }}
+        onConfirm={() => {
+          publishMutation.mutate();
+        }}
+        open={confirmPublish}
+        pending={publishMutation.isPending}
+        title="Publish corpus"
+      >
+        <p>
+          Publish the validated corpus state to retrieval? This applies{" "}
+          <strong>{readiness?.suppression_flagged_chunks ?? 0}</strong>{" "}
+          suppression-flagged chunks to retrieval eligibility and becomes the
+          active corpus version. The canonical copy of duplicated content is
+          never suppressed.
+        </p>
+      </ConfirmationDialog>
+      <ConfirmationDialog
+        confirmLabel="Roll back"
+        onCancel={() => {
+          setConfirmRollback(false);
+        }}
+        onConfirm={() => {
+          rollbackMutation.mutate();
+        }}
+        open={confirmRollback}
+        pending={rollbackMutation.isPending}
+        title="Roll back corpus"
+      >
+        <p>
+          Reactivate the prior published corpus version{" "}
+          <strong>
+            {activeVersion != null
+              ? String(activeVersion.version_number - 1)
+              : ""}
+          </strong>
+          ? Retrieval eligibility deterministically returns to that version’s
+          recorded state. The current version remains in history.
         </p>
       </ConfirmationDialog>
     </div>
@@ -8525,6 +8819,16 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
                 <AdminKnowledgeValidationPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge/publication"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
+                <AdminKnowledgePublicationPage />
               </RequirePermission>
             </RequireSession>
           }

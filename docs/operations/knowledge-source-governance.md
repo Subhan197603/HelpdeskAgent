@@ -111,3 +111,24 @@ of content always survives, and a tenant never flags shared global content. The 
 retrieval eligibility: retrieval views are untouched, and only a later approved publication may
 apply suppression. Reranking, synonym management, embedding changes, and automatic publication
 remain out of scope.
+
+## Corpus publication and rollback
+
+Milestone 13 Task 13.4 adds governed, corpus-level publication.
+`POST /api/v1/admin/knowledge/corpus-publications` requires `KNOWLEDGE_DOCUMENT_PUBLISH` and an
+`Idempotency-Key`; it is blocked with a deterministic conflict unless the latest corpus
+validation run is completed, untruncated, and not stale (no processing activity after the run
+started). Publication creates an immutable `kb.corpus_version` record that snapshots the
+advisory suppression flags into `kb.corpus_version_suppressed_chunk` and atomically becomes the
+tenant's single active version: retrieval then excludes exactly the snapshotted chunks, and the
+canonical member of every near-duplicate group — never flagged by validation — always remains
+retrievable. With no active version, retrieval eligibility is unchanged.
+
+`POST /api/v1/admin/knowledge/corpus-publications/rollback` performs the one-step rollback: it
+reactivates the immediately prior published version through the same atomic switch, so retrieval
+eligibility deterministically returns to that version's recorded snapshot. Versions are never
+deleted or rewritten; every publication and rollback appends an immutable
+`kb.corpus_publication_event` row and writes a `KNOWLEDGE_CORPUS_PUBLICATION` or
+`KNOWLEDGE_CORPUS_ROLLBACK` audit event. `GET .../corpus-publications/active` reports the active
+version with publication readiness and blockers; `GET .../corpus-publications` lists the version
+and event history. Automatic or scheduled publication remains out of scope.

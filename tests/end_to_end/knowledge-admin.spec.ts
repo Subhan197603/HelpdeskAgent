@@ -149,6 +149,89 @@ test("administrator reviews the corpus validation report", async ({ page }) => {
   await page.unroute(latestRoute);
 });
 
+test("administrator publishes the corpus and reviews version history", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue as administrator" }).click();
+  await page.locator('a[href="/admin/knowledge"]').click();
+
+  const activeRoute = "**/api/v1/admin/knowledge/corpus-publications/active";
+  const historyRoute = "**/api/v1/admin/knowledge/corpus-publications";
+  const version = {
+    id: "c2000000-0000-4000-8000-000000000001",
+    version_number: 1,
+    validation_run_id: "c1000000-0000-4000-8000-000000000001",
+    published_by: "22000000-0000-4000-8000-000000000001",
+    published_at: "2026-08-05T10:00:00Z",
+    document_count: 12,
+    chunk_count: 42,
+    suppressed_chunk_count: 2,
+    active: true,
+    replayed: false,
+  };
+  await page.route(activeRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        active_version: version,
+        readiness: {
+          publishable: true,
+          blockers: [],
+          validation_run_id: "c1000000-0000-4000-8000-000000000001",
+          suppression_flagged_chunks: 2,
+        },
+      },
+    });
+  });
+  await page.route(historyRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        versions: [version],
+        events: [
+          {
+            id: "c3000000-0000-4000-8000-000000000001",
+            action: "PUBLISHED",
+            corpus_version_number: 1,
+            previous_corpus_version_number: null,
+            actor_user_id: "22000000-0000-4000-8000-000000000001",
+            evidence: { suppressed_chunk_count: 2 },
+            occurred_at: "2026-08-05T10:00:00Z",
+          },
+        ],
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Publication" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Corpus publication" }),
+  ).toBeVisible();
+  await expect(page.getByText("Ready to publish")).toBeVisible();
+  await expect(
+    page.getByText("2 chunks flagged for suppression"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Corpus version history" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Corpus publication events" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Publish corpus" }).click();
+  await expect(
+    page.getByRole("dialog").getByRole("heading", { name: "Publish corpus" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/canonical copy of duplicated content is never suppressed/),
+  ).toBeVisible();
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel" })
+    .click();
+  await page.unroute(activeRoute);
+  await page.unroute(historyRoute);
+});
+
 test("caller without knowledge administration permission is denied", async ({
   page,
 }) => {

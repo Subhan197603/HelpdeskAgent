@@ -149,6 +149,13 @@ WITH RECURSIVE eligible_documents AS MATERIALIZED (
       WHERE lineage.document_id=eligible.document_id
         AND lineage.product_level='MODULE'
         AND lineage.product_code=ANY(CAST(:module_codes AS text[]))))
+    AND NOT EXISTS (
+      SELECT 1 FROM kb.corpus_version_suppressed_chunk suppressed
+      JOIN kb.corpus_version active_version
+        ON active_version.corpus_version_id=suppressed.corpus_version_id
+        AND active_version.active_flag
+        AND active_version.tenant_id=:tenant_id
+      WHERE suppressed.chunk_id=chunk.chunk_id)
 )
 """
 

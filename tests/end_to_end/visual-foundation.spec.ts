@@ -611,6 +611,83 @@ test("approved employee and analyst screens remain visually stable", async ({
   );
   await page.unroute(corpusValidationRoute);
 
+  const corpusPublicationActiveRoute =
+    "**/api/v1/admin/knowledge/corpus-publications/active";
+  const corpusPublicationHistoryRoute =
+    "**/api/v1/admin/knowledge/corpus-publications";
+  const publishedCorpusVersion = {
+    id: "c2000000-0000-4000-8000-000000000001",
+    version_number: 2,
+    validation_run_id: "c1000000-0000-4000-8000-000000000001",
+    published_by: "22000000-0000-4000-8000-000000000001",
+    published_at: "2026-08-05T10:00:00Z",
+    document_count: 12,
+    chunk_count: 42,
+    suppressed_chunk_count: 1,
+    active: true,
+    replayed: false,
+  };
+  const priorCorpusVersion = {
+    ...publishedCorpusVersion,
+    id: "c2000000-0000-4000-8000-000000000002",
+    version_number: 1,
+    suppressed_chunk_count: 0,
+    active: false,
+  };
+  await page.route(corpusPublicationActiveRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        active_version: publishedCorpusVersion,
+        readiness: {
+          publishable: true,
+          blockers: [],
+          validation_run_id: "c1000000-0000-4000-8000-000000000001",
+          suppression_flagged_chunks: 1,
+        },
+      },
+    });
+  });
+  await page.route(corpusPublicationHistoryRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        versions: [publishedCorpusVersion, priorCorpusVersion],
+        events: [
+          {
+            id: "c3000000-0000-4000-8000-000000000002",
+            action: "PUBLISHED",
+            corpus_version_number: 2,
+            previous_corpus_version_number: 1,
+            actor_user_id: "22000000-0000-4000-8000-000000000001",
+            evidence: { suppressed_chunk_count: 1 },
+            occurred_at: "2026-08-05T10:00:00Z",
+          },
+          {
+            id: "c3000000-0000-4000-8000-000000000001",
+            action: "PUBLISHED",
+            corpus_version_number: 1,
+            previous_corpus_version_number: null,
+            actor_user_id: "22000000-0000-4000-8000-000000000001",
+            evidence: { suppressed_chunk_count: 0 },
+            occurred_at: "2026-08-04T10:00:00Z",
+          },
+        ],
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Publication" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Corpus publication", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Ready to publish")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-knowledge-publication.png",
+    screenshotOptions,
+  );
+  await page.unroute(corpusPublicationActiveRoute);
+  await page.unroute(corpusPublicationHistoryRoute);
+
   await page.getByRole("tab", { name: "Documents" }).click();
   await expect(
     page.getByRole("heading", { name: "Knowledge", exact: true }),

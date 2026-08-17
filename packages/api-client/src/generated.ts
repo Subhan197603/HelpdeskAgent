@@ -259,6 +259,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/corpus-publications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Corpus Version History */
+    get: operations["corpus_version_history_api_v1_admin_knowledge_corpus_publications_get"];
+    put?: never;
+    /** Publish Corpus */
+    post: operations["publish_corpus_api_v1_admin_knowledge_corpus_publications_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/corpus-publications/active": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Active Corpus Version */
+    get: operations["active_corpus_version_api_v1_admin_knowledge_corpus_publications_active_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/corpus-publications/rollback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Rollback Corpus */
+    post: operations["rollback_corpus_api_v1_admin_knowledge_corpus_publications_rollback_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/corpus-validations": {
     parameters: {
       query?: never;
@@ -2214,6 +2266,11 @@ export interface components {
       /** Manifest Entry Ids */
       manifest_entry_ids: string[];
     };
+    /** ActiveCorpusVersionResponse */
+    ActiveCorpusVersionResponse: {
+      active_version: components["schemas"]["CorpusVersionResponse"] | null;
+      readiness: components["schemas"]["CorpusPublicationReadinessResponse"];
+    };
     /** ActivityItemResponse */
     ActivityItemResponse: {
       /** Actor Name */
@@ -4027,6 +4084,51 @@ export interface components {
        */
       tool_set_version_id: string;
     };
+    /** CorpusPublicationEventResponse */
+    CorpusPublicationEventResponse: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "PUBLISHED" | "ROLLED_BACK";
+      /**
+       * Actor User Id
+       * Format: uuid
+       */
+      actor_user_id: string;
+      /** Corpus Version Number */
+      corpus_version_number: number;
+      /** Evidence */
+      evidence: {
+        [key: string]: unknown;
+      };
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Occurred At
+       * Format: date-time
+       */
+      occurred_at: string;
+      /** Previous Corpus Version Number */
+      previous_corpus_version_number: number | null;
+    };
+    /** CorpusPublicationReadinessResponse */
+    CorpusPublicationReadinessResponse: {
+      /** Blockers */
+      blockers: string[];
+      /** Publishable */
+      publishable: boolean;
+      /**
+       * Suppression Flagged Chunks
+       * @default 0
+       */
+      suppression_flagged_chunks: number;
+      /** Validation Run Id */
+      validation_run_id: string | null;
+    };
     /** CorpusValidationFindingResponse */
     CorpusValidationFindingResponse: {
       /** Chunk Id */
@@ -4131,6 +4233,51 @@ export interface components {
        * @default 0
        */
       structural_defects: number;
+    };
+    /** CorpusVersionHistoryResponse */
+    CorpusVersionHistoryResponse: {
+      /** Events */
+      events: components["schemas"]["CorpusPublicationEventResponse"][];
+      /** Versions */
+      versions: components["schemas"]["CorpusVersionResponse"][];
+    };
+    /** CorpusVersionResponse */
+    CorpusVersionResponse: {
+      /** Active */
+      active: boolean;
+      /** Chunk Count */
+      chunk_count: number;
+      /** Document Count */
+      document_count: number;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Published At
+       * Format: date-time
+       */
+      published_at: string;
+      /**
+       * Published By
+       * Format: uuid
+       */
+      published_by: string;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Suppressed Chunk Count */
+      suppressed_chunk_count: number;
+      /**
+       * Validation Run Id
+       * Format: uuid
+       */
+      validation_run_id: string;
+      /** Version Number */
+      version_number: number;
     };
     /** CurrentIdentityResponse */
     CurrentIdentityResponse: {
@@ -7911,6 +8058,237 @@ export interface operations {
       };
       /** @description Object storage unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  corpus_version_history_api_v1_admin_knowledge_corpus_publications_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorpusVersionHistoryResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  publish_corpus_api_v1_admin_knowledge_corpus_publications_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorpusVersionResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  active_corpus_version_api_v1_admin_knowledge_corpus_publications_active_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ActiveCorpusVersionResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  rollback_corpus_api_v1_admin_knowledge_corpus_publications_rollback_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorpusVersionResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus publication request invalid */
+      422: {
         headers: {
           [name: string]: unknown;
         };

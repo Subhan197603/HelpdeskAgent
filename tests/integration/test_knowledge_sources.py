@@ -407,7 +407,7 @@ def test_canonical_location_and_global_scope_are_fail_closed(client: TestClient)
 
 @pytest.mark.integration
 def test_refresh_lifecycle_migration_is_minimal_and_backfilled() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0029_corpus_validation"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0030_corpus_publication"
     assert (
         _value(
             "SELECT count(*) FROM information_schema.columns "
@@ -662,6 +662,51 @@ def test_corpus_validation_migration_is_minimal_and_privileged() -> None:
     assert (
         _value("SELECT has_table_privilege('helpdesk_worker','kb.corpus_validation_run','INSERT')")
         == "f"
+    )
+
+
+@pytest.mark.integration
+def test_corpus_publication_migration_is_minimal_and_privileged() -> None:
+    for table in ("corpus_version", "corpus_version_suppressed_chunk", "corpus_publication_event"):
+        assert (
+            _value(
+                "SELECT count(*) FROM information_schema.tables "
+                f"WHERE table_schema='kb' AND table_name='{table}'"
+            )
+            == "1"
+        ), table
+        assert (
+            _value("SELECT relrowsecurity FROM pg_class WHERE oid='kb." + table + "'::regclass")
+            == "t"
+        ), table
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
+            "AND indexname='corpus_version_single_active_ux'"
+        )
+        == "1"
+    )
+    for trigger in (
+        "immutable_kb_corpus_version_suppressed_chunk",
+        "immutable_kb_corpus_publication_event",
+    ):
+        assert _value(f"SELECT count(*) FROM pg_trigger WHERE tgname='{trigger}'") == "1", trigger
+    assert _value("SELECT has_table_privilege('helpdesk_app','kb.corpus_version','UPDATE')") == "t"
+    for table in ("corpus_version_suppressed_chunk", "corpus_publication_event"):
+        for privilege in ("UPDATE", "DELETE"):
+            assert (
+                _value(f"SELECT has_table_privilege('helpdesk_app','kb.{table}','{privilege}')")
+                == "f"
+            ), (table, privilege)
+    assert (
+        _value("SELECT has_table_privilege('helpdesk_worker','kb.corpus_version','INSERT')") == "f"
+    )
+    assert (
+        _value(
+            "SELECT pg_get_viewdef('kb.v_active_document_chunk'::regclass) "
+            "LIKE '%corpus_version_suppressed_chunk%'"
+        )
+        == "t"
     )
 
 

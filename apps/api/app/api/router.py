@@ -14,6 +14,9 @@ from apps.api.app.employee_agent.api import router as employee_agent_router
 from apps.api.app.identity.api import router as identity_router
 from apps.api.app.ingestion.api import router as ingestion_router
 from apps.api.app.knowledge.api import router as knowledge_router
+from apps.api.app.knowledge.corpus_publication_api import (
+    router as corpus_publication_router,
+)
 from apps.api.app.knowledge.corpus_validation_api import (
     router as corpus_validation_router,
 )
@@ -43,6 +46,7 @@ api_router.include_router(notifications_router)
 api_router.include_router(knowledge_router)
 api_router.include_router(knowledge_document_router)
 api_router.include_router(corpus_validation_router)
+api_router.include_router(corpus_publication_router)
 api_router.include_router(knowledge_reader_router)
 api_router.include_router(ingestion_router)
 api_router.include_router(retrieval_router)

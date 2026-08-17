@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  corpusBlockerLabel,
   corpusFindingPresentation,
   DynamicField,
   insertCannedResponse,
@@ -311,6 +312,17 @@ describe("knowledge source refresh lifecycle presentation", () => {
       code: "PARTIAL",
       label: "Near-duplicate chunk",
     });
+  });
+
+  it("labels every corpus publication blocker deterministically", () => {
+    expect(corpusBlockerLabel("NO_VALIDATION_RUN")).toBe("No validation run");
+    expect(corpusBlockerLabel("VALIDATION_RUN_INCOMPLETE")).toBe(
+      "Validation run incomplete",
+    );
+    expect(corpusBlockerLabel("VALIDATION_RUN_TRUNCATED")).toBe(
+      "Validation run truncated",
+    );
+    expect(corpusBlockerLabel("VALIDATION_STALE")).toBe("Validation stale");
   });
 });
 

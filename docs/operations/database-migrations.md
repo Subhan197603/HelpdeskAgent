@@ -45,6 +45,7 @@ The only post-v1 revisions currently present are:
 → 0027_knowledge_source_lifecycle
 → 0028_content_change_detection
 → 0029_corpus_validation
+→ 0030_corpus_publication
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -99,14 +100,25 @@ refresh-lifecycle columns. No retrieval behavior changes; it follows
 `0027_knowledge_source_lifecycle`; the physical PostgreSQL baseline is
 unchanged.
 
-Milestone 13 Task 13.3 introduces `0029_corpus_validation`, the current
-development head. It adds two tenant-isolated tables — `kb.corpus_validation_run`
+Milestone 13 Task 13.3 introduces `0029_corpus_validation`. It adds two tenant-isolated tables — `kb.corpus_validation_run`
 and the append-only, trigger-immutable `kb.corpus_validation_finding` — plus an
 advisory `near_duplicate_suppressed_flag` column on `kb.document_chunk` with a
 column-scoped application-role grant. Findings are evidence only: the flag never
 changes retrieval eligibility, which only a later approved publication may
 apply. It follows `0028_content_change_detection`; the physical PostgreSQL
 baseline is unchanged.
+
+Milestone 13 Task 13.4 introduces `0030_corpus_publication`, the current
+development head. It adds `kb.corpus_version` (immutable per-tenant publication
+records with a single-active partial unique index), the append-only,
+trigger-immutable `kb.corpus_version_suppressed_chunk` snapshot and
+`kb.corpus_publication_event` tables, and redefines
+`kb.v_active_document_chunk` to exclude exactly the chunks suppressed by the
+tenant's active corpus version — with no active version, eligibility is
+unchanged. The new tables follow the baseline ownership convention
+(`helpdesk_owner`) so the owner-executed view stays deterministic under
+optional row-level security. It follows `0029_corpus_validation`; the physical
+PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database
 

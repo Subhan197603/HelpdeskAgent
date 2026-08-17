@@ -370,7 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0029_corpus_validation"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0030_corpus_publication"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -1585,6 +1585,180 @@ def test_corpus_validation_detects_duplicates_and_flags_near_duplicates(
             "WHERE action_code='KNOWLEDGE_CORPUS_VALIDATION_RUN'"
         )
         == "2"
+    )
+
+
+@pytest.mark.integration
+def test_corpus_publication_applies_suppression_and_rolls_back(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, _ = application
+    # Document-publish the shared corpus trio so their chunks are retrieval
+    # eligible; corpus publication may then observe the suppression delta.
+    _psql(
+        "UPDATE kb.document d SET approval_status='APPROVED' "
+        "WHERE d.external_document_key IN ('corpus-doc-a','corpus-doc-b','corpus-doc-g');"
+        "UPDATE kb.document_version v SET current_version_flag=true,published_at=now(),"
+        "validation_status='WARNING',published_processing_version_id=p.processing_version_id "
+        "FROM kb.document d,kb.document_processing_version p "
+        "WHERE d.document_id=v.document_id AND p.document_version_id=v.document_version_id "
+        "AND d.external_document_key IN ('corpus-doc-a','corpus-doc-b','corpus-doc-g')"
+    )
+    eligible_before = int(_value("SELECT count(*) FROM kb.v_active_document_chunk"))
+
+    for method, path in (
+        ("POST", "/api/v1/admin/knowledge/corpus-publications"),
+        ("POST", "/api/v1/admin/knowledge/corpus-publications/rollback"),
+        ("GET", "/api/v1/admin/knowledge/corpus-publications/active"),
+        ("GET", "/api/v1/admin/knowledge/corpus-publications"),
+    ):
+        denied = client.request(
+            method,
+            path,
+            headers=_headers("customer", "corpus-publication-denied"),
+        )
+        assert denied.status_code == 403, path
+
+    rollback_empty = client.post(
+        "/api/v1/admin/knowledge/corpus-publications/rollback",
+        headers=_headers("platform-admin", "corpus-rollback-0"),
+    )
+    assert rollback_empty.status_code == 409
+
+    readiness = client.get(
+        "/api/v1/admin/knowledge/corpus-publications/active",
+        headers=_headers("knowledge-author"),
+    )
+    assert readiness.status_code == 200, readiness.text
+    body = readiness.json()
+    assert body["active_version"] is None
+    assert body["readiness"]["publishable"] is True
+    assert body["readiness"]["suppression_flagged_chunks"] == 1
+
+    published = client.post(
+        "/api/v1/admin/knowledge/corpus-publications",
+        headers=_headers("platform-admin", "corpus-publish-1"),
+    )
+    assert published.status_code == 201, published.text
+    version_one = published.json()
+    assert version_one["version_number"] == 1
+    assert version_one["active"] is True
+    assert version_one["suppressed_chunk_count"] == 1
+    assert int(_value("SELECT count(*) FROM kb.v_active_document_chunk")) == (eligible_before - 1)
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.v_active_document_chunk chunk "
+            "JOIN kb.document d ON d.document_id=chunk.document_id "
+            "WHERE d.external_document_key IN ('corpus-doc-a','corpus-doc-g')"
+        )
+        == "2"
+    )
+
+    replay = client.post(
+        "/api/v1/admin/knowledge/corpus-publications",
+        headers=_headers("platform-admin", "corpus-publish-1"),
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["id"] == version_one["id"]
+
+    # A processing version newer than the latest validation run makes the
+    # report stale and deterministically blocks publication.
+    _psql(
+        "UPDATE kb.corpus_validation_run SET started_at=started_at-interval '1 day' "
+        f"WHERE run_id='{version_one['validation_run_id']}'"
+    )
+    stale = client.post(
+        "/api/v1/admin/knowledge/corpus-publications",
+        headers=_headers("platform-admin", "corpus-publish-stale"),
+    )
+    assert stale.status_code == 409
+    assert "VALIDATION_STALE" in stale.text
+    _psql(
+        "UPDATE kb.corpus_validation_run SET started_at=started_at+interval '1 day' "
+        f"WHERE run_id='{version_one['validation_run_id']}'"
+    )
+
+    # Publish a second version after the advisory flag changes; the snapshot
+    # of version one remains immutable evidence of its own eligibility.
+    _psql(
+        "UPDATE kb.document_chunk SET near_duplicate_suppressed_flag=false "
+        "WHERE near_duplicate_suppressed_flag"
+    )
+    second = client.post(
+        "/api/v1/admin/knowledge/corpus-publications",
+        headers=_headers("platform-admin", "corpus-publish-2"),
+    )
+    assert second.status_code == 201, second.text
+    version_two = second.json()
+    assert version_two["version_number"] == 2
+    assert version_two["suppressed_chunk_count"] == 0
+    assert int(_value("SELECT count(*) FROM kb.v_active_document_chunk")) == eligible_before
+    assert _value("SELECT count(*) FROM kb.corpus_version WHERE active_flag") == "1"
+
+    rolled_back = client.post(
+        "/api/v1/admin/knowledge/corpus-publications/rollback",
+        headers=_headers("platform-admin", "corpus-rollback-1"),
+    )
+    assert rolled_back.status_code == 201, rolled_back.text
+    restored = rolled_back.json()
+    assert restored["id"] == version_one["id"]
+    assert restored["version_number"] == 1
+    assert restored["active"] is True
+    assert int(_value("SELECT count(*) FROM kb.v_active_document_chunk")) == (eligible_before - 1)
+
+    history = client.get(
+        "/api/v1/admin/knowledge/corpus-publications",
+        headers=_headers("knowledge-author"),
+    )
+    assert history.status_code == 200, history.text
+    versions = history.json()["versions"]
+    events = history.json()["events"]
+    assert [version["version_number"] for version in versions] == [2, 1]
+    assert [version["active"] for version in versions] == [False, True]
+    assert [event["action"] for event in events] == [
+        "ROLLED_BACK",
+        "PUBLISHED",
+        "PUBLISHED",
+    ]
+    assert events[0]["previous_corpus_version_number"] == 2
+    assert events[0]["corpus_version_number"] == 1
+
+    immutable_event = _psql(
+        "SET ROLE helpdesk_app; UPDATE kb.corpus_publication_event "
+        "SET action_code='PUBLISHED' WHERE false",
+        check=False,
+    )
+    assert immutable_event.returncode != 0
+    immutable_snapshot = _psql(
+        "SET ROLE helpdesk_app; DELETE FROM kb.corpus_version_suppressed_chunk WHERE false",
+        check=False,
+    )
+    assert immutable_snapshot.returncode != 0
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event "
+            "WHERE action_code='KNOWLEDGE_CORPUS_PUBLICATION'"
+        )
+        == "2"
+    )
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event WHERE action_code='KNOWLEDGE_CORPUS_ROLLBACK'"
+        )
+        == "1"
+    )
+
+    # Restore the module corpus for the retrieval tests that follow: withdraw
+    # the document-level publications seeded above and leave no active corpus
+    # version, returning suppression to its advisory pre-publication state.
+    _psql(
+        "UPDATE kb.document_version v SET current_version_flag=false,published_at=NULL,"
+        "published_processing_version_id=NULL "
+        "FROM kb.document d WHERE d.document_id=v.document_id "
+        "AND d.external_document_key IN ('corpus-doc-a','corpus-doc-b','corpus-doc-g');"
+        "UPDATE kb.corpus_version SET active_flag=false,row_version=row_version+1 "
+        "WHERE active_flag"
     )
 
 

@@ -37,6 +37,7 @@ from apps.api.app.infrastructure.health import ApplicationResources
 from apps.api.app.infrastructure.object_storage_health import ObjectStorageHealthProbe
 from apps.api.app.infrastructure.redis_health import RedisHealthProbe
 from apps.api.app.ingestion.service import IngestionService
+from apps.api.app.knowledge.corpus_publication_service import CorpusPublicationService
 from apps.api.app.knowledge.corpus_validation_service import CorpusValidationService
 from apps.api.app.knowledge.document_service import KnowledgeDocumentService
 from apps.api.app.knowledge.reader_service import KnowledgeReaderService
@@ -202,6 +203,9 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, settings
     )
     app.state.corpus_validation_service = CorpusValidationService(
+        unit_of_work_factory, app.state.authorization_service
+    )
+    app.state.corpus_publication_service = CorpusPublicationService(
         unit_of_work_factory, app.state.authorization_service
     )
     app.state.knowledge_reader_service = KnowledgeReaderService(
