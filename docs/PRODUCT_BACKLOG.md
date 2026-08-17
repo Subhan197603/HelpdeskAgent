@@ -246,6 +246,54 @@ outside Milestone 13:
 - Advanced reranking
 - Embedding-model migration
 
+Zero-result analysis was later assigned to Milestone 14 by the ratified
+roadmap amendment below.
+
+## Post-v1 Milestone 14 — Retrieval Quality and Knowledge Gap Analytics
+
+Status: `RATIFIED — NOT STARTED`.
+
+Milestone 14 is a bounded retrieval-quality analytics milestone on `develop`.
+The roadmap amendment was authorized by
+`APPROVE MILESTONE 14 ROADMAP AMENDMENT: RETRIEVAL QUALITY AND KNOWLEDGE GAP ANALYTICS`.
+Ratification defines scope only; each task requires its own plan and explicit
+implementation and commit approvals through
+`CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+Included capabilities:
+
+- Append-only, tenant-isolated retrieval query-event capture with bounded
+  normalized query text and bounded retention
+- Read-only zero-result and low-confidence analytics for knowledge
+  administrators
+- An audited knowledge-gap disposition workflow that references existing
+  source governance without automating it
+
+Bounded task sequence:
+
+1. **14.1 — Retrieval query-event capture**
+2. **14.2 — Zero-result and low-confidence analytics administration**
+3. **14.3 — Knowledge-gap disposition and audit**
+
+Milestone 14 never changes retrieval behavior: ranking, fusion, eligibility,
+query rewriting or expansion, embeddings, reranking, the publication
+lifecycle, and source governance are unchanged, and the retrieval regression
+suite must remain green and unmodified.
+
+The physical PostgreSQL baseline remains immutable. Any development migration
+must follow `0030_corpus_publication`, remain task-specific, additive and
+reversible, and preserve tenant isolation, least-privilege runtime grants, and
+a single Alembic head.
+
+The following backlog items remain deferred and outside Milestone 14:
+
+- New-release discovery
+- Synonym and acronym management
+- Exact error-code matching
+- Stale-content penalties
+- Advanced reranking
+- Embedding-model migration
+
 ## Future Milestone — Advanced AI Operations
 
 - Mutable provider, model, policy, budget, and retrieval controls

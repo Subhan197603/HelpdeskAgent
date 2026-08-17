@@ -2031,6 +2031,167 @@ production deployment, and image publication.
 
 ---
 
+## Milestone 14 — Retrieval Quality and Knowledge Gap Analytics
+
+Status: `RATIFIED — NOT STARTED`.
+
+The documentation-only roadmap amendment was authorized by
+`APPROVE MILESTONE 14 ROADMAP AMENDMENT: RETRIEVAL QUALITY AND KNOWLEDGE GAP ANALYTICS`.
+Ratification defines scope only; it does not authorize implementation of any
+task.
+
+Milestone 14 makes retrieval effectiveness observable and actionable. It adds
+append-only retrieval query-event capture, read-only zero-result and
+low-confidence analytics for knowledge administrators, and an audited
+knowledge-gap disposition workflow. It reuses the existing shared retrieval
+service boundary, knowledge-administration screens and permission family,
+tenant row-level security, audit trail, idempotency, and canonical validation
+foundations. Zero-result analysis, previously deferred from Milestone 13, is
+assigned to this milestone.
+
+Milestone 14 never changes retrieval behavior: ranking, fusion, eligibility,
+query rewriting or expansion, embeddings, reranking, the publication
+lifecycle, and source governance are unchanged, and the retrieval regression
+suite must remain green and unmodified.
+
+Implementation must proceed one task at a time through the ordinary workflow:
+
+```text
+PLAN
+→ human implementation approval
+→ IMPLEMENT
+→ focused and full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push when authorized
+→ stop
+```
+
+Roadmap definition is not implementation approval. Do not start Task 14.1 or
+any later task from this section alone.
+
+### Task 14.1 — Retrieval Query-Event Capture
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- one append-only, tenant-isolated retrieval query event per retrieval
+  invocation, captured inside the shared retrieval service used by employee
+  search, the employee agent, and the analyst copilot;
+- bounded normalized query text, requesting surface, result count, zero-result
+  flag, top fused score, and the tenant's active corpus version at query time;
+- a bounded, policy-driven retention limit for stored events; and
+- focused unit, PostgreSQL, RLS, retention, and retrieval-regression evidence
+  followed by the full task gate.
+
+Excluded: analytics screens, retrieval behavior changes of any kind, raw
+(un-normalized) query storage, and event export.
+
+Database expectation: task-specific additive and reversible development
+migration `0031_retrieval_query_events` after `0030_corpus_publication`, with
+tenant constraints, RLS, and least-privilege runtime grants. The physical
+baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 14 TASK 14.1 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 14 TASK 14.1 COMMIT
+```
+
+### Task 14.2 — Zero-Result and Low-Confidence Analytics Administration
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- read-only, tenant-scoped aggregation of captured query events into
+  zero-result and low-confidence query groups with counts, trends, and
+  last-seen evidence;
+- administration endpoints behind the existing knowledge-administration read
+  permission; and
+- knowledge-administration analytics screens with accessibility and visual
+  evidence.
+
+Excluded: mutations, export, cross-tenant aggregation, and retrieval behavior
+changes.
+
+Database expectation: no new migration; the development head remains
+`0031_retrieval_query_events`. The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 14 TASK 14.2 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 14 TASK 14.2 COMMIT
+```
+
+### Task 14.3 — Knowledge-Gap Disposition and Audit
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- audited disposition records for analyzed query groups with a bounded
+  deterministic state set;
+- privileged, idempotent disposition mutations behind a
+  knowledge-administration write permission with optimistic concurrency; and
+- disposition actions surfaced in the Task 14.2 analytics screens.
+
+Excluded: automatic source creation, automatic acquisition, bulk automation,
+and any retrieval behavior change.
+
+Database expectation: one task-specific additive and reversible migration
+after the approved Task 14.2 head. The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 14 TASK 14.3 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 14 TASK 14.3 COMMIT
+```
+
+### Milestone 14 Completion Gate
+
+Milestone 14 is complete only when all three tasks have their approved commits
+and tags, the migration history is linear, the physical baseline checksum is
+unchanged, tenant/RLS tests pass, OpenAPI and generated clients agree,
+affected accessibility and visual gates pass, unrelated approved baselines are
+unchanged, the retrieval regression suite passes unchanged, and the complete
+backend, frontend, PostgreSQL integration, Playwright, security, build, and
+Compose gates pass.
+
+The completion evidence must prove that query-event capture changes no
+retrieval result, that captured events and analytics are strictly tenant
+isolated, that stored query text is bounded and normalized, that retention is
+enforced, and that dispositions are audited and replay-safe. A separately
+approved documentation-only closure record is required after final validation;
+completion of Task 14.3 alone does not close the milestone.
+
+The following remain outside Milestone 14: synonym and acronym management,
+exact error-code matching, new-release discovery, stale-content penalties,
+advanced reranking, embedding-model migration, query rewriting and expansion,
+automatic content actions, production deployment, and image publication.
+
+---
+
 # 6. Project Completion Gate
 
 Codex must not declare the project complete until all of the following are true:

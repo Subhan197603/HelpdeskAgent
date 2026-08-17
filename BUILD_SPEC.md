@@ -3439,6 +3439,76 @@ embedding-model migration, and all other deferred capability families remain
 out of scope. Production deployment and image publication are not part of
 Milestone 13.
 
+Retrieval Quality and Knowledge Gap Analytics is ratified as Milestone 14 in
+section 36C.
+
+---
+
+## 36C. Post-v1 Milestone 14 — Retrieval Quality and Knowledge Gap Analytics
+
+Milestone 14 is a bounded post-v1 product milestone on `develop`. It makes
+retrieval effectiveness observable and actionable on top of the governed
+corpus delivered by Milestone 13, reusing the existing shared retrieval
+service boundary, knowledge-administration screens and permission family,
+tenant row-level security, audit trail, idempotency, and canonical validation
+foundations. It does not authorize implementation by itself; each task
+requires the separate approval workflow in
+`CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+The milestone includes exactly these capabilities:
+
+- append-only, tenant-isolated retrieval query-event capture with bounded
+  normalized query text and bounded retention;
+- read-only zero-result and low-confidence analytics for knowledge
+  administrators; and
+- an audited knowledge-gap disposition workflow that references existing
+  source governance without automating it.
+
+### Task 14.1 — Retrieval query-event capture
+
+Persist one append-only, tenant-isolated query event per retrieval invocation
+inside the shared retrieval service used by employee search, the employee
+agent, and the analyst copilot: bounded normalized query text, requesting
+surface, result count, zero-result flag, top fused score, and the tenant's
+active corpus version at query time, with a bounded policy-driven retention
+limit. Capture is strictly observational. Analytics screens, retrieval
+behavior changes, raw query storage, and event export are out of scope.
+
+### Task 14.2 — Zero-result and low-confidence analytics administration
+
+Provide knowledge administrators read-only, tenant-scoped analytics that group
+captured query events into zero-result and low-confidence query groups with
+counts, trends, and last-seen evidence, behind existing
+knowledge-administration read permissions, with accessibility and visual
+evidence. Mutations, export, cross-tenant aggregation, and retrieval behavior
+changes are out of scope.
+
+### Task 14.3 — Knowledge-gap disposition and audit
+
+Allow knowledge administrators to disposition an analyzed query group through
+a bounded deterministic state set with privileged, idempotent, audited
+mutations and optimistic concurrency, surfaced in the Task 14.2 analytics
+screens. Automatic source creation, automatic acquisition, bulk automation,
+and retrieval behavior changes are out of scope.
+
+### Milestone 14 database and scope boundary
+
+The physical PostgreSQL baseline remains immutable. Any required development
+migration follows `0030_corpus_publication`, is additive and reversible,
+preserves one linear Alembic head, applies tenant isolation and
+least-privilege grants, and receives upgrade/downgrade validation. Do not add
+generic analytics foundations for capabilities outside the approved task that
+needs them.
+
+Milestone 14 never changes retrieval behavior: ranking, fusion, eligibility,
+query rewriting or expansion, embeddings, reranking, the publication
+lifecycle, and source governance are unchanged, and the retrieval regression
+suite must remain green and unmodified. Synonym and acronym management, exact
+error-code matching, new-release discovery, stale-content penalties, advanced
+reranking, embedding-model migration, and all other deferred capability
+families remain out of scope. Production deployment and image publication are
+not part of Milestone 14.
+
 ---
 
 ## 37. Definition of done for every task
