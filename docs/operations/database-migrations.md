@@ -32,6 +32,12 @@ The validated Milestone 12 application baseline is commit
 realignment introduced no migrations, and the Milestone 12 closure governance
 commit is documentation-only.
 
+The validated Milestone 13 application baseline is commit
+`176596b0112ca327e9e7bf3c799ee63baa761b3e` with Alembic head
+`0030_corpus_publication`, reached through the linear Task 13.1–13.4 sequence
+`0027` → `0028` → `0029` → `0030`. The Milestone 13 closure governance commit
+is documentation-only and does not change that migration state.
+
 The only post-v1 revisions currently present are:
 
 ```text

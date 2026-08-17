@@ -1795,12 +1795,14 @@ Governed Knowledge Operations is ratified as Milestone 13 below.
 
 ## Milestone 13 — Governed Knowledge Operations
 
-Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
 The documentation-only roadmap amendment was authorized by
-`APPROVE MILESTONE 13 GOVERNED KNOWLEDGE OPERATIONS ROADMAP AMENDMENT`. That
-approval does not authorize implementation, migrations, commit, tag, push,
-merge, deployment, image publication, or the start of Task 13.1.
+`APPROVE MILESTONE 13 GOVERNED KNOWLEDGE OPERATIONS ROADMAP AMENDMENT`. All
+four tasks were subsequently implemented, validated, committed, tagged, and
+pushed through their individual human-approved gates, and formal closure is
+recorded by the annotated tag `milestone-13-closure` (see Milestone 13 Closure
+State below).
 
 Milestone 13 adds governed knowledge-corpus operations that reuse the existing
 approved-source registry, document-acquisition pipeline, processing and
@@ -1828,7 +1830,8 @@ any later task from this section alone.
 
 ### Task 13.1 — Approved-Source Inventory and Refresh Lifecycle Administration
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-13-task-13.1` at
+`8e9a6c012f67a0dc811972a5328fb4f49a3d0d33`.
 
 Scope:
 
@@ -1865,7 +1868,8 @@ APPROVE MILESTONE 13 TASK 13.1 COMMIT
 
 ### Task 13.2 — Content-Change Detection with Removed-Page and Redirect Handling
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-13-task-13.2` at
+`4110538888a0d13dd7315a29b5aec2ea8f2f9754`.
 
 Scope:
 
@@ -1895,7 +1899,8 @@ APPROVE MILESTONE 13 TASK 13.2 COMMIT
 
 ### Task 13.3 — Corpus Validation with Duplicate and Near-Duplicate Detection
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-13-task-13.3` at
+`10d4411ef884c747751134e429483542df8fd015`.
 
 Scope:
 
@@ -1926,7 +1931,8 @@ APPROVE MILESTONE 13 TASK 13.3 COMMIT
 
 ### Task 13.4 — Governed Corpus Publication and Rollback
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-13-task-13.4` at
+`176596b0112ca327e9e7bf3c799ee63baa761b3e`.
 
 Scope:
 
@@ -1954,6 +1960,52 @@ Commit approval phrase after successful implementation and validation:
 ```text
 APPROVE MILESTONE 13 TASK 13.4 COMMIT
 ```
+
+### Milestone 13 Closure State
+
+Milestone 13 implementation, validation, Linux baseline adoption, and final
+validation are complete. Formal closure is recorded by the approved
+documentation-only governance commit and annotated tag `milestone-13-closure`.
+
+| Task | Evidence                                      | Tag                      | Commit                                     |
+| ---- | --------------------------------------------- | ------------------------ | ------------------------------------------ |
+| 13.1 | Approved-Source Inventory & Refresh Lifecycle | `milestone-13-task-13.1` | `8e9a6c012f67a0dc811972a5328fb4f49a3d0d33` |
+| 13.2 | Content-Change Detection                      | `milestone-13-task-13.2` | `4110538888a0d13dd7315a29b5aec2ea8f2f9754` |
+| 13.3 | Corpus Validation & Near-Duplicate Detection  | `milestone-13-task-13.3` | `10d4411ef884c747751134e429483542df8fd015` |
+| 13.4 | Governed Corpus Publication & Rollback        | `milestone-13-task-13.4` | `176596b0112ca327e9e7bf3c799ee63baa761b3e` |
+
+Each task's tag target is the head of its approved lineage of implementation,
+remediation, and Linux-baseline-adoption commits, and each target is exactly
+the head commit of an all-green canonical CI run: 13.1 run `31947633438`,
+13.2 run `31975951029`, 13.3 run `32027072781`, and 13.4 run `32033702888`
+(quality, foundation integration, retrieval regression, portal end-to-end —
+25 of 25 Playwright tests at the final head, including all Task 13.1–13.4
+functional, accessibility, and visual assertions — secret scan, and
+vulnerability scan). Task 13.3 required an approved test-expectation
+correction (the deterministic embedder only yields identical vectors for
+identical embedding inputs, and the prior refresh fixtures hold no chunks); a
+governance provenance assessment recorded that the implementation was correct
+and the original failure was a test defect. Task 13.4 aligned its new corpus
+tables with the baseline `helpdesk_owner` ownership convention so the
+owner-executed retrieval view stays deterministic under optional row-level
+security.
+
+The development Alembic head is `0030_corpus_publication`, reached through the
+linear Milestone 13 sequence `0027_knowledge_source_lifecycle` →
+`0028_content_change_detection` → `0029_corpus_validation` →
+`0030_corpus_publication`. The physical PostgreSQL baseline is unchanged
+across the entire milestone.
+
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
+`0020_reporting_views`. No Milestone 13 work has been promoted to production,
+and no production deployment or image publication is authorized.
+
+Draft PR #1 remains open and unmerged. Draft PRs #4 through #7 were
+automatically marked merged by GitHub when their validation head commits
+landed on `develop` through approved fast-forward pushes; no merge commits
+exist and no manual merge was performed. The closure tag does not authorize a
+production promotion, a merge of Draft PR #1, or the start of Milestone 14.
 
 ### Milestone 13 Completion Gate
 

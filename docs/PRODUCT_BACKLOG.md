@@ -199,12 +199,16 @@ PLAN
 
 ## Post-v1 Milestone 13 — Governed Knowledge Operations
 
-Status: `ROADMAP DEFINED — IMPLEMENTATION NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
-Milestone 13 is a bounded, governed knowledge-operations milestone on
-`develop`. The roadmap-amendment approval defines scope only; it does not
-authorize implementation, migrations, commit, tag, push, merge, deployment, or
-image publication.
+Milestone 13 was a bounded, governed knowledge-operations milestone on
+`develop`. All four tasks are complete, individually tagged
+(`milestone-13-task-13.1` through `milestone-13-task-13.4`, final head
+`176596b0112ca327e9e7bf3c799ee63baa761b3e`), each validated by an all-green
+canonical CI run at its exact tag target. Formal closure is recorded by the
+annotated tag `milestone-13-closure`. The development Alembic head is
+`0030_corpus_publication`; the physical PostgreSQL baseline is unchanged, and
+production remains frozen at v1.0.0 (`cc9d768`).
 
 The roadmap amendment was authorized by
 `APPROVE MILESTONE 13 GOVERNED KNOWLEDGE OPERATIONS ROADMAP AMENDMENT`.
