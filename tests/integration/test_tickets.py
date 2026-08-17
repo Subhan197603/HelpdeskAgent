@@ -2128,9 +2128,7 @@ def test_personal_canned_response_crud_reorder_and_isolation(
 
 @pytest.mark.integration
 def test_canned_response_migration_is_minimal_and_owner_scoped() -> None:
-    assert _psql("SELECT version_num FROM config.alembic_version") == (
-        "0028_content_change_detection"
-    )
+    assert _psql("SELECT version_num FROM config.alembic_version") == ("0029_corpus_validation")
     assert (
         _psql(
             "SELECT relrowsecurity FROM pg_class "
@@ -2310,9 +2308,7 @@ def test_inaccessible_watched_ticket_is_not_returned_or_followed(client: TestCli
 
 @pytest.mark.integration
 def test_ticket_watchlist_migration_is_minimal_and_owner_scoped() -> None:
-    assert _psql("SELECT version_num FROM config.alembic_version") == (
-        "0028_content_change_detection"
-    )
+    assert _psql("SELECT version_num FROM config.alembic_version") == ("0029_corpus_validation")
     assert (
         _psql(
             "SELECT relrowsecurity FROM pg_class "

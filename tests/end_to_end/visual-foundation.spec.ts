@@ -534,6 +534,83 @@ test("approved employee and analyst screens remain visually stable", async ({
   await page.unroute(changeReportRoute);
   await page.unroute(sourcesRoute);
 
+  const corpusValidationRoute =
+    "**/api/v1/admin/knowledge/corpus-validations/latest";
+  await page.route(corpusValidationRoute, async (route) => {
+    const finding = (
+      key: string,
+      findingType: string,
+      overrides: Record<string, unknown>,
+    ) => ({
+      chunk_id: null,
+      counterpart_chunk_id: null,
+      counterpart_document_id: null,
+      counterpart_document_title: null,
+      document_id: `d0000000-0000-4000-8000-00000000000${key}`,
+      document_title: `Handbook page ${key}`,
+      document_version_id: null,
+      duplicate_group_key: null,
+      evidence: {},
+      finding_type: findingType,
+      id: `e0000000-0000-4000-8000-00000000000${key}`,
+      similarity_score: null,
+      suppression_flagged: false,
+      ...overrides,
+    });
+    await route.fulfill({
+      json: {
+        chunk_count: 42,
+        completed_at: "2026-08-05T09:30:00Z",
+        document_count: 12,
+        findings: [
+          finding("1", "STRUCTURAL_DEFECT", {}),
+          finding("2", "EMPTY_CHUNK", {
+            chunk_id: "f0000000-0000-4000-8000-000000000002",
+          }),
+          finding("3", "DUPLICATE_DOCUMENT", {
+            counterpart_document_id: "d0000000-0000-4000-8000-000000000004",
+            counterpart_document_title: "Handbook page 4",
+            duplicate_group_key:
+              "6a5f0000000000000000000000000000000000000000000000000000000000aa",
+          }),
+          finding("5", "NEAR_DUPLICATE_CHUNK", {
+            chunk_id: "f0000000-0000-4000-8000-000000000005",
+            counterpart_chunk_id: "f0000000-0000-4000-8000-000000000006",
+            counterpart_document_id: "d0000000-0000-4000-8000-000000000006",
+            counterpart_document_title: "Handbook page 6",
+            similarity_score: 0.9821,
+            suppression_flagged: true,
+          }),
+        ],
+        replayed: false,
+        requested_by: null,
+        run_id: "c1000000-0000-4000-8000-000000000001",
+        similarity_threshold: 0.95,
+        started_at: "2026-08-05T09:00:00Z",
+        status: "COMPLETED",
+        summary: {
+          duplicate_documents: 1,
+          empty_chunks: 1,
+          near_duplicate_chunks: 1,
+          structural_defects: 1,
+        },
+        truncated: false,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Validation" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Corpus validation", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("12 documents · 42 chunks")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-knowledge-validation.png",
+    screenshotOptions,
+  );
+  await page.unroute(corpusValidationRoute);
+
   await page.getByRole("tab", { name: "Documents" }).click();
   await expect(
     page.getByRole("heading", { name: "Knowledge", exact: true }),

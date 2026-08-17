@@ -44,6 +44,7 @@ The only post-v1 revisions currently present are:
 → 0026_analyst_ticket_watchlist
 → 0027_knowledge_source_lifecycle
 → 0028_content_change_detection
+→ 0029_corpus_validation
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -88,8 +89,7 @@ new table, privilege, or retrieval behavior is introduced. It follows
 `0026_analyst_ticket_watchlist`; the physical PostgreSQL baseline is
 unchanged.
 
-Milestone 13 Task 13.2 introduces `0028_content_change_detection`, the current
-development head. It adds four additive per-page change-evidence columns to
+Milestone 13 Task 13.2 introduces `0028_content_change_detection`. It adds four additive per-page change-evidence columns to
 `kb.ingestion_run_item` (classification, previous checksum, redirect target,
 observed HTTP status), widens the ingestion-run type constraint with the
 `REFRESH` run type and the ingestion-item status constraint with the terminal
@@ -98,6 +98,15 @@ and grants the worker role a column-scoped `UPDATE` on the three `kb.source`
 refresh-lifecycle columns. No retrieval behavior changes; it follows
 `0027_knowledge_source_lifecycle`; the physical PostgreSQL baseline is
 unchanged.
+
+Milestone 13 Task 13.3 introduces `0029_corpus_validation`, the current
+development head. It adds two tenant-isolated tables — `kb.corpus_validation_run`
+and the append-only, trigger-immutable `kb.corpus_validation_finding` — plus an
+advisory `near_duplicate_suppressed_flag` column on `kb.document_chunk` with a
+column-scoped application-role grant. Findings are evidence only: the flag never
+changes retrieval eligibility, which only a later approved publication may
+apply. It follows `0028_content_change_detection`; the physical PostgreSQL
+baseline is unchanged.
 
 ## Adopt a new local database
 

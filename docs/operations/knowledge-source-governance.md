@@ -89,3 +89,25 @@ redirected, or finally-failed page marks it `STALE`. The completion writes a sys
 `KNOWLEDGE_SOURCE_REFRESH_LIFECYCLE_CHANGED` audit event.
 `GET /api/v1/admin/knowledge/sources/{source_id}/change-report` returns the latest refresh run
 with per-page evidence and summary counts for the knowledge-administration screens.
+
+## Corpus validation
+
+Milestone 13 Task 13.3 adds a persisted, pre-publication corpus validation report.
+`POST /api/v1/admin/knowledge/corpus-validations` requires `KNOWLEDGE_DOCUMENT_PUBLISH` and an
+`Idempotency-Key`; it scans the tenant-visible corpus (current versions of active tenant and
+global documents, their latest processing versions, and chunks) in one transaction and records
+four deterministic finding types: structural defects (failed processing or per-document
+validation), empty chunks, duplicate documents (identical content checksums across documents),
+and near-duplicate chunk pairs (embedding cosine similarity at or above the recorded 0.95
+threshold across different documents). Reports are read through
+`GET /api/v1/admin/knowledge/corpus-validations/latest` and
+`GET /api/v1/admin/knowledge/corpus-validations/{run_id}` with a finding-type filter; findings
+are append-only and immutable at the database level, and each run writes a
+`KNOWLEDGE_CORPUS_VALIDATION_RUN` audit event.
+
+Suppression flags are advisory in this task. Within every near-duplicate group the canonical
+member — earliest document, then lowest identifiers — is never flagged, so the last visible copy
+of content always survives, and a tenant never flags shared global content. The flag changes no
+retrieval eligibility: retrieval views are untouched, and only a later approved publication may
+apply suppression. Reranking, synonym management, embedding changes, and automatic publication
+remain out of scope.

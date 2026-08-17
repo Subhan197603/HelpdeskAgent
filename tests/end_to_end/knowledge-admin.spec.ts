@@ -96,6 +96,56 @@ test("administrator manages the approved-source refresh lifecycle", async ({
   ).toBeHidden();
 });
 
+test("administrator reviews the corpus validation report", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue as administrator" }).click();
+  await page.locator('a[href="/admin/knowledge"]').click();
+
+  const latestRoute = "**/api/v1/admin/knowledge/corpus-validations/latest";
+  await page.route(latestRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        run_id: null,
+        status: null,
+        requested_by: null,
+        similarity_threshold: null,
+        document_count: 0,
+        chunk_count: 0,
+        truncated: false,
+        started_at: null,
+        completed_at: null,
+        summary: {
+          structural_defects: 0,
+          empty_chunks: 0,
+          duplicate_documents: 0,
+          near_duplicate_chunks: 0,
+        },
+        findings: [],
+        replayed: false,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Validation" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Corpus validation" }),
+  ).toBeVisible();
+  await expect(page.getByText("No validation run yet")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Run validation" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Run validation" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Run corpus validation" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/nothing is published, removed, or hidden/),
+  ).toBeVisible();
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await page.unroute(latestRoute);
+});
+
 test("caller without knowledge administration permission is denied", async ({
   page,
 }) => {
@@ -106,6 +156,10 @@ test("caller without knowledge administration permission is denied", async ({
     page.getByRole("heading", { name: "You are not authorized" }),
   ).toBeVisible();
   await page.goto("/admin/knowledge/sources");
+  await expect(
+    page.getByRole("heading", { name: "You are not authorized" }),
+  ).toBeVisible();
+  await page.goto("/admin/knowledge/validation");
   await expect(
     page.getByRole("heading", { name: "You are not authorized" }),
   ).toBeVisible();

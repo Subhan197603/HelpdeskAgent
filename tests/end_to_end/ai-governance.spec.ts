@@ -37,7 +37,7 @@ test("caller without AI oversight is denied in the route and API", async ({
   ).toBeVisible();
 
   const response = await page.request.get(
-    "http://127.0.0.1:58010/api/v1/admin/ai",
+    "http://127.0.0.1:58110/api/v1/admin/ai",
     {
       headers: { "X-Developer-User": "DEV/customer" },
     },

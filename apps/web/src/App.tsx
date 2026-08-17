@@ -3914,7 +3914,11 @@ function AdminKnowledgePage() {
   );
 }
 
-function KnowledgeAdminTabs({ active }: { active: "documents" | "sources" }) {
+function KnowledgeAdminTabs({
+  active,
+}: {
+  active: "documents" | "sources" | "validation";
+}) {
   const identity = useCurrentIdentity();
   const navigate = useNavigate();
   const codes = identity?.permission_codes ?? [];
@@ -3929,12 +3933,13 @@ function KnowledgeAdminTabs({ active }: { active: "documents" | "sources" }) {
       items={[
         { id: "documents", label: "Documents" },
         { id: "sources", label: "Sources" },
+        { id: "validation", label: "Validation" },
       ]}
       label="Knowledge administration areas"
       onChange={(id) => {
-        navigate(
-          id === "sources" ? "/admin/knowledge/sources" : "/admin/knowledge",
-        );
+        if (id === "sources") navigate("/admin/knowledge/sources");
+        else if (id === "validation") navigate("/admin/knowledge/validation");
+        else navigate("/admin/knowledge");
       }}
     />
   );
@@ -4471,6 +4476,209 @@ function AdminKnowledgeSourcesPage() {
             evidence? Changed content is never republished automatically.
           </p>
         )}
+      </ConfirmationDialog>
+    </div>
+  );
+}
+
+type CorpusFinding =
+  components["schemas"]["CorpusValidationFindingResponse"];
+
+const CORPUS_FINDING_LABELS: Record<CorpusFinding["finding_type"], string> = {
+  STRUCTURAL_DEFECT: "Structural defect",
+  EMPTY_CHUNK: "Empty chunk",
+  DUPLICATE_DOCUMENT: "Duplicate document",
+  NEAR_DUPLICATE_CHUNK: "Near-duplicate chunk",
+};
+
+export function corpusFindingPresentation(
+  findingType: CorpusFinding["finding_type"],
+): { code: "PARTIAL" | "DENIED"; label: string } {
+  if (findingType === "STRUCTURAL_DEFECT")
+    return { code: "DENIED", label: CORPUS_FINDING_LABELS[findingType] };
+  if (findingType === "EMPTY_CHUNK")
+    return { code: "DENIED", label: CORPUS_FINDING_LABELS[findingType] };
+  return { code: "PARTIAL", label: CORPUS_FINDING_LABELS[findingType] };
+}
+
+function AdminKnowledgeValidationPage() {
+  const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const [findingType, setFindingType] = useState("");
+  const [confirmRun, setConfirmRun] = useState(false);
+  const report = useQuery({
+    queryKey: ["admin-corpus-validation"],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/knowledge/corpus-validations/latest"),
+      ),
+  });
+  const runMutation = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.POST("/api/v1/admin/knowledge/corpus-validations", {
+          params: {
+            header: {
+              "Idempotency-Key": newIdempotencyKey("corpus-validation"),
+            },
+          },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-corpus-validation"],
+      });
+      setConfirmRun(false);
+    },
+  });
+  const canRun =
+    identity?.permission_codes.includes("KNOWLEDGE_DOCUMENT_PUBLISH") ?? false;
+  const data = report.data;
+  const findings =
+    data?.findings.filter(
+      (finding) => findingType === "" || finding.finding_type === findingType,
+    ) ?? [];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Review pre-publication corpus quality: structural defects, empty chunks, duplicates, and near-duplicate suppression flags."
+        title="Corpus validation"
+      />
+      <KnowledgeAdminTabs active="validation" />
+      <TableToolbar label="Corpus validation controls">
+        <label className="sort-control">
+          Finding type
+          <select
+            onChange={(event) => {
+              setFindingType(event.target.value);
+            }}
+            value={findingType}
+          >
+            <option value="">All findings</option>
+            {Object.entries(CORPUS_FINDING_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {canRun && (
+          <Button
+            onClick={() => {
+              runMutation.reset();
+              setConfirmRun(true);
+            }}
+          >
+            Run validation
+          </Button>
+        )}
+      </TableToolbar>
+      {report.isPending && <LoadingSkeleton label="Loading corpus validation" />}
+      {report.error != null && <ErrorSummary error={report.error} />}
+      {runMutation.error != null && <ErrorSummary error={runMutation.error} />}
+      {data != null &&
+        (data.run_id == null ? (
+          <EmptyState
+            description="Run a validation to produce the pre-publication corpus report."
+            title="No validation run yet"
+          />
+        ) : (
+          <>
+            <p className="admin-result-count">
+              Run {humanizeCode(data.status ?? "UNKNOWN")} ·{" "}
+              {data.document_count} documents · {data.chunk_count} chunks ·{" "}
+              {data.summary.structural_defects} structural ·{" "}
+              {data.summary.empty_chunks} empty ·{" "}
+              {data.summary.duplicate_documents} duplicate ·{" "}
+              {data.summary.near_duplicate_chunks} near-duplicate
+              {data.truncated ? " · findings truncated" : ""}
+            </p>
+            <DataTable
+              caption="Corpus validation findings"
+              columns={[
+                {
+                  header: "Finding",
+                  key: "finding",
+                  render: (row: CorpusFinding) => {
+                    const presentation = corpusFindingPresentation(
+                      row.finding_type,
+                    );
+                    return (
+                      <span>
+                        <OutcomeBadge code={presentation.code} />{" "}
+                        {presentation.label}
+                      </span>
+                    );
+                  },
+                },
+                {
+                  header: "Document",
+                  key: "document",
+                  render: (row: CorpusFinding) => (
+                    <div className="admin-knowledge-title">
+                      <strong>{row.document_title ?? row.document_id}</strong>
+                      {row.chunk_id != null && <span>Chunk {row.chunk_id}</span>}
+                    </div>
+                  ),
+                },
+                {
+                  header: "Counterpart",
+                  key: "counterpart",
+                  render: (row: CorpusFinding) =>
+                    row.counterpart_document_title ??
+                    row.counterpart_document_id ??
+                    "—",
+                },
+                {
+                  header: "Similarity",
+                  key: "similarity",
+                  render: (row: CorpusFinding) =>
+                    row.similarity_score == null
+                      ? "—"
+                      : row.similarity_score.toFixed(4),
+                },
+                {
+                  header: "Suppression",
+                  key: "suppression",
+                  render: (row: CorpusFinding) =>
+                    row.suppression_flagged ? (
+                      <span>
+                        <OutcomeBadge code="PARTIAL" /> Flagged
+                      </span>
+                    ) : (
+                      "—"
+                    ),
+                },
+              ]}
+              empty={
+                <EmptyState
+                  description="No findings match the current filter."
+                  title="No findings"
+                />
+              }
+              getRowKey={(row) => row.id}
+              rows={findings}
+            />
+          </>
+        ))}
+      <ConfirmationDialog
+        confirmLabel="Run validation"
+        onCancel={() => {
+          setConfirmRun(false);
+        }}
+        onConfirm={() => {
+          runMutation.mutate();
+        }}
+        open={confirmRun}
+        pending={runMutation.isPending}
+        title="Run corpus validation"
+      >
+        <p>
+          Scan the corpus and persist a validation report? Suppression flags are
+          advisory: nothing is published, removed, or hidden from retrieval by
+          this run.
+        </p>
       </ConfirmationDialog>
     </div>
   );
@@ -8304,6 +8512,16 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="KNOWLEDGE_SOURCE_READ_ADMIN">
                 <AdminKnowledgeSourcesPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge/validation"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
+                <AdminKnowledgeValidationPage />
               </RequirePermission>
             </RequireSession>
           }

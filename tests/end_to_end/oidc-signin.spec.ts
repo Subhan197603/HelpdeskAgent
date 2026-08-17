@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Runs against the OIDC-only stack (web :53001, api :58011, stub IdP :59180)
+// Runs against the OIDC-only stack (web :53001, api :58111, stub IdP :59180)
 // with DEVELOPER_IDENTITY_ENABLED=false — the production authentication
 // posture that DEF-RC1-001 requires the browser to support.
 

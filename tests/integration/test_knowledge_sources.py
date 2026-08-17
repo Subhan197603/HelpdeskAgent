@@ -407,9 +407,7 @@ def test_canonical_location_and_global_scope_are_fail_closed(client: TestClient)
 
 @pytest.mark.integration
 def test_refresh_lifecycle_migration_is_minimal_and_backfilled() -> None:
-    assert (
-        _value("SELECT version_num FROM config.alembic_version") == "0028_content_change_detection"
-    )
+    assert _value("SELECT version_num FROM config.alembic_version") == "0029_corpus_validation"
     assert (
         _value(
             "SELECT count(*) FROM information_schema.columns "
@@ -606,6 +604,65 @@ def test_content_change_migration_is_minimal_and_privileged() -> None:
             == expected
         ), column
     assert _value("SELECT has_table_privilege('helpdesk_worker','kb.source','DELETE')") == "f"
+
+
+@pytest.mark.integration
+def test_corpus_validation_migration_is_minimal_and_privileged() -> None:
+    for table in ("corpus_validation_run", "corpus_validation_finding"):
+        assert (
+            _value(
+                "SELECT count(*) FROM information_schema.tables "
+                f"WHERE table_schema='kb' AND table_name='{table}'"
+            )
+            == "1"
+        ), table
+        assert (
+            _value("SELECT relrowsecurity FROM pg_class WHERE oid='kb." + table + "'::regclass")
+            == "t"
+        ), table
+    assert (
+        _value(
+            "SELECT count(*) FROM information_schema.columns WHERE table_schema='kb' "
+            "AND table_name='document_chunk' AND column_name='near_duplicate_suppressed_flag'"
+        )
+        == "1"
+    )
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_trigger WHERE tgname='immutable_kb_corpus_validation_finding'"
+        )
+        == "1"
+    )
+    assert (
+        _value("SELECT has_table_privilege('helpdesk_app','kb.corpus_validation_run','UPDATE')")
+        == "t"
+    )
+    for privilege in ("UPDATE", "DELETE"):
+        assert (
+            _value(
+                "SELECT has_table_privilege('helpdesk_app',"
+                f"'kb.corpus_validation_finding','{privilege}')"
+            )
+            == "f"
+        ), privilege
+    assert (
+        _value(
+            "SELECT has_column_privilege('helpdesk_app','kb.document_chunk',"
+            "'near_duplicate_suppressed_flag','UPDATE')"
+        )
+        == "t"
+    )
+    assert (
+        _value(
+            "SELECT has_column_privilege('helpdesk_app','kb.document_chunk',"
+            "'content_text','UPDATE')"
+        )
+        == "f"
+    )
+    assert (
+        _value("SELECT has_table_privilege('helpdesk_worker','kb.corpus_validation_run','INSERT')")
+        == "f"
+    )
 
 
 @pytest.mark.integration

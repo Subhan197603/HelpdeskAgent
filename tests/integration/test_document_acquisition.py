@@ -370,9 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert (
-        _value("SELECT version_num FROM config.alembic_version") == "0028_content_change_detection"
-    )
+    assert _value("SELECT version_num FROM config.alembic_version") == "0029_corpus_validation"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -1315,6 +1313,278 @@ def test_refresh_run_classifies_pages_and_feeds_the_source_lifecycle(
             f"'{second.json()['id']}'"
         )
         == "0"
+    )
+
+
+def _acquire_corpus_document(
+    client: TestClient,
+    storage: MemoryStorage,
+    source: dict[str, Any],
+    key: str,
+    content: bytes,
+    *,
+    persona: str = "knowledge-author",
+    title: str | None = None,
+) -> None:
+    authorized = client.post(
+        "/api/v1/admin/knowledge/manual-uploads",
+        headers=_headers(persona, f"upload-{key}"),
+        json={
+            "source_id": source["id"],
+            "manifest_key": key,
+            "document_title": title or f"Corpus {key}",
+            "document_type": "POLICY",
+            "audience_code": "EMPLOYEE",
+            "target_collection": "policies",
+            "filename": f"{key}.md",
+            "content_type": "text/markdown",
+            "file_size_bytes": len(content),
+            "sha256_checksum": hashlib.sha256(content).hexdigest(),
+        },
+    )
+    assert authorized.status_code == 201, authorized.text
+    upload = authorized.json()
+    storage.objects[upload["quarantine_object_key"]] = (content, "text/markdown")
+    complete = client.post(
+        f"/api/v1/admin/knowledge/manual-uploads/{upload['item_id']}/complete",
+        headers=_headers(persona, f"complete-{key}"),
+    )
+    assert complete.status_code == 200, complete.text
+    processed, _unused = asyncio.run(
+        _process(storage, SequenceFetcher(b"unused")), loop_factory=asyncio.SelectorEventLoop
+    )
+    assert processed is True
+
+
+@pytest.mark.integration
+def test_corpus_validation_detects_duplicates_and_flags_near_duplicates(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, storage = application
+    tenant_source = _create_approved_source(client, "CORPUS_DOCS", "MANUAL_UPLOAD")
+
+    created = client.post(
+        "/api/v1/admin/knowledge/sources",
+        headers=_headers("platform-admin", "create-corpus-global"),
+        json={
+            "code": "CORPUS_GLOBAL",
+            "name": "Corpus global source",
+            "source_type": "COMPANY_POLICY",
+            "canonical_location": "repository:corpus-global",
+            "acquisition_method": "MANUAL_UPLOAD",
+            "permission_reference": "source-governance-1",
+            "audience_scope": "EMPLOYEE",
+            "status": "ACTIVE",
+            "owner_user_id": AUTHOR_ID,
+            "scope": "GLOBAL",
+        },
+    )
+    assert created.status_code == 201, created.text
+    global_source = created.json()
+    approved = client.post(
+        f"/api/v1/admin/knowledge/sources/{global_source['id']}/approval-decisions",
+        headers=_headers("platform-admin", "approve-corpus-global"),
+        json={"decision": "APPROVED", "expected_version": 1},
+    )
+    assert approved.status_code == 200, approved.text
+    global_source = approved.json()
+
+    shared = (
+        b"# Shared corpus page\n\n"
+        b"Identical governed content used for duplicate detection coverage.\n"
+    )
+    # The three copies share one document title: the chunker prefixes the
+    # title into the embedding input, and the deterministic embedding provider
+    # only yields identical (similarity 1.0) vectors for identical inputs.
+    _acquire_corpus_document(
+        client, storage, tenant_source, "corpus-doc-a", shared, title="Shared corpus page"
+    )
+    _acquire_corpus_document(
+        client, storage, tenant_source, "corpus-doc-b", shared, title="Shared corpus page"
+    )
+    _acquire_corpus_document(
+        client,
+        storage,
+        global_source,
+        "corpus-doc-g",
+        shared,
+        persona="platform-admin",
+        title="Shared corpus page",
+    )
+    _acquire_corpus_document(
+        client,
+        storage,
+        tenant_source,
+        "corpus-doc-c",
+        b"# Distinct corpus page c\n\nUnique governed content for page c.\n",
+    )
+    _acquire_corpus_document(
+        client,
+        storage,
+        tenant_source,
+        "corpus-doc-d",
+        b"# Distinct corpus page d\n\nUnique governed content for page d.\n",
+    )
+    processed = asyncio.run(_process_knowledge(storage), loop_factory=asyncio.SelectorEventLoop)
+    assert processed >= 5
+
+    _psql(
+        "INSERT INTO kb.document_chunk(chunk_id,document_version_id,chunk_sequence,"
+        "content_text,token_count,content_hash,processing_version_id,tenant_id,"
+        "document_id,source_id,audience_code,security_classification,"
+        "embedding_input_hash) "
+        "SELECT gen_random_uuid(),p.document_version_id,999,'',0,repeat('e',64),"
+        "p.processing_version_id,p.tenant_id,p.document_id,d.source_id,"
+        "d.audience_code,d.security_classification,repeat('e',64) "
+        "FROM kb.document_processing_version p JOIN kb.document d "
+        "ON d.document_id=p.document_id WHERE d.external_document_key='corpus-doc-c'"
+    )
+    _psql(
+        "UPDATE kb.document_processing_version p SET validation_status='FAILED' "
+        "FROM kb.document d WHERE d.document_id=p.document_id "
+        "AND d.external_document_key='corpus-doc-d'"
+    )
+    eligible_before = _value("SELECT count(*) FROM kb.v_active_document_chunk")
+
+    assert (
+        client.post(
+            "/api/v1/admin/knowledge/corpus-validations",
+            headers=_headers("customer", "corpus-validation-denied"),
+        ).status_code
+        == 403
+    )
+    assert (
+        client.get(
+            "/api/v1/admin/knowledge/corpus-validations/latest",
+            headers=_headers("customer"),
+        ).status_code
+        == 403
+    )
+
+    run = client.post(
+        "/api/v1/admin/knowledge/corpus-validations",
+        headers=_headers("platform-admin", "corpus-validation-1"),
+    )
+    assert run.status_code == 201, run.text
+    report = run.json()
+    run_id = report["run_id"]
+    assert report["status"] == "COMPLETED"
+    assert report["similarity_threshold"] == 0.95
+    # The module corpus also contains deterministic leftovers from the earlier
+    # acquisition tests: failed-parse-1 plus the three refresh documents sit at
+    # FAILED processing versions (four structural defects on top of the forced
+    # corpus-doc-d failure), and refresh-doc-2/refresh-doc-3 share a checksum
+    # (two duplicate members on top of this test's three-way group). The
+    # refresh leftovers have no chunks, so all near-duplicate pairs come from
+    # the shared trio seeded above.
+    assert report["summary"] == {
+        "structural_defects": 5,
+        "empty_chunks": 1,
+        "duplicate_documents": 5,
+        "near_duplicate_chunks": 3,
+    }
+    assert report["truncated"] is False
+    shared_checksum = hashlib.sha256(shared).hexdigest()
+    corpus_group = [
+        finding
+        for finding in report["findings"]
+        if finding["finding_type"] == "DUPLICATE_DOCUMENT"
+        and finding["duplicate_group_key"] == shared_checksum
+    ]
+    assert len(corpus_group) == 3
+    assert all(finding["evidence"]["member_count"] == 3 for finding in corpus_group)
+    near_findings = [
+        finding
+        for finding in report["findings"]
+        if finding["finding_type"] == "NEAR_DUPLICATE_CHUNK"
+    ]
+    assert all(finding["similarity_score"] == 1.0 for finding in near_findings)
+    structural_documents = {
+        finding["document_title"]
+        for finding in report["findings"]
+        if finding["finding_type"] == "STRUCTURAL_DEFECT"
+    }
+    assert "Corpus corpus-doc-d" in structural_documents
+    # corpus-doc-a is the canonical (earliest) member and stays unflagged;
+    # corpus-doc-g is global content, which a tenant run never suppresses.
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.document_chunk c JOIN kb.document d "
+            "ON d.document_id=c.document_id "
+            "WHERE c.near_duplicate_suppressed_flag AND d.external_document_key='corpus-doc-b'"
+        )
+        == "1"
+    )
+    for unflagged in ("corpus-doc-a", "corpus-doc-g"):
+        assert (
+            _value(
+                "SELECT count(*) FROM kb.document_chunk c JOIN kb.document d "
+                "ON d.document_id=c.document_id "
+                f"WHERE c.near_duplicate_suppressed_flag AND d.external_document_key='{unflagged}'"
+            )
+            == "0"
+        ), unflagged
+    assert (
+        _value(
+            "SELECT count(*) FROM kb.corpus_validation_finding "
+            "WHERE suppression_flagged AND finding_type='NEAR_DUPLICATE_CHUNK'"
+        )
+        == "1"
+    )
+
+    replay = client.post(
+        "/api/v1/admin/knowledge/corpus-validations",
+        headers=_headers("platform-admin", "corpus-validation-1"),
+    )
+    assert replay.status_code == 200
+    assert replay.headers["Idempotent-Replayed"] == "true"
+    assert replay.json()["run_id"] == run_id
+
+    latest = client.get(
+        "/api/v1/admin/knowledge/corpus-validations/latest",
+        headers=_headers("knowledge-author"),
+    )
+    assert latest.status_code == 200, latest.text
+    assert latest.json()["run_id"] == run_id
+    filtered = client.get(
+        f"/api/v1/admin/knowledge/corpus-validations/{run_id}",
+        headers=_headers("knowledge-author"),
+        params={"finding_type": "DUPLICATE_DOCUMENT"},
+    )
+    assert filtered.status_code == 200
+    assert len(filtered.json()["findings"]) == 5
+    assert (
+        client.get(
+            "/api/v1/admin/knowledge/corpus-validations/99999999-0000-0000-0000-000000000000",
+            headers=_headers("knowledge-author"),
+        ).status_code
+        == 404
+    )
+
+    immutable = _psql(
+        "SET ROLE helpdesk_app; UPDATE kb.corpus_validation_finding "
+        "SET suppression_flagged=false WHERE false",
+        check=False,
+    )
+    assert immutable.returncode != 0
+    assert _value("SELECT count(*) FROM kb.v_active_document_chunk") == eligible_before
+
+    second = client.post(
+        "/api/v1/admin/knowledge/corpus-validations",
+        headers=_headers("platform-admin", "corpus-validation-2"),
+    )
+    assert second.status_code == 201, second.text
+    assert second.json()["run_id"] != run_id
+    assert second.json()["summary"] == report["summary"]
+    assert (
+        _value("SELECT count(*) FROM kb.document_chunk WHERE near_duplicate_suppressed_flag") == "1"
+    )
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event "
+            "WHERE action_code='KNOWLEDGE_CORPUS_VALIDATION_RUN'"
+        )
+        == "2"
     )
 
 

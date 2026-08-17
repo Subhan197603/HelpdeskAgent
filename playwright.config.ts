@@ -85,15 +85,15 @@ export default defineConfig({
   webServer: [
     {
       command: "uv run python -m apps.api.app.server",
-      url: "http://127.0.0.1:58010/health/live",
+      url: "http://127.0.0.1:58110/health/live",
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
         APP_ENV: "development",
         API_HOST: "127.0.0.1",
-        API_PORT: "58010",
+        API_PORT: "58110",
         APP_BASE_URL: "http://127.0.0.1:53000",
-        API_BASE_URL: "http://127.0.0.1:58010",
+        API_BASE_URL: "http://127.0.0.1:58110",
         CLAMAV_HOST: "127.0.0.1",
         CORS_ALLOWED_ORIGINS: '["http://127.0.0.1:53000"]',
         DATABASE_URL: databaseUrl,
@@ -109,7 +109,7 @@ export default defineConfig({
       url: "http://127.0.0.1:53000",
       reuseExistingServer: false,
       timeout: 120_000,
-      env: { VITE_API_URL: "http://127.0.0.1:58010" },
+      env: { VITE_API_URL: "http://127.0.0.1:58110" },
     },
     {
       command: "node tests/end_to_end/oidc-stub-idp.mjs",
@@ -119,15 +119,15 @@ export default defineConfig({
     },
     {
       command: "uv run python -m apps.api.app.server",
-      url: "http://127.0.0.1:58011/health/live",
+      url: "http://127.0.0.1:58111/health/live",
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
         APP_ENV: "development",
         API_HOST: "127.0.0.1",
-        API_PORT: "58011",
+        API_PORT: "58111",
         APP_BASE_URL: "http://127.0.0.1:53001",
-        API_BASE_URL: "http://127.0.0.1:58011",
+        API_BASE_URL: "http://127.0.0.1:58111",
         CLAMAV_HOST: "127.0.0.1",
         CORS_ALLOWED_ORIGINS: '["http://127.0.0.1:53001"]',
         DATABASE_URL: databaseUrl,
@@ -148,7 +148,7 @@ export default defineConfig({
       url: "http://127.0.0.1:53001",
       reuseExistingServer: false,
       timeout: 120_000,
-      env: { VITE_API_URL: "http://127.0.0.1:58011" },
+      env: { VITE_API_URL: "http://127.0.0.1:58111" },
     },
   ],
 });

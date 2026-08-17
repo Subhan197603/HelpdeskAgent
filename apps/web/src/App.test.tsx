@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  corpusFindingPresentation,
   DynamicField,
   insertCannedResponse,
   LoginPage,
@@ -290,6 +291,25 @@ describe("knowledge source refresh lifecycle presentation", () => {
     expect(sourceChangePresentation(null, false)).toEqual({
       code: "PARTIAL",
       label: "Pending",
+    });
+  });
+
+  it("maps every corpus validation finding type to a deterministic badge", () => {
+    expect(corpusFindingPresentation("STRUCTURAL_DEFECT")).toEqual({
+      code: "DENIED",
+      label: "Structural defect",
+    });
+    expect(corpusFindingPresentation("EMPTY_CHUNK")).toEqual({
+      code: "DENIED",
+      label: "Empty chunk",
+    });
+    expect(corpusFindingPresentation("DUPLICATE_DOCUMENT")).toEqual({
+      code: "PARTIAL",
+      label: "Duplicate document",
+    });
+    expect(corpusFindingPresentation("NEAR_DUPLICATE_CHUNK")).toEqual({
+      code: "PARTIAL",
+      label: "Near-duplicate chunk",
     });
   });
 });

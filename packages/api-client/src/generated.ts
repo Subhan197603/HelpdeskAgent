@@ -259,6 +259,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/corpus-validations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Run Corpus Validation */
+    post: operations["run_corpus_validation_api_v1_admin_knowledge_corpus_validations_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/corpus-validations/latest": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Latest Corpus Validation */
+    get: operations["latest_corpus_validation_api_v1_admin_knowledge_corpus_validations_latest_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/corpus-validations/{run_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Corpus Validation */
+    get: operations["get_corpus_validation_api_v1_admin_knowledge_corpus_validations__run_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/documents": {
     parameters: {
       query?: never;
@@ -3975,6 +4026,111 @@ export interface components {
        * Format: uuid
        */
       tool_set_version_id: string;
+    };
+    /** CorpusValidationFindingResponse */
+    CorpusValidationFindingResponse: {
+      /** Chunk Id */
+      chunk_id: string | null;
+      /** Counterpart Chunk Id */
+      counterpart_chunk_id: string | null;
+      /** Counterpart Document Id */
+      counterpart_document_id: string | null;
+      /** Counterpart Document Title */
+      counterpart_document_title: string | null;
+      /**
+       * Document Id
+       * Format: uuid
+       */
+      document_id: string;
+      /** Document Title */
+      document_title: string | null;
+      /** Document Version Id */
+      document_version_id: string | null;
+      /** Duplicate Group Key */
+      duplicate_group_key: string | null;
+      /** Evidence */
+      evidence: {
+        [key: string]: unknown;
+      };
+      /**
+       * Finding Type
+       * @enum {string}
+       */
+      finding_type:
+        | "STRUCTURAL_DEFECT"
+        | "EMPTY_CHUNK"
+        | "DUPLICATE_DOCUMENT"
+        | "NEAR_DUPLICATE_CHUNK";
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Similarity Score */
+      similarity_score: number | null;
+      /** Suppression Flagged */
+      suppression_flagged: boolean;
+    };
+    /** CorpusValidationReportResponse */
+    CorpusValidationReportResponse: {
+      /**
+       * Chunk Count
+       * @default 0
+       */
+      chunk_count: number;
+      /** Completed At */
+      completed_at: string | null;
+      /**
+       * Document Count
+       * @default 0
+       */
+      document_count: number;
+      /** Findings */
+      findings: components["schemas"]["CorpusValidationFindingResponse"][];
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Requested By */
+      requested_by: string | null;
+      /** Run Id */
+      run_id: string | null;
+      /** Similarity Threshold */
+      similarity_threshold: number | null;
+      /** Started At */
+      started_at: string | null;
+      /** Status */
+      status: ("COMPLETED" | "FAILED") | null;
+      summary: components["schemas"]["CorpusValidationSummary"];
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
+    };
+    /** CorpusValidationSummary */
+    CorpusValidationSummary: {
+      /**
+       * Duplicate Documents
+       * @default 0
+       */
+      duplicate_documents: number;
+      /**
+       * Empty Chunks
+       * @default 0
+       */
+      empty_chunks: number;
+      /**
+       * Near Duplicate Chunks
+       * @default 0
+       */
+      near_duplicate_chunks: number;
+      /**
+       * Structural Defects
+       * @default 0
+       */
+      structural_defects: number;
     };
     /** CurrentIdentityResponse */
     CurrentIdentityResponse: {
@@ -7755,6 +7911,216 @@ export interface operations {
       };
       /** @description Object storage unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  run_corpus_validation_api_v1_admin_knowledge_corpus_validations_post: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorpusValidationReportResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation run not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  latest_corpus_validation_api_v1_admin_knowledge_corpus_validations_latest_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorpusValidationReportResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation run not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  get_corpus_validation_api_v1_admin_knowledge_corpus_validations__run_id__get: {
+    parameters: {
+      query?: {
+        finding_type?:
+          | (
+              | "STRUCTURAL_DEFECT"
+              | "EMPTY_CHUNK"
+              | "DUPLICATE_DOCUMENT"
+              | "NEAR_DUPLICATE_CHUNK"
+            )
+          | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorpusValidationReportResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation run not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Corpus validation request invalid */
+      422: {
         headers: {
           [name: string]: unknown;
         };

@@ -130,7 +130,7 @@ def test_application_migration_head_resolves_from_revision_files() -> None:
 
     head = application_migration_head()
     assert head is not None
-    assert head == "0028_content_change_detection"
+    assert head == "0029_corpus_validation"
 
 
 def test_admin_permissions_are_granted_to_expected_roles_only() -> None:
