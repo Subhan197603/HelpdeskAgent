@@ -142,7 +142,10 @@ test("administrator reviews the corpus validation report", async ({ page }) => {
   ).toBeVisible();
   const accessibility = await new AxeBuilder({ page }).analyze();
   expect(accessibility.violations).toEqual([]);
-  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Cancel" })
+    .click();
   await page.unroute(latestRoute);
 });
 

@@ -4481,8 +4481,7 @@ function AdminKnowledgeSourcesPage() {
   );
 }
 
-type CorpusFinding =
-  components["schemas"]["CorpusValidationFindingResponse"];
+type CorpusFinding = components["schemas"]["CorpusValidationFindingResponse"];
 
 const CORPUS_FINDING_LABELS: Record<CorpusFinding["finding_type"], string> = {
   STRUCTURAL_DEFECT: "Structural defect",
@@ -4574,7 +4573,9 @@ function AdminKnowledgeValidationPage() {
           </Button>
         )}
       </TableToolbar>
-      {report.isPending && <LoadingSkeleton label="Loading corpus validation" />}
+      {report.isPending && (
+        <LoadingSkeleton label="Loading corpus validation" />
+      )}
       {report.error != null && <ErrorSummary error={report.error} />}
       {runMutation.error != null && <ErrorSummary error={runMutation.error} />}
       {data != null &&
@@ -4618,7 +4619,9 @@ function AdminKnowledgeValidationPage() {
                   render: (row: CorpusFinding) => (
                     <div className="admin-knowledge-title">
                       <strong>{row.document_title ?? row.document_id}</strong>
-                      {row.chunk_id != null && <span>Chunk {row.chunk_id}</span>}
+                      {row.chunk_id != null && (
+                        <span>Chunk {row.chunk_id}</span>
+                      )}
                     </div>
                   ),
                 },
