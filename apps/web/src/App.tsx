@@ -3917,7 +3917,7 @@ function AdminKnowledgePage() {
 function KnowledgeAdminTabs({
   active,
 }: {
-  active: "documents" | "sources" | "validation" | "publication";
+  active: "documents" | "sources" | "validation" | "publication" | "analytics";
 }) {
   const identity = useCurrentIdentity();
   const navigate = useNavigate();
@@ -3935,12 +3935,14 @@ function KnowledgeAdminTabs({
         { id: "sources", label: "Sources" },
         { id: "validation", label: "Validation" },
         { id: "publication", label: "Publication" },
+        { id: "analytics", label: "Analytics" },
       ]}
       label="Knowledge administration areas"
       onChange={(id) => {
         if (id === "sources") navigate("/admin/knowledge/sources");
         else if (id === "validation") navigate("/admin/knowledge/validation");
         else if (id === "publication") navigate("/admin/knowledge/publication");
+        else if (id === "analytics") navigate("/admin/knowledge/analytics");
         else navigate("/admin/knowledge");
       }}
     />
@@ -4977,6 +4979,178 @@ function AdminKnowledgePublicationPage() {
           recorded state. The current version remains in history.
         </p>
       </ConfirmationDialog>
+    </div>
+  );
+}
+
+type RetrievalQueryGroupRow =
+  components["schemas"]["RetrievalQueryGroupResponse"];
+
+const RETRIEVAL_SURFACE_LABELS: Record<string, string> = {
+  EVIDENCE_SEARCH: "Evidence search",
+  EMPLOYEE_AGENT: "Employee agent",
+  ANALYST_COPILOT: "Analyst copilot",
+};
+
+export function retrievalSurfaceLabel(surface: string): string {
+  return RETRIEVAL_SURFACE_LABELS[surface] ?? humanizeCode(surface);
+}
+
+export function retrievalAnalyticsRate(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+function retrievalGroupColumns(matchingHeader: string) {
+  return [
+    {
+      header: "Query",
+      key: "query",
+      render: (row: RetrievalQueryGroupRow) => (
+        <span className="mono">{row.normalized_query}</span>
+      ),
+    },
+    {
+      header: matchingHeader,
+      key: "matching",
+      render: (row: RetrievalQueryGroupRow) => String(row.matching_count),
+    },
+    {
+      header: "Total",
+      key: "total",
+      render: (row: RetrievalQueryGroupRow) => String(row.event_count),
+    },
+    {
+      header: "Best score",
+      key: "score",
+      render: (row: RetrievalQueryGroupRow) =>
+        row.best_top_score == null ? "—" : row.best_top_score.toFixed(4),
+    },
+    {
+      header: "Surfaces",
+      key: "surfaces",
+      render: (row: RetrievalQueryGroupRow) =>
+        row.surfaces.map(retrievalSurfaceLabel).join(", "),
+    },
+    {
+      header: "Last seen",
+      key: "last-seen",
+      render: (row: RetrievalQueryGroupRow) => formatDateTime(row.last_seen_at),
+    },
+  ];
+}
+
+function AdminKnowledgeAnalyticsPage() {
+  const client = useIdentityClient();
+  const [windowDays, setWindowDays] = useState(30);
+  const summary = useQuery({
+    queryKey: ["admin-retrieval-analytics-summary", windowDays],
+    queryFn: async () =>
+      unwrap(
+        await client.GET(
+          "/api/v1/admin/knowledge/retrieval-analytics/summary",
+          {
+            params: { query: { days: windowDays } },
+          },
+        ),
+      ),
+  });
+  const zeroResult = useQuery({
+    queryKey: ["admin-retrieval-analytics-zero", windowDays],
+    queryFn: async () =>
+      unwrap(
+        await client.GET(
+          "/api/v1/admin/knowledge/retrieval-analytics/zero-result-queries",
+          { params: { query: { days: windowDays } } },
+        ),
+      ),
+  });
+  const lowConfidence = useQuery({
+    queryKey: ["admin-retrieval-analytics-low", windowDays],
+    queryFn: async () =>
+      unwrap(
+        await client.GET(
+          "/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries",
+          { params: { query: { days: windowDays } } },
+        ),
+      ),
+  });
+  const totals = summary.data;
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Review where retrieval returned nothing or only low-confidence evidence, grouped by normalized query. Read-only analytics over captured query events."
+        title="Search analytics"
+      />
+      <KnowledgeAdminTabs active="analytics" />
+      <TableToolbar label="Search analytics filters">
+        <label className="sort-control">
+          Window
+          <select
+            onChange={(event) => {
+              setWindowDays(Number(event.target.value));
+            }}
+            value={windowDays}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={30}>Last 30 days</option>
+            <option value={90}>Last 90 days</option>
+          </select>
+        </label>
+      </TableToolbar>
+      {(summary.isPending ||
+        zeroResult.isPending ||
+        lowConfidence.isPending) && (
+        <LoadingSkeleton label="Loading search analytics" />
+      )}
+      {summary.error != null && <ErrorSummary error={summary.error} />}
+      {zeroResult.error != null && <ErrorSummary error={zeroResult.error} />}
+      {lowConfidence.error != null && (
+        <ErrorSummary error={lowConfidence.error} />
+      )}
+      {totals != null && (
+        <p className="admin-result-count">
+          {totals.event_count} retrieval queries · {totals.zero_result_count}{" "}
+          zero-result ({retrievalAnalyticsRate(totals.zero_result_rate)}) ·{" "}
+          {totals.low_confidence_count} low-confidence (
+          {retrievalAnalyticsRate(totals.low_confidence_rate)}) · threshold{" "}
+          {totals.low_confidence_threshold} · {totals.query_group_count}{" "}
+          distinct queries
+        </p>
+      )}
+      {totals?.event_count === 0 && (
+        <EmptyState
+          description="Query events accumulate as employees and analysts search the knowledge corpus. Analytics stay read-only and never change retrieval behavior."
+          title="No retrieval queries captured in this window"
+        />
+      )}
+      {zeroResult.data != null && zeroResult.data.items.length > 0 && (
+        <DataTable
+          caption="Zero-result queries"
+          columns={retrievalGroupColumns("Zero results")}
+          empty={
+            <EmptyState
+              description="No zero-result queries in this window."
+              title="No zero-result queries"
+            />
+          }
+          getRowKey={(row) => `zero-${row.normalized_query}`}
+          rows={zeroResult.data.items}
+        />
+      )}
+      {lowConfidence.data != null && lowConfidence.data.items.length > 0 && (
+        <DataTable
+          caption="Low-confidence queries"
+          columns={retrievalGroupColumns("Low confidence")}
+          empty={
+            <EmptyState
+              description="No low-confidence queries in this window."
+              title="No low-confidence queries"
+            />
+          }
+          getRowKey={(row) => `low-${row.normalized_query}`}
+          rows={lowConfidence.data.items}
+        />
+      )}
     </div>
   );
 }
@@ -8829,6 +9003,16 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
                 <AdminKnowledgePublicationPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge/analytics"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
+                <AdminKnowledgeAnalyticsPage />
               </RequirePermission>
             </RequireSession>
           }

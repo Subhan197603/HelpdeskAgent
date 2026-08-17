@@ -688,6 +688,91 @@ test("approved employee and analyst screens remain visually stable", async ({
   await page.unroute(corpusPublicationActiveRoute);
   await page.unroute(corpusPublicationHistoryRoute);
 
+  const retrievalAnalyticsSummaryRoute =
+    "**/api/v1/admin/knowledge/retrieval-analytics/summary*";
+  const retrievalAnalyticsZeroRoute =
+    "**/api/v1/admin/knowledge/retrieval-analytics/zero-result-queries*";
+  const retrievalAnalyticsLowRoute =
+    "**/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries*";
+  const retrievalAnalyticsGroup = {
+    event_count: 3,
+    surfaces: ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"],
+    first_seen_at: "2026-08-10T09:00:00Z",
+    last_seen_at: "2026-08-16T10:00:00Z",
+    last_corpus_version_id: null,
+  };
+  await page.route(retrievalAnalyticsSummaryRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        window_days: 30,
+        low_confidence_threshold: 0.01,
+        event_count: 40,
+        zero_result_count: 4,
+        zero_result_rate: 0.1,
+        low_confidence_count: 2,
+        low_confidence_rate: 0.05,
+        query_group_count: 18,
+      },
+    });
+  });
+  await page.route(retrievalAnalyticsZeroRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        window_days: 30,
+        low_confidence_threshold: 0.01,
+        items: [
+          {
+            ...retrievalAnalyticsGroup,
+            kind: "ZERO_RESULT",
+            normalized_query: "printer offline error",
+            matching_count: 3,
+            best_top_score: null,
+          },
+          {
+            ...retrievalAnalyticsGroup,
+            kind: "ZERO_RESULT",
+            normalized_query: "vpn setup guide",
+            matching_count: 1,
+            best_top_score: null,
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.route(retrievalAnalyticsLowRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        window_days: 30,
+        low_confidence_threshold: 0.01,
+        items: [
+          {
+            ...retrievalAnalyticsGroup,
+            kind: "LOW_CONFIDENCE",
+            normalized_query: "expense report rejection",
+            matching_count: 2,
+            best_top_score: 0.008,
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Analytics" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Search analytics", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("40 retrieval queries")).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-knowledge-analytics.png",
+    screenshotOptions,
+  );
+  await page.unroute(retrievalAnalyticsSummaryRoute);
+  await page.unroute(retrievalAnalyticsZeroRoute);
+  await page.unroute(retrievalAnalyticsLowRoute);
+
   await page.getByRole("tab", { name: "Documents" }).click();
   await expect(
     page.getByRole("heading", { name: "Knowledge", exact: true }),

@@ -2510,3 +2510,98 @@ def test_retrieval_query_event_capture_privileges_and_retention(
         )
         == "1"
     )
+
+
+@pytest.mark.integration
+def test_retrieval_analytics_summary_groups_windows_and_authorization(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, _ = application
+    other_tenant = "20000000-0000-0000-0000-000000000002"
+    base = "/api/v1/admin/knowledge/retrieval-analytics"
+    # Deterministic fixture: replace every capture-test leftover with a known
+    # event population for both tenants.
+    _psql("DELETE FROM kb.retrieval_query_event")
+    _psql(
+        "INSERT INTO kb.retrieval_query_event "
+        "(tenant_id,surface,normalized_query,result_count,zero_result_flag,"
+        "top_score,captured_at) VALUES "
+        f"('{TENANT_ID}','EVIDENCE_SEARCH','printer offline error',0,true,NULL,"
+        "now()-interval '1 day'),"
+        f"('{TENANT_ID}','EMPLOYEE_AGENT','printer offline error',0,true,NULL,"
+        "now()-interval '2 days'),"
+        f"('{TENANT_ID}','EMPLOYEE_AGENT','printer offline error',0,true,NULL,"
+        "now()-interval '3 days'),"
+        f"('{TENANT_ID}','EMPLOYEE_AGENT','vpn setup guide',0,true,NULL,"
+        "now()-interval '5 days'),"
+        f"('{TENANT_ID}','ANALYST_COPILOT','expense report rejection',2,false,0.005,"
+        "now()-interval '1 day'),"
+        f"('{TENANT_ID}','EVIDENCE_SEARCH','expense report rejection',3,false,0.008,"
+        "now()-interval '2 days'),"
+        f"('{TENANT_ID}','EVIDENCE_SEARCH','invoice hold fix',5,false,0.9,"
+        "now()-interval '1 day'),"
+        f"('{TENANT_ID}','EVIDENCE_SEARCH','ancient question',0,true,NULL,"
+        "now()-interval '100 days'),"
+        f"('{other_tenant}','EVIDENCE_SEARCH','other tenant query',0,true,NULL,"
+        "now()-interval '1 day')"
+    )
+
+    for path in ("summary", "zero-result-queries", "low-confidence-queries"):
+        assert client.get(f"{base}/{path}", headers=_headers("customer")).status_code == 403
+
+    summary = client.get(f"{base}/summary", headers=_headers("platform-admin"))
+    assert summary.status_code == 200, summary.text
+    body = summary.json()
+    assert body["window_days"] == 30
+    assert body["low_confidence_threshold"] == 0.01
+    assert body["event_count"] == 7
+    assert body["zero_result_count"] == 4
+    assert body["zero_result_rate"] == 0.5714
+    assert body["low_confidence_count"] == 2
+    assert body["low_confidence_rate"] == 0.2857
+    assert body["query_group_count"] == 4
+
+    zero = client.get(f"{base}/zero-result-queries", headers=_headers("platform-admin"))
+    assert zero.status_code == 200, zero.text
+    zero_items = zero.json()["items"]
+    assert [item["normalized_query"] for item in zero_items] == [
+        "printer offline error",
+        "vpn setup guide",
+    ]
+    assert zero_items[0]["kind"] == "ZERO_RESULT"
+    assert zero_items[0]["matching_count"] == 3
+    assert zero_items[0]["event_count"] == 3
+    assert zero_items[0]["best_top_score"] is None
+    assert zero_items[0]["surfaces"] == ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"]
+    assert "other tenant query" not in {item["normalized_query"] for item in zero_items}
+
+    low = client.get(f"{base}/low-confidence-queries", headers=_headers("platform-admin"))
+    assert low.status_code == 200, low.text
+    low_items = low.json()["items"]
+    assert [item["normalized_query"] for item in low_items] == ["expense report rejection"]
+    assert low_items[0]["kind"] == "LOW_CONFIDENCE"
+    assert low_items[0]["matching_count"] == 2
+    assert low_items[0]["best_top_score"] == 0.008
+
+    wide = client.get(f"{base}/summary", params={"days": 365}, headers=_headers("platform-admin"))
+    assert wide.json()["event_count"] == 8
+    wide_zero = client.get(
+        f"{base}/zero-result-queries",
+        params={"days": 365},
+        headers=_headers("platform-admin"),
+    )
+    assert "ancient question" in {item["normalized_query"] for item in wide_zero.json()["items"]}
+
+    paged = client.get(
+        f"{base}/zero-result-queries",
+        params={"limit": 1},
+        headers=_headers("platform-admin"),
+    )
+    assert paged.json()["has_more"] is True
+    assert paged.json()["items"][0]["normalized_query"] == "printer offline error"
+    assert (
+        client.get(
+            f"{base}/summary", params={"days": 9999}, headers=_headers("platform-admin")
+        ).status_code
+        == 422
+    )

@@ -146,3 +146,18 @@ configuration behavior is affected. Events carry no runtime read endpoint yet �
 evidence for the later Task 14.2 zero-result and low-confidence analytics. Rows are immutable
 against updates and expire through a bounded, tenant-scoped retention sweep controlled by
 `RETRIEVAL_QUERY_EVENT_RETENTION_DAYS` (default 180 days); captured events are never exported.
+
+## Retrieval search analytics
+
+Milestone 14 Task 14.2 adds read-only analytics over the captured query events. Three
+`GET` endpoints under `/api/v1/admin/knowledge/retrieval-analytics` — `summary`,
+`zero-result-queries`, and `low-confidence-queries` — require `KNOWLEDGE_DOCUMENT_READ_ADMIN`
+and aggregate strictly within the caller's tenant over a bounded trailing window
+(`days`, 1–365, default 30). Groups are keyed by the stored normalized query and report
+occurrence counts, best fused score, requesting surfaces, first/last-seen timestamps, and the
+last active corpus version observed. An event is classified low-confidence when it returned
+results whose top fused score is below `RETRIEVAL_LOW_CONFIDENCE_THRESHOLD` (default 0.01,
+mirroring the employee agent's minimum evidence score); the threshold is an analytics-only
+classification and is never read by the retrieval path. The knowledge administration
+Analytics tab presents the summary and both group tables read-only: no mutation, no export,
+and no retrieval behavior change.

@@ -532,6 +532,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Low Confidence Queries */
+    get: operations["low_confidence_queries_api_v1_admin_knowledge_retrieval_analytics_low_confidence_queries_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/retrieval-analytics/summary": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Retrieval Analytics Summary */
+    get: operations["retrieval_analytics_summary_api_v1_admin_knowledge_retrieval_analytics_summary_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/admin/knowledge/retrieval-analytics/zero-result-queries": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Zero Result Queries */
+    get: operations["zero_result_queries_api_v1_admin_knowledge_retrieval_analytics_zero_result_queries_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/sources": {
     parameters: {
       query?: never;
@@ -6014,6 +6065,43 @@ export interface components {
       /** Reason */
       reason: string;
     };
+    /** RetrievalAnalyticsSummaryResponse */
+    RetrievalAnalyticsSummaryResponse: {
+      /**
+       * Event Count
+       * @default 0
+       */
+      event_count: number;
+      /**
+       * Low Confidence Count
+       * @default 0
+       */
+      low_confidence_count: number;
+      /**
+       * Low Confidence Rate
+       * @default 0
+       */
+      low_confidence_rate: number;
+      /** Low Confidence Threshold */
+      low_confidence_threshold: number;
+      /**
+       * Query Group Count
+       * @default 0
+       */
+      query_group_count: number;
+      /** Window Days */
+      window_days: number;
+      /**
+       * Zero Result Count
+       * @default 0
+       */
+      zero_result_count: number;
+      /**
+       * Zero Result Rate
+       * @default 0
+       */
+      zero_result_rate: number;
+    };
     /** RetrievalGovernanceResponse */
     RetrievalGovernanceResponse: {
       /** Effective From */
@@ -6045,6 +6133,50 @@ export interface components {
       tenant_specific: boolean | null;
       /** Version Number */
       version_number: number | null;
+    };
+    /** RetrievalQueryGroupListResponse */
+    RetrievalQueryGroupListResponse: {
+      /**
+       * Has More
+       * @default false
+       */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["RetrievalQueryGroupResponse"][];
+      /** Low Confidence Threshold */
+      low_confidence_threshold: number;
+      /** Window Days */
+      window_days: number;
+    };
+    /** RetrievalQueryGroupResponse */
+    RetrievalQueryGroupResponse: {
+      /** Best Top Score */
+      best_top_score: number | null;
+      /** Event Count */
+      event_count: number;
+      /**
+       * First Seen At
+       * Format: date-time
+       */
+      first_seen_at: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "ZERO_RESULT" | "LOW_CONFIDENCE";
+      /** Last Corpus Version Id */
+      last_corpus_version_id: string | null;
+      /**
+       * Last Seen At
+       * Format: date-time
+       */
+      last_seen_at: string;
+      /** Matching Count */
+      matching_count: number;
+      /** Normalized Query */
+      normalized_query: string;
+      /** Surfaces */
+      surfaces: string[];
     };
     /** RouteCommand */
     RouteCommand: {
@@ -9294,6 +9426,157 @@ export interface operations {
       };
       /** @description Object storage unavailable */
       503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  low_confidence_queries_api_v1_admin_knowledge_retrieval_analytics_low_confidence_queries_get: {
+    parameters: {
+      query?: {
+        days?: number;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetrievalQueryGroupListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  retrieval_analytics_summary_api_v1_admin_knowledge_retrieval_analytics_summary_get: {
+    parameters: {
+      query?: {
+        days?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetrievalAnalyticsSummaryResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  zero_result_queries_api_v1_admin_knowledge_retrieval_analytics_zero_result_queries_get: {
+    parameters: {
+      query?: {
+        days?: number;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetrievalQueryGroupListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Retrieval analytics request invalid */
+      422: {
         headers: {
           [name: string]: unknown;
         };

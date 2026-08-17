@@ -148,6 +148,9 @@ class Settings(BaseSettings):
     retrieval_reranker_api_key: SecretStr | None = None
     retrieval_reranker_model_code: str = "APPROVED_RERANKER"
     retrieval_query_event_retention_days: int = Field(default=180, ge=1, le=730)
+    # Analytics-only classification floor for Task 14.2; never read by the
+    # retrieval path itself. Default mirrors ai_employee_minimum_evidence_score.
+    retrieval_low_confidence_threshold: float = Field(default=0.01, ge=0, le=10)
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:

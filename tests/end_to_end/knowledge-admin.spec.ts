@@ -232,6 +232,100 @@ test("administrator publishes the corpus and reviews version history", async ({
   await page.unroute(historyRoute);
 });
 
+test("administrator reviews retrieval search analytics", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue as administrator" }).click();
+  await page.locator('a[href="/admin/knowledge"]').click();
+
+  const summaryRoute = "**/api/v1/admin/knowledge/retrieval-analytics/summary*";
+  const zeroRoute =
+    "**/api/v1/admin/knowledge/retrieval-analytics/zero-result-queries*";
+  const lowRoute =
+    "**/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries*";
+  const group = {
+    event_count: 3,
+    surfaces: ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"],
+    first_seen_at: "2026-08-10T09:00:00Z",
+    last_seen_at: "2026-08-16T10:00:00Z",
+    last_corpus_version_id: null,
+  };
+  await page.route(summaryRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        window_days: 30,
+        low_confidence_threshold: 0.01,
+        event_count: 40,
+        zero_result_count: 4,
+        zero_result_rate: 0.1,
+        low_confidence_count: 2,
+        low_confidence_rate: 0.05,
+        query_group_count: 18,
+      },
+    });
+  });
+  await page.route(zeroRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        window_days: 30,
+        low_confidence_threshold: 0.01,
+        items: [
+          {
+            ...group,
+            kind: "ZERO_RESULT",
+            normalized_query: "printer offline error",
+            matching_count: 3,
+            best_top_score: null,
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.route(lowRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        window_days: 30,
+        low_confidence_threshold: 0.01,
+        items: [
+          {
+            ...group,
+            kind: "LOW_CONFIDENCE",
+            normalized_query: "expense report rejection",
+            matching_count: 2,
+            best_top_score: 0.008,
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Analytics" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Search analytics" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("40 retrieval queries · 4 zero-result (10.0%)"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Zero-result queries" }),
+  ).toBeVisible();
+  await expect(page.getByText("printer offline error")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Low-confidence queries" }),
+  ).toBeVisible();
+  await expect(page.getByText("expense report rejection")).toBeVisible();
+  await expect(page.getByText("Employee agent, Evidence search")).toHaveCount(
+    2,
+  );
+  await page.getByLabel("Window").selectOption("7");
+  await expect(page.getByText("40 retrieval queries")).toBeVisible();
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page.unroute(summaryRoute);
+  await page.unroute(zeroRoute);
+  await page.unroute(lowRoute);
+});
+
 test("caller without knowledge administration permission is denied", async ({
   page,
 }) => {
@@ -246,6 +340,10 @@ test("caller without knowledge administration permission is denied", async ({
     page.getByRole("heading", { name: "You are not authorized" }),
   ).toBeVisible();
   await page.goto("/admin/knowledge/validation");
+  await expect(
+    page.getByRole("heading", { name: "You are not authorized" }),
+  ).toBeVisible();
+  await page.goto("/admin/knowledge/analytics");
   await expect(
     page.getByRole("heading", { name: "You are not authorized" }),
   ).toBeVisible();

@@ -10342,6 +10342,51 @@
         "title": "RetireDocumentCommand",
         "type": "object"
       },
+      "RetrievalAnalyticsSummaryResponse": {
+        "properties": {
+          "event_count": {
+            "default": 0,
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "low_confidence_count": {
+            "default": 0,
+            "title": "Low Confidence Count",
+            "type": "integer"
+          },
+          "low_confidence_rate": {
+            "default": 0.0,
+            "title": "Low Confidence Rate",
+            "type": "number"
+          },
+          "low_confidence_threshold": {
+            "title": "Low Confidence Threshold",
+            "type": "number"
+          },
+          "query_group_count": {
+            "default": 0,
+            "title": "Query Group Count",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          },
+          "zero_result_count": {
+            "default": 0,
+            "title": "Zero Result Count",
+            "type": "integer"
+          },
+          "zero_result_rate": {
+            "default": 0.0,
+            "title": "Zero Result Rate",
+            "type": "number"
+          }
+        },
+        "required": ["window_days", "low_confidence_threshold"],
+        "title": "RetrievalAnalyticsSummaryResponse",
+        "type": "object"
+      },
       "RetrievalGovernanceResponse": {
         "additionalProperties": false,
         "properties": {
@@ -10468,6 +10513,107 @@
           "embedding_configuration_version_id"
         ],
         "title": "RetrievalGovernanceResponse",
+        "type": "object"
+      },
+      "RetrievalQueryGroupListResponse": {
+        "properties": {
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalQueryGroupResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "low_confidence_threshold": {
+            "title": "Low Confidence Threshold",
+            "type": "number"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": ["window_days", "low_confidence_threshold", "items"],
+        "title": "RetrievalQueryGroupListResponse",
+        "type": "object"
+      },
+      "RetrievalQueryGroupResponse": {
+        "properties": {
+          "best_top_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Top Score"
+          },
+          "event_count": {
+            "title": "Event Count",
+            "type": "integer"
+          },
+          "first_seen_at": {
+            "format": "date-time",
+            "title": "First Seen At",
+            "type": "string"
+          },
+          "kind": {
+            "enum": ["ZERO_RESULT", "LOW_CONFIDENCE"],
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_corpus_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Corpus Version Id"
+          },
+          "last_seen_at": {
+            "format": "date-time",
+            "title": "Last Seen At",
+            "type": "string"
+          },
+          "matching_count": {
+            "title": "Matching Count",
+            "type": "integer"
+          },
+          "normalized_query": {
+            "title": "Normalized Query",
+            "type": "string"
+          },
+          "surfaces": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Surfaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "normalized_query",
+          "event_count",
+          "matching_count",
+          "best_top_score",
+          "surfaces",
+          "first_seen_at",
+          "last_seen_at",
+          "last_corpus_version_id"
+        ],
+        "title": "RetrievalQueryGroupResponse",
         "type": "object"
       },
       "RouteCommand": {
@@ -16703,6 +16849,256 @@
         ],
         "summary": "Complete Manual Upload",
         "tags": ["knowledge-ingestion"]
+      }
+    },
+    "/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries": {
+      "get": {
+        "operationId": "low_confidence_queries_api_v1_admin_knowledge_retrieval_analytics_low_confidence_queries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalQueryGroupListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval analytics permission denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval analytics request invalid"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Low Confidence Queries",
+        "tags": ["knowledge-analytics"]
+      }
+    },
+    "/api/v1/admin/knowledge/retrieval-analytics/summary": {
+      "get": {
+        "operationId": "retrieval_analytics_summary_api_v1_admin_knowledge_retrieval_analytics_summary_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalAnalyticsSummaryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval analytics permission denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval analytics request invalid"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Retrieval Analytics Summary",
+        "tags": ["knowledge-analytics"]
+      }
+    },
+    "/api/v1/admin/knowledge/retrieval-analytics/zero-result-queries": {
+      "get": {
+        "operationId": "zero_result_queries_api_v1_admin_knowledge_retrieval_analytics_zero_result_queries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalQueryGroupListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval analytics permission denied"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Retrieval analytics request invalid"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Zero Result Queries",
+        "tags": ["knowledge-analytics"]
       }
     },
     "/api/v1/admin/knowledge/sources": {

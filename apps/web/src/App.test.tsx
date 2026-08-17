@@ -11,6 +11,8 @@ import {
   DynamicField,
   insertCannedResponse,
   LoginPage,
+  retrievalAnalyticsRate,
+  retrievalSurfaceLabel,
   sourceChangePresentation,
   sourceRefreshActions,
   sourceRefreshPresentation,
@@ -323,6 +325,15 @@ describe("knowledge source refresh lifecycle presentation", () => {
       "Validation run truncated",
     );
     expect(corpusBlockerLabel("VALIDATION_STALE")).toBe("Validation stale");
+  });
+
+  it("labels retrieval surfaces and formats analytics rates", () => {
+    expect(retrievalSurfaceLabel("EVIDENCE_SEARCH")).toBe("Evidence search");
+    expect(retrievalSurfaceLabel("EMPLOYEE_AGENT")).toBe("Employee agent");
+    expect(retrievalSurfaceLabel("ANALYST_COPILOT")).toBe("Analyst copilot");
+    expect(retrievalAnalyticsRate(0)).toBe("0.0%");
+    expect(retrievalAnalyticsRate(0.1234)).toBe("12.3%");
+    expect(retrievalAnalyticsRate(1)).toBe("100.0%");
   });
 });
 
