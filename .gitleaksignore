@@ -1,3 +1,5 @@
 # Verified non-secret retrieval regression document references in the approved Task 7.3 commit.
 81218a0e7266a7806cfdd1e6faace3cfe5abd601:tests/ai_evaluation/retrieval_regression_v1.json:generic-api-key:20
 81218a0e7266a7806cfdd1e6faace3cfe5abd601:tests/ai_evaluation/retrieval_regression_v1.json:generic-api-key:73
+# Verified non-secret idempotency-key test literal in the approved Task 14.3 commit.
+06632b60dcfa3154bb756a554d3613fa4fd8eecd:apps/api/tests/test_retrieval_analytics.py:generic-api-key:150
