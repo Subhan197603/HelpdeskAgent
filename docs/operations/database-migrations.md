@@ -70,6 +70,7 @@ The only post-v1 revisions currently present are:
 → 0032_knowledge_gap_disposition
 → 0033_retrieval_synonyms
 → 0034_query_event_expansion
+→ 0035_chunk_error_codes
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -174,13 +175,25 @@ administrative vocabulary decisions only; nothing reads it from the retrieval
 path in this task. It follows `0032_knowledge_gap_disposition`; the physical
 PostgreSQL baseline is unchanged.
 
-Milestone 15 Task 15.2 introduces `0034_query_event_expansion`, the current
-development head. It adds two additive, nullable observation columns to
-`kb.retrieval_query_event` — `expansion_applied` and `expanded_term_count` —
-recording whether governed synonym expansion applied to a query. Legacy rows
-stay NULL; grants, row-level security, and the update-immutability trigger
-are unchanged. It follows `0033_retrieval_synonyms`; the physical PostgreSQL
-baseline is unchanged.
+Milestone 15 Task 15.2 introduces `0034_query_event_expansion`. It adds two
+additive, nullable observation columns to `kb.retrieval_query_event` —
+`expansion_applied` and `expanded_term_count` — recording whether governed
+synonym expansion applied to a query. Legacy rows stay NULL; grants,
+row-level security, and the update-immutability trigger are unchanged. It
+follows `0033_retrieval_synonyms`; the physical PostgreSQL baseline is
+unchanged.
+
+Milestone 16 Task 16.1 introduces `0035_chunk_error_codes`, the current
+development head. It adds the single tenant-isolated `kb.chunk_error_code`
+index table holding one immutable per-chunk error-code fact per row,
+extracted with the same identifier grammar the fusion boost applies to
+queries and candidates. Rows are written only by the processing worker
+(`INSERT` for `helpdesk_worker`, `SELECT` for the other runtime roles,
+`UPDATE`/`DELETE` revoked and trigger-rejected), and the migration backfills
+codes for chunks that existed before it ran. Publishedness is never stored:
+readers join `kb.v_active_document_chunk` at query time. Nothing reads the
+index from the retrieval path in this task. It follows
+`0034_query_event_expansion`; the physical PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database
 

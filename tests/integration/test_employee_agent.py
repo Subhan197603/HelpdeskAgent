@@ -284,7 +284,7 @@ def test_turn_migration_downgrade_and_reupgrade_remain_linear() -> None:
         == "1"
     )
     assert _psql("SELECT to_regnamespace('reporting')") == "reporting"
-    assert _psql("SELECT version_num FROM config.alembic_version") == "0034_query_event_expansion"
+    assert _psql("SELECT version_num FROM config.alembic_version") == "0035_chunk_error_codes"
 
 
 def _api_settings() -> Settings:

@@ -21,6 +21,9 @@ from apps.api.app.knowledge.corpus_validation_api import (
     router as corpus_validation_router,
 )
 from apps.api.app.knowledge.document_api import router as knowledge_document_router
+from apps.api.app.knowledge.error_code_index_api import (
+    router as error_code_index_router,
+)
 from apps.api.app.knowledge.reader_api import router as knowledge_reader_router
 from apps.api.app.knowledge.retrieval_analytics_api import (
     router as retrieval_analytics_router,
@@ -55,6 +58,7 @@ api_router.include_router(corpus_validation_router)
 api_router.include_router(corpus_publication_router)
 api_router.include_router(retrieval_analytics_router)
 api_router.include_router(retrieval_synonym_router)
+api_router.include_router(error_code_index_router)
 api_router.include_router(knowledge_reader_router)
 api_router.include_router(ingestion_router)
 api_router.include_router(retrieval_router)

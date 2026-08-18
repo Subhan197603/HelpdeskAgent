@@ -40,6 +40,7 @@ from apps.api.app.ingestion.service import IngestionService
 from apps.api.app.knowledge.corpus_publication_service import CorpusPublicationService
 from apps.api.app.knowledge.corpus_validation_service import CorpusValidationService
 from apps.api.app.knowledge.document_service import KnowledgeDocumentService
+from apps.api.app.knowledge.error_code_index_service import ErrorCodeIndexService
 from apps.api.app.knowledge.reader_service import KnowledgeReaderService
 from apps.api.app.knowledge.retrieval_analytics_service import RetrievalAnalyticsService
 from apps.api.app.knowledge.retrieval_synonym_service import RetrievalSynonymService
@@ -214,6 +215,9 @@ def create_app(
         unit_of_work_factory, app.state.authorization_service, settings
     )
     app.state.retrieval_synonym_service = RetrievalSynonymService(
+        unit_of_work_factory, app.state.authorization_service
+    )
+    app.state.error_code_index_service = ErrorCodeIndexService(
         unit_of_work_factory, app.state.authorization_service
     )
     app.state.knowledge_reader_service = KnowledgeReaderService(

@@ -237,3 +237,27 @@ judge whether approved vocabulary closes an observed gap. Rows captured
 before Task 15.2 count as unexpanded. The Analytics tab presents the new
 summary fragment and an Expanded column; there is no new mutation surface,
 no export, no cross-tenant aggregation, and no retrieval behavior change.
+
+## Chunk error-code index
+
+Milestone 16 Task 16.1 gives knowledge administrators deterministic evidence
+of which error codes the corpus actually documents. The processing worker
+extracts error-code identifiers from each chunk's document title, heading
+path, section title, and content with the same grammar the fusion boost
+applies to queries and candidates, and stores them as immutable per-chunk
+facts in `kb.chunk_error_code` in the same transaction as the chunk itself.
+Migration `0035_chunk_error_codes` backfills codes for chunks that existed
+before it ran. Only the processing worker may write index rows; updates and
+deletes are trigger-rejected, and rows disappear only when their chunk is
+superseded through reprocessing.
+
+`GET /api/v1/admin/knowledge/error-codes`, behind
+`KNOWLEDGE_DOCUMENT_READ_ADMIN`, lists each indexed code with its indexed
+chunk count and its published chunk count. Publishedness is evaluated
+against `kb.v_active_document_chunk` at read time, so publication, rollback,
+suppression, and approval changes are always reflected without
+resynchronization. The prefix filter normalizes case and separators exactly
+like the stored codes. Retrieval behavior is unchanged in this task: nothing
+reads the index from the retrieval path, and the retrieval regression suite
+runs byte-unmodified. Only the separately approved Task 16.2 may consult the
+index during retrieval.

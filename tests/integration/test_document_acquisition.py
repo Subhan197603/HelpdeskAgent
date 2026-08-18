@@ -370,7 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0034_query_event_expansion"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0035_chunk_error_codes"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -3069,3 +3069,134 @@ def test_retrieval_synonym_expansion_is_governed_and_observable(
         check=False,
     )
     assert update_denied.returncode != 0
+
+
+@pytest.mark.integration
+def test_chunk_error_code_index_extraction_privileges_and_evidence(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, storage = application
+    base = "/api/v1/admin/knowledge/error-codes"
+    table = "kb.chunk_error_code"
+    other_tenant = "20000000-0000-0000-0000-000000000002"
+
+    assert client.get(base, headers=_headers("customer")).status_code == 403
+
+    source = _create_approved_source(client, "ERROR_CODE_DOCS", "MANUAL_UPLOAD")
+    content = (
+        b"# Resolving AP-810 holds\n\n"
+        b"Clear ora_600 kernel faults and APEX4001 traces during invoice import.\n"
+    )
+    _acquire_corpus_document(
+        client, storage, source, "error-code-doc", content, title="AP-810 Hold Runbook"
+    )
+    processed = asyncio.run(_process_knowledge(storage), loop_factory=asyncio.SelectorEventLoop)
+    assert processed >= 1
+
+    # The processing worker indexed every chunk of the document with codes
+    # normalized through the shared fusion grammar.
+    chunk_filter = (
+        "SELECT chunk_id FROM kb.document_chunk WHERE document_id="
+        "(SELECT document_id FROM kb.document WHERE external_document_key='error-code-doc')"
+    )
+    assert (
+        _value(
+            "SELECT string_agg(DISTINCT error_code,',' ORDER BY error_code) "
+            f"FROM {table} WHERE chunk_id IN ({chunk_filter})"
+        )
+        == "AP-810,APEX4001,ORA-600"
+    )
+    indexed = _value(f"SELECT count(DISTINCT chunk_id) FROM {table} WHERE error_code='AP-810'")
+
+    # Publishedness is evaluated against the active-chunk view at read time:
+    # the same index rows report zero published chunks while the document is
+    # unpublished and the full count once it is published.
+    _psql(
+        "UPDATE kb.document_version SET published_processing_version_id=NULL "
+        "WHERE document_id="
+        "(SELECT document_id FROM kb.document WHERE external_document_key='error-code-doc')"
+    )
+    listing = client.get(base, headers=_headers("platform-admin"), params={"prefix": "AP-8"})
+    assert listing.status_code == 200, listing.text
+    assert listing.json()["items"] == [
+        {
+            "error_code": "AP-810",
+            "indexed_chunk_count": int(indexed),
+            "published_chunk_count": 0,
+        }
+    ]
+    _psql(
+        "UPDATE kb.document SET approval_status='APPROVED',active_flag=true "
+        "WHERE external_document_key='error-code-doc'; "
+        "UPDATE kb.document_version version SET current_version_flag=true,"
+        "published_at=now(),published_processing_version_id=processing.processing_version_id "
+        "FROM kb.document_processing_version processing,kb.document document "
+        "WHERE processing.document_version_id=version.document_version_id "
+        "AND document.document_id=version.document_id "
+        "AND document.external_document_key='error-code-doc'"
+    )
+    published = client.get(base, headers=_headers("platform-admin"), params={"prefix": "AP-8"})
+    assert published.json()["items"] == [
+        {
+            "error_code": "AP-810",
+            "indexed_chunk_count": int(indexed),
+            "published_chunk_count": int(indexed),
+        }
+    ]
+
+    # Prefix filtering normalizes separators like the stored codes, and
+    # pagination reports the remainder.
+    normalized = client.get(base, headers=_headers("platform-admin"), params={"prefix": "ora_6"})
+    assert [item["error_code"] for item in normalized.json()["items"]] == ["ORA-600"]
+    paged = client.get(base, headers=_headers("platform-admin"), params={"limit": 1})
+    assert len(paged.json()["items"]) == 1
+    assert paged.json()["has_more"] is True
+
+    # Migration surface: RLS, immutable rows, and the least-privilege grant
+    # matrix — only the processing worker may write index facts.
+    assert _value(f"SELECT relrowsecurity FROM pg_class WHERE oid='{table}'::regclass") == "t"
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_policies "
+            "WHERE schemaname='kb' AND tablename='chunk_error_code'"
+        )
+        == "1"
+    )
+    assert _value(
+        "SELECT string_agg(grantee||':'||privilege_type,',' ORDER BY grantee,privilege_type) "
+        "FROM information_schema.role_table_grants "
+        "WHERE table_schema='kb' AND table_name='chunk_error_code' "
+        "AND grantee LIKE 'helpdesk%'"
+    ) == (
+        "helpdesk_app:SELECT,helpdesk_readonly:SELECT,"
+        "helpdesk_reporting:SELECT,helpdesk_worker:INSERT,helpdesk_worker:SELECT"
+    )
+    sample_chunk = _value(f"SELECT chunk_id FROM {table} WHERE error_code='AP-810' LIMIT 1")
+    app_insert_denied = _psql(
+        f"SET ROLE helpdesk_app; INSERT INTO {table} (chunk_id,tenant_id,error_code) "
+        f"VALUES ('{sample_chunk}','{TENANT_ID}','FORGED-1')",
+        check=False,
+    )
+    assert app_insert_denied.returncode != 0
+    forged_tenant_denied = _psql(
+        f"SET ROLE helpdesk_worker; SET app.tenant_id='{other_tenant}'; "
+        f"INSERT INTO {table} (chunk_id,tenant_id,error_code) "
+        f"VALUES ('{sample_chunk}','{TENANT_ID}','FORGED-2')",
+        check=False,
+    )
+    assert forged_tenant_denied.returncode != 0
+    update_denied = _psql(f"UPDATE {table} SET error_code='X-1' WHERE false", check=False)
+    assert update_denied.returncode == 0
+    update_rejected = _psql(
+        f"UPDATE {table} SET error_code='X-1' WHERE error_code='AP-810'", check=False
+    )
+    assert update_rejected.returncode != 0
+    delete_rejected = _psql(f"DELETE FROM {table} WHERE error_code='AP-810'", check=False)
+    assert delete_rejected.returncode != 0
+    assert (
+        _value(
+            "SET ROLE helpdesk_app; SET app.tenant_id='" + other_tenant + "'; "
+            f"SELECT count(*) FROM {table} WHERE tenant_id='{TENANT_ID}'"
+        )
+        == "0"
+    )

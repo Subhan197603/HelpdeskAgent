@@ -464,6 +464,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/error-codes": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Error Codes */
+    get: operations["list_error_codes_api_v1_admin_knowledge_error_codes_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/manifest/import": {
     parameters: {
       query?: never;
@@ -4871,6 +4888,25 @@ export interface components {
       /** Row Version */
       row_version: number;
     };
+    /** ErrorCodeIndexEntryResponse */
+    ErrorCodeIndexEntryResponse: {
+      /** Error Code */
+      error_code: string;
+      /** Indexed Chunk Count */
+      indexed_chunk_count: number;
+      /** Published Chunk Count */
+      published_chunk_count: number;
+    };
+    /** ErrorCodeIndexListResponse */
+    ErrorCodeIndexListResponse: {
+      /**
+       * Has More
+       * @default false
+       */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["ErrorCodeIndexEntryResponse"][];
+    };
     /** EvaluationDatasetResponse */
     EvaluationDatasetResponse: {
       /** Records */
@@ -9227,6 +9263,57 @@ export interface operations {
         };
       };
       /** @description Publication validation failed */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  list_error_codes_api_v1_admin_knowledge_error_codes_get: {
+    parameters: {
+      query?: {
+        prefix?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ErrorCodeIndexListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Error-code index permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Error-code index request invalid */
       422: {
         headers: {
           [name: string]: unknown;
