@@ -14,6 +14,7 @@ from apps.api.app.attachments.storage import S3ObjectStorage, StorageError, Writ
 from apps.api.app.core.settings import Settings
 from apps.api.app.ingestion.models import ManifestEntry
 from apps.api.app.ingestion.repository import IngestionRepository
+from apps.api.app.knowledge.error_code_extraction import extract_error_codes
 from apps.api.app.knowledge.models import KnowledgeSource, SourceAuthorization
 from apps.api.app.knowledge.repository import KnowledgeSourceRepository
 from apps.api.app.knowledge.service import acquisition_permission_reasons
@@ -457,6 +458,28 @@ class KnowledgeProcessingWorker:
                         "processing_id": processing_id,
                     },
                 )
+                # Mirror the fields the fusion boost inspects on candidates so
+                # indexed codes always agree with query-side identifiers.
+                for error_code in sorted(
+                    extract_error_codes(
+                        work.document_title,
+                        " > ".join(chunk.heading_path) or None,
+                        chunk.heading_path[-1] if chunk.heading_path else None,
+                        chunk.content,
+                    )
+                ):
+                    await session.execute(
+                        text("""
+                            INSERT INTO kb.chunk_error_code(
+                              chunk_id,tenant_id,error_code)
+                            VALUES (:chunk_id,:tenant_id,:error_code)
+                        """),
+                        {
+                            "chunk_id": chunk_id,
+                            "tenant_id": work.tenant_id,
+                            "error_code": error_code,
+                        },
+                    )
             evidence = {
                 "failures": validation.failures,
                 "warnings": validation.warnings,
