@@ -2245,6 +2245,175 @@ automatic content actions, production deployment, and image publication.
 
 ---
 
+## Milestone 15 — Governed Retrieval Vocabulary Expansion
+
+Status: `RATIFIED — NOT STARTED`.
+
+The documentation-only roadmap amendment was authorized by
+`APPROVE MILESTONE 15 ROADMAP AMENDMENT: GOVERNED RETRIEVAL VOCABULARY EXPANSION`.
+Ratification defines scope only; it does not authorize implementation of any
+task.
+
+Milestone 15 acts on the vocabulary gaps proven by the Milestone 14 analytics
+through exactly one governed retrieval-relevance strategy:
+administrator-approved synonym and acronym expansion. It adds a governed,
+tenant-isolated synonym and acronym registry, governed tenant-opt-in
+application of approved expansions at the single shared retrieval service
+boundary, and read-only expansion-effectiveness analytics. It reuses the
+existing shared retrieval service boundary, knowledge-administration screens
+and permission family, tenant row-level security, audit trail, idempotency,
+and canonical validation foundations. Synonym and acronym management,
+previously deferred from Milestones 13 and 14, is assigned to this milestone.
+
+Milestone 15 authorizes exactly one retrieval-behavior change: governed
+application of approved synonym and acronym expansions, per-tenant opt-in and
+default off, behind a global kill switch. All other retrieval behavior —
+ranking, fusion, candidate selection, top-k, runtime thresholds, embeddings,
+reranking, error-code matching, stale-content penalties, query rewriting
+beyond the approved expansion, the publication lifecycle, and source
+governance — remains unchanged, and the existing retrieval regression suite
+must remain green and byte-unmodified across the milestone.
+
+Implementation must proceed one task at a time through the ordinary workflow:
+
+```text
+PLAN
+→ human implementation approval
+→ IMPLEMENT
+→ focused and full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push when authorized
+→ stop
+```
+
+Roadmap definition is not implementation approval. Do not start Task 15.1 or
+any later task from this section alone.
+
+### Task 15.1 — Synonym and Acronym Registry Administration
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- a tenant-isolated registry of bounded synonym and acronym entries with the
+  deterministic lifecycle `DRAFT`, `APPROVED`, `RETIRED`;
+- privileged, idempotent, audited registry mutations with optimistic
+  concurrency behind the existing knowledge-administration permission family;
+- registry administration screens with accessibility and visual evidence; and
+- focused unit, PostgreSQL, RLS, and retrieval-regression evidence followed
+  by the full task gate.
+
+Excluded: any retrieval behavior change, automatic synonym generation, raw
+query storage, cross-tenant sharing, and export.
+
+Database expectation: task-specific additive and reversible development
+migration `0033_retrieval_synonyms` after `0032_knowledge_gap_disposition`,
+with tenant constraints, RLS, and least-privilege runtime grants. The
+physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 15 TASK 15.1 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 15 TASK 15.1 COMMIT
+```
+
+### Task 15.2 — Governed Expansion Application in Retrieval
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- application of only `APPROVED` registry entries inside the single shared
+  retrieval service boundary used by employee search, the employee agent, and
+  the analyst copilot;
+- a per-tenant enablement setting that defaults to off and a global kill
+  switch that deterministically restores unexpanded behavior;
+- additive, backward-compatible query-event evidence recording whether
+  expansion applied; and
+- dedicated expansion regression evidence added alongside the existing
+  retrieval regression suite, which must remain green and byte-unmodified.
+
+Excluded: ranking, fusion, candidate-selection, top-k, threshold, embedding,
+and reranking changes; expansion of unapproved or retired entries; and any
+default-on behavior.
+
+Database expectation: at most one task-specific additive and reversible
+migration after the approved Task 15.1 head for the query-event extension.
+The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 15 TASK 15.2 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 15 TASK 15.2 COMMIT
+```
+
+### Task 15.3 — Expansion Effectiveness Analytics
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- read-only extension of the Milestone 14 analytics with expansion-applied
+  evidence and zero-result movement per query group; and
+- analytics screens updated with accessibility and visual evidence.
+
+Excluded: mutations, export, cross-tenant aggregation, and retrieval behavior
+changes.
+
+Database expectation: no new migration expected. The physical baseline
+remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 15 TASK 15.3 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 15 TASK 15.3 COMMIT
+```
+
+### Milestone 15 Completion Gate
+
+Milestone 15 is complete only when all three tasks have their approved
+commits and tags, the migration history is linear, the physical baseline
+checksum is unchanged, tenant/RLS tests pass, OpenAPI and generated clients
+agree, affected accessibility and visual gates pass, unrelated approved
+baselines are unchanged, the existing retrieval regression suite passes
+byte-unmodified, the dedicated expansion regression evidence passes, and the
+complete backend, frontend, PostgreSQL integration, Playwright, security,
+build, and Compose gates pass.
+
+The completion evidence must prove that expansion applies only approved
+entries, that expansion is off by default and deterministically disabled by
+the kill switch, that registry entries and expansion evidence are strictly
+tenant isolated, and that registry mutations are audited and replay-safe. A
+separately approved documentation-only closure record is required after final
+validation; completion of Task 15.3 alone does not close the milestone.
+
+The following remain outside Milestone 15: exact error-code matching,
+new-release discovery, stale-content penalties, advanced reranking,
+embedding-model migration, query rewriting beyond the approved expansion,
+automatic content actions, production deployment, and image publication.
+
+---
+
 # 6. Project Completion Gate
 
 Codex must not declare the project complete until all of the following are true:

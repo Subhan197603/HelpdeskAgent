@@ -3511,6 +3511,74 @@ not part of Milestone 14.
 
 ---
 
+## 36D. Post-v1 Milestone 15 — Governed Retrieval Vocabulary Expansion
+
+Milestone 15 is a bounded post-v1 product milestone on `develop`. It acts on
+the vocabulary gaps proven by the Milestone 14 analytics through exactly one
+governed retrieval-relevance strategy: administrator-approved synonym and
+acronym expansion. It reuses the existing shared retrieval service boundary,
+knowledge-administration screens and permission family, tenant row-level
+security, audit trail, idempotency, and canonical validation foundations. It
+does not authorize implementation by itself; each task requires the separate
+approval workflow in `CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+The milestone includes exactly these capabilities:
+
+- a governed, tenant-isolated synonym and acronym registry with a bounded
+  lifecycle and audited, idempotent administration;
+- governed application of approved expansions at the single shared retrieval
+  service boundary, tenant-opt-in and default off, with a kill switch; and
+- read-only expansion-effectiveness analytics built on the Milestone 14
+  query-event evidence.
+
+### Task 15.1 — Synonym and acronym registry administration
+
+Provide knowledge administrators a tenant-isolated registry of bounded
+synonym and acronym entries with a deterministic lifecycle (`DRAFT`,
+`APPROVED`, `RETIRED`), privileged, idempotent, audited mutations with
+optimistic concurrency behind the existing knowledge-administration
+permission family, and registry screens with accessibility and visual
+evidence. Retrieval behavior does not change in this task. Raw query storage,
+automatic synonym generation, and cross-tenant sharing are out of scope.
+
+### Task 15.2 — Governed expansion application in retrieval
+
+Apply only `APPROVED` registry entries inside the single shared retrieval
+service boundary, behind a per-tenant enablement setting that defaults to
+off and a global kill switch. The existing retrieval regression suite must
+remain green and byte-unmodified; dedicated expansion regression evidence is
+added separately. Query events record whether expansion applied through an
+additive, backward-compatible extension. Ranking, fusion, eligibility,
+thresholds, embeddings, and reranking are unchanged.
+
+### Task 15.3 — Expansion effectiveness analytics
+
+Extend the Milestone 14 analytics read-only with expansion-applied evidence
+and zero-result movement per query group so administrators can judge whether
+approved vocabulary closes the observed gaps. No new mutation surface and no
+retrieval behavior change.
+
+### Milestone 15 database and scope boundary
+
+The physical PostgreSQL baseline remains immutable. Any required development
+migration follows `0032_knowledge_gap_disposition`, is additive and
+reversible, preserves one linear Alembic head, applies tenant isolation and
+least-privilege grants, and receives upgrade/downgrade validation.
+
+Milestone 15 authorizes exactly one retrieval-behavior change: governed,
+tenant-opt-in application of approved synonym and acronym expansions. All
+other retrieval behavior — ranking, fusion, candidate selection, top-k,
+runtime thresholds, embeddings, reranking, error-code matching,
+stale-content penalties, query rewriting beyond the approved expansion, the
+publication lifecycle, and source governance — remains unchanged, and the
+existing retrieval regression suite must remain green and unmodified. Exact
+error-code matching, new-release discovery, stale-content penalties,
+advanced reranking, embedding-model migration, and all other deferred
+capability families remain out of scope. Production deployment and image
+publication are not part of Milestone 15.
+
+---
+
 ## 37. Definition of done for every task
 
 A task is complete only when:

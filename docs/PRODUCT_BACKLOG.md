@@ -300,6 +300,57 @@ The following backlog items remain deferred and outside Milestone 14:
 - Advanced reranking
 - Embedding-model migration
 
+Synonym and acronym management was later assigned to Milestone 15 by the
+ratified roadmap amendment below.
+
+## Post-v1 Milestone 15 — Governed Retrieval Vocabulary Expansion
+
+Status: `RATIFIED — NOT STARTED`.
+
+Milestone 15 is a bounded retrieval-vocabulary milestone on `develop`. The
+roadmap amendment was authorized by
+`APPROVE MILESTONE 15 ROADMAP AMENDMENT: GOVERNED RETRIEVAL VOCABULARY EXPANSION`.
+Ratification defines scope only; each task requires its own plan and explicit
+implementation and commit approvals through
+`CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+Included capabilities:
+
+- A governed, tenant-isolated synonym and acronym registry with a bounded
+  lifecycle and audited, idempotent administration
+- Governed application of approved expansions at the single shared retrieval
+  service boundary, per-tenant opt-in and default off, behind a global kill
+  switch
+- Read-only expansion-effectiveness analytics built on the Milestone 14
+  query-event evidence
+
+Bounded task sequence:
+
+1. **15.1 — Synonym and acronym registry administration**
+2. **15.2 — Governed expansion application in retrieval**
+3. **15.3 — Expansion effectiveness analytics**
+
+Milestone 15 authorizes exactly one retrieval-behavior change: governed
+application of approved synonym and acronym expansions. All other retrieval
+behavior — ranking, fusion, candidate selection, top-k, runtime thresholds,
+embeddings, reranking, error-code matching, stale-content penalties, query
+rewriting beyond the approved expansion, the publication lifecycle, and
+source governance — remains unchanged, and the existing retrieval regression
+suite must remain green and byte-unmodified.
+
+The physical PostgreSQL baseline remains immutable. Any development migration
+must follow `0032_knowledge_gap_disposition`, remain task-specific, additive
+and reversible, and preserve tenant isolation, least-privilege runtime
+grants, and a single Alembic head.
+
+The following backlog items remain deferred and outside Milestone 15:
+
+- New-release discovery
+- Exact error-code matching
+- Stale-content penalties
+- Advanced reranking
+- Embedding-model migration
+
 ## Future Milestone — Advanced AI Operations
 
 - Mutable provider, model, policy, budget, and retrieval controls
