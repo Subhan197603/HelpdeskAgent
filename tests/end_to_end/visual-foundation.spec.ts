@@ -699,6 +699,9 @@ test("approved employee and analyst screens remain visually stable", async ({
     expanded_event_count: 2,
     expanded_zero_result_count: 1,
     unexpanded_zero_result_count: 2,
+    matched_event_count: 3,
+    matched_zero_result_count: 2,
+    unmatched_zero_result_count: 1,
     surfaces: ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"],
     first_seen_at: "2026-08-10T09:00:00Z",
     last_seen_at: "2026-08-16T10:00:00Z",
@@ -716,6 +719,8 @@ test("approved employee and analyst screens remain visually stable", async ({
         low_confidence_rate: 0.05,
         expansion_applied_count: 6,
         expansion_applied_rate: 0.15,
+        error_code_matched_count: 5,
+        error_code_matched_rate: 0.125,
         query_group_count: 18,
       },
     });

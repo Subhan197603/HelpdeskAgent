@@ -19,6 +19,9 @@ SELECT count(*) AS event_count,
     WHERE NOT zero_result_flag AND top_score<:threshold
   ) AS low_confidence_count,
   count(*) FILTER (WHERE expansion_applied IS TRUE) AS expansion_applied_count,
+  count(*) FILTER (
+    WHERE error_code_matching_applied IS TRUE
+  ) AS error_code_matched_count,
   count(DISTINCT normalized_query) AS query_group_count
 FROM kb.retrieval_query_event
 {_WINDOW_FILTER}
@@ -44,6 +47,15 @@ FROM (
     count(*) FILTER (
       WHERE expansion_applied IS NOT TRUE AND zero_result_flag
     ) AS unexpanded_zero_result_count,
+    count(*) FILTER (
+      WHERE error_code_matching_applied IS TRUE
+    ) AS matched_event_count,
+    count(*) FILTER (
+      WHERE error_code_matching_applied IS TRUE AND zero_result_flag
+    ) AS matched_zero_result_count,
+    count(*) FILTER (
+      WHERE error_code_matching_applied IS NOT TRUE AND zero_result_flag
+    ) AS unmatched_zero_result_count,
     max(top_score) AS best_top_score,
     array_agg(DISTINCT surface) AS surfaces,
     min(captured_at) AS first_seen_at,

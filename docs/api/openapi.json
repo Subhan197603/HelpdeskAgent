@@ -10480,6 +10480,16 @@
       },
       "RetrievalAnalyticsSummaryResponse": {
         "properties": {
+          "error_code_matched_count": {
+            "default": 0,
+            "title": "Error Code Matched Count",
+            "type": "integer"
+          },
+          "error_code_matched_rate": {
+            "default": 0.0,
+            "title": "Error Code Matched Rate",
+            "type": "number"
+          },
           "event_count": {
             "default": 0,
             "title": "Event Count",
@@ -10752,6 +10762,16 @@
             "title": "Last Seen At",
             "type": "string"
           },
+          "matched_event_count": {
+            "default": 0,
+            "title": "Matched Event Count",
+            "type": "integer"
+          },
+          "matched_zero_result_count": {
+            "default": 0,
+            "title": "Matched Zero Result Count",
+            "type": "integer"
+          },
           "matching_count": {
             "title": "Matching Count",
             "type": "integer"
@@ -10770,6 +10790,11 @@
           "unexpanded_zero_result_count": {
             "default": 0,
             "title": "Unexpanded Zero Result Count",
+            "type": "integer"
+          },
+          "unmatched_zero_result_count": {
+            "default": 0,
+            "title": "Unmatched Zero Result Count",
             "type": "integer"
           }
         },

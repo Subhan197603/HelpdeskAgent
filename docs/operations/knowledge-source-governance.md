@@ -291,3 +291,16 @@ effectiveness. Ranking weights, fusion scoring, candidate selection outside
 the governed channel, top-k, thresholds, embeddings, reranking, and synonym
 expansion are unchanged, and the retrieval regression suite runs
 byte-unmodified with both settings at their off defaults.
+
+## Error-code effectiveness analytics
+
+Milestone 16 Task 16.3 extends the Milestone 14 retrieval analytics
+read-only with the matching evidence captured by Task 16.2. The summary
+adds the error-code-matched count and rate, and every zero-result and
+low-confidence query group reports how many of its events ran with
+matching applied and how zero results split between matched and unmatched
+events — the zero-result movement an administrator needs to judge whether
+exact error-code matching closes an observed gap. Rows captured before
+Task 16.2 count as unmatched. The Analytics tab presents the new summary
+fragment and a Matched column; there is no new mutation surface, no
+export, no cross-tenant aggregation, and no retrieval behavior change.

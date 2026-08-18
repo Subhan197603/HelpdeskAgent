@@ -5016,6 +5016,14 @@ export function expansionEvidenceLabel(row: {
   return `${String(row.expanded_event_count)} · ${String(row.expanded_zero_result_count)} zero`;
 }
 
+export function errorCodeEvidenceLabel(row: {
+  matched_event_count: number;
+  matched_zero_result_count: number;
+}): string {
+  if (row.matched_event_count === 0) return "—";
+  return `${String(row.matched_event_count)} · ${String(row.matched_zero_result_count)} zero`;
+}
+
 type GapDispositionStatus =
   components["schemas"]["KnowledgeGapDispositionCommand"]["disposition_status"];
 
@@ -5086,6 +5094,11 @@ function retrievalGroupColumns(
       header: "Expanded",
       key: "expanded",
       render: (row: RetrievalQueryGroupRow) => expansionEvidenceLabel(row),
+    },
+    {
+      header: "Matched",
+      key: "matched",
+      render: (row: RetrievalQueryGroupRow) => errorCodeEvidenceLabel(row),
     },
     {
       header: "Last seen",
@@ -5225,7 +5238,9 @@ function AdminKnowledgeAnalyticsPage() {
           {totals.low_confidence_count} low-confidence (
           {retrievalAnalyticsRate(totals.low_confidence_rate)}) ·{" "}
           {totals.expansion_applied_count} expanded (
-          {retrievalAnalyticsRate(totals.expansion_applied_rate)}) · threshold{" "}
+          {retrievalAnalyticsRate(totals.expansion_applied_rate)}) ·{" "}
+          {totals.error_code_matched_count} matched (
+          {retrievalAnalyticsRate(totals.error_code_matched_rate)}) · threshold{" "}
           {totals.low_confidence_threshold} · {totals.query_group_count}{" "}
           distinct queries
         </p>

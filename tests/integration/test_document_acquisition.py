@@ -2557,6 +2557,19 @@ def test_retrieval_analytics_summary_groups_windows_and_authorization(
         f"('{TENANT_ID}','EVIDENCE_SEARCH','printer offline error',4,false,0.9,"
         "true,1,now()-interval '12 hours')"
     )
+    # Task 16.3: two error-code-matched events for the vpn group — one that
+    # still returned nothing and one that found results — give the matching
+    # zero-result movement evidence; every other row keeps NULL matching
+    # columns and counts as unmatched.
+    _psql(
+        "INSERT INTO kb.retrieval_query_event "
+        "(tenant_id,surface,normalized_query,result_count,zero_result_flag,"
+        "top_score,error_code_matching_applied,matched_error_code_count,captured_at) VALUES "
+        f"('{TENANT_ID}','EVIDENCE_SEARCH','vpn setup guide',0,true,NULL,"
+        "true,1,now()-interval '2 days'),"
+        f"('{TENANT_ID}','EVIDENCE_SEARCH','vpn setup guide',3,false,0.7,"
+        "true,1,now()-interval '12 hours')"
+    )
 
     for path in ("summary", "zero-result-queries", "low-confidence-queries"):
         assert client.get(f"{base}/{path}", headers=_headers("customer")).status_code == 403
@@ -2566,13 +2579,15 @@ def test_retrieval_analytics_summary_groups_windows_and_authorization(
     body = summary.json()
     assert body["window_days"] == 30
     assert body["low_confidence_threshold"] == 0.01
-    assert body["event_count"] == 9
-    assert body["zero_result_count"] == 5
-    assert body["zero_result_rate"] == 0.5556
+    assert body["event_count"] == 11
+    assert body["zero_result_count"] == 6
+    assert body["zero_result_rate"] == 0.5455
     assert body["low_confidence_count"] == 2
-    assert body["low_confidence_rate"] == 0.2222
+    assert body["low_confidence_rate"] == 0.1818
     assert body["expansion_applied_count"] == 2
-    assert body["expansion_applied_rate"] == 0.2222
+    assert body["expansion_applied_rate"] == 0.1818
+    assert body["error_code_matched_count"] == 2
+    assert body["error_code_matched_rate"] == 0.1818
     assert body["query_group_count"] == 4
 
     zero = client.get(f"{base}/zero-result-queries", headers=_headers("platform-admin"))
@@ -2589,7 +2604,15 @@ def test_retrieval_analytics_summary_groups_windows_and_authorization(
     assert zero_items[0]["expanded_event_count"] == 2
     assert zero_items[0]["expanded_zero_result_count"] == 1
     assert zero_items[0]["unexpanded_zero_result_count"] == 3
+    assert zero_items[0]["matched_event_count"] == 0
     assert zero_items[0]["surfaces"] == ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"]
+    assert zero_items[1]["matching_count"] == 2
+    assert zero_items[1]["event_count"] == 3
+    assert zero_items[1]["best_top_score"] == 0.7
+    assert zero_items[1]["matched_event_count"] == 2
+    assert zero_items[1]["matched_zero_result_count"] == 1
+    assert zero_items[1]["unmatched_zero_result_count"] == 1
+    assert zero_items[1]["expanded_event_count"] == 0
     assert "other tenant query" not in {item["normalized_query"] for item in zero_items}
 
     low = client.get(f"{base}/low-confidence-queries", headers=_headers("platform-admin"))
@@ -2600,9 +2623,10 @@ def test_retrieval_analytics_summary_groups_windows_and_authorization(
     assert low_items[0]["matching_count"] == 2
     assert low_items[0]["best_top_score"] == 0.008
     assert low_items[0]["expanded_event_count"] == 0
+    assert low_items[0]["matched_event_count"] == 0
 
     wide = client.get(f"{base}/summary", params={"days": 365}, headers=_headers("platform-admin"))
-    assert wide.json()["event_count"] == 10
+    assert wide.json()["event_count"] == 12
     wide_zero = client.get(
         f"{base}/zero-result-queries",
         params={"days": 365},

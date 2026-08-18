@@ -6177,6 +6177,16 @@ export interface components {
     /** RetrievalAnalyticsSummaryResponse */
     RetrievalAnalyticsSummaryResponse: {
       /**
+       * Error Code Matched Count
+       * @default 0
+       */
+      error_code_matched_count: number;
+      /**
+       * Error Code Matched Rate
+       * @default 0
+       */
+      error_code_matched_rate: number;
+      /**
        * Event Count
        * @default 0
        */
@@ -6302,6 +6312,16 @@ export interface components {
        * Format: date-time
        */
       last_seen_at: string;
+      /**
+       * Matched Event Count
+       * @default 0
+       */
+      matched_event_count: number;
+      /**
+       * Matched Zero Result Count
+       * @default 0
+       */
+      matched_zero_result_count: number;
       /** Matching Count */
       matching_count: number;
       /** Normalized Query */
@@ -6313,6 +6333,11 @@ export interface components {
        * @default 0
        */
       unexpanded_zero_result_count: number;
+      /**
+       * Unmatched Zero Result Count
+       * @default 0
+       */
+      unmatched_zero_result_count: number;
     };
     /** RetrievalSynonymCommand */
     RetrievalSynonymCommand: {

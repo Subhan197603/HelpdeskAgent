@@ -9,6 +9,7 @@ import {
   corpusBlockerLabel,
   corpusFindingPresentation,
   DynamicField,
+  errorCodeEvidenceLabel,
   expansionEvidenceLabel,
   gapDispositionLabel,
   synonymStatusLabel,
@@ -365,6 +366,21 @@ describe("knowledge source refresh lifecycle presentation", () => {
         expanded_zero_result_count: 1,
       }),
     ).toBe("3 · 1 zero");
+  });
+
+  it("summarizes error-code match evidence per query group", () => {
+    expect(
+      errorCodeEvidenceLabel({
+        matched_event_count: 0,
+        matched_zero_result_count: 0,
+      }),
+    ).toBe("—");
+    expect(
+      errorCodeEvidenceLabel({
+        matched_event_count: 2,
+        matched_zero_result_count: 1,
+      }),
+    ).toBe("2 · 1 zero");
   });
 });
 

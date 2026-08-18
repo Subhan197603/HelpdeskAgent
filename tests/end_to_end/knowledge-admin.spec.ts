@@ -247,6 +247,9 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
     expanded_event_count: 2,
     expanded_zero_result_count: 1,
     unexpanded_zero_result_count: 2,
+    matched_event_count: 3,
+    matched_zero_result_count: 2,
+    unmatched_zero_result_count: 1,
     surfaces: ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"],
     first_seen_at: "2026-08-10T09:00:00Z",
     last_seen_at: "2026-08-16T10:00:00Z",
@@ -264,6 +267,8 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
         low_confidence_rate: 0.05,
         expansion_applied_count: 6,
         expansion_applied_rate: 0.15,
+        error_code_matched_count: 5,
+        error_code_matched_rate: 0.125,
         query_group_count: 18,
       },
     });
@@ -345,7 +350,9 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
     2,
   );
   await expect(page.getByText("6 expanded (15.0%)")).toBeVisible();
+  await expect(page.getByText("5 matched (12.5%)")).toBeVisible();
   await expect(page.getByRole("cell", { name: "2 · 1 zero" })).toHaveCount(2);
+  await expect(page.getByRole("cell", { name: "3 · 2 zero" })).toHaveCount(2);
   await expect(page.getByRole("cell", { name: "Acknowledged" })).toBeVisible();
   await page.getByLabel("Window").selectOption("7");
   await expect(page.getByText("40 retrieval queries")).toBeVisible();
