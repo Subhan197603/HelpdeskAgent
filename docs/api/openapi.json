@@ -10443,6 +10443,16 @@
             "title": "Event Count",
             "type": "integer"
           },
+          "expansion_applied_count": {
+            "default": 0,
+            "title": "Expansion Applied Count",
+            "type": "integer"
+          },
+          "expansion_applied_rate": {
+            "default": 0.0,
+            "title": "Expansion Applied Rate",
+            "type": "number"
+          },
           "low_confidence_count": {
             "default": 0,
             "title": "Low Confidence Count",
@@ -10663,6 +10673,16 @@
             "title": "Event Count",
             "type": "integer"
           },
+          "expanded_event_count": {
+            "default": 0,
+            "title": "Expanded Event Count",
+            "type": "integer"
+          },
+          "expanded_zero_result_count": {
+            "default": 0,
+            "title": "Expanded Zero Result Count",
+            "type": "integer"
+          },
           "first_seen_at": {
             "format": "date-time",
             "title": "First Seen At",
@@ -10704,6 +10724,11 @@
             },
             "title": "Surfaces",
             "type": "array"
+          },
+          "unexpanded_zero_result_count": {
+            "default": 0,
+            "title": "Unexpanded Zero Result Count",
+            "type": "integer"
           }
         },
         "required": [

@@ -9,6 +9,7 @@ import {
   corpusBlockerLabel,
   corpusFindingPresentation,
   DynamicField,
+  expansionEvidenceLabel,
   gapDispositionLabel,
   synonymStatusLabel,
   insertCannedResponse,
@@ -349,6 +350,21 @@ describe("knowledge source refresh lifecycle presentation", () => {
     expect(synonymStatusLabel("DRAFT")).toBe("Draft");
     expect(synonymStatusLabel("APPROVED")).toBe("Approved");
     expect(synonymStatusLabel("RETIRED")).toBe("Retired");
+  });
+
+  it("summarizes expansion evidence per query group", () => {
+    expect(
+      expansionEvidenceLabel({
+        expanded_event_count: 0,
+        expanded_zero_result_count: 0,
+      }),
+    ).toBe("—");
+    expect(
+      expansionEvidenceLabel({
+        expanded_event_count: 3,
+        expanded_zero_result_count: 1,
+      }),
+    ).toBe("3 · 1 zero");
   });
 });
 

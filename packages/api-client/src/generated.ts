@@ -6146,6 +6146,16 @@ export interface components {
        */
       event_count: number;
       /**
+       * Expansion Applied Count
+       * @default 0
+       */
+      expansion_applied_count: number;
+      /**
+       * Expansion Applied Rate
+       * @default 0
+       */
+      expansion_applied_rate: number;
+      /**
        * Low Confidence Count
        * @default 0
        */
@@ -6230,6 +6240,16 @@ export interface components {
       /** Event Count */
       event_count: number;
       /**
+       * Expanded Event Count
+       * @default 0
+       */
+      expanded_event_count: number;
+      /**
+       * Expanded Zero Result Count
+       * @default 0
+       */
+      expanded_zero_result_count: number;
+      /**
        * First Seen At
        * Format: date-time
        */
@@ -6252,6 +6272,11 @@ export interface components {
       normalized_query: string;
       /** Surfaces */
       surfaces: string[];
+      /**
+       * Unexpanded Zero Result Count
+       * @default 0
+       */
+      unexpanded_zero_result_count: number;
     };
     /** RetrievalSynonymCommand */
     RetrievalSynonymCommand: {

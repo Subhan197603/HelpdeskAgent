@@ -50,6 +50,7 @@ class RetrievalAnalyticsService:
         event_count = int(row.event_count)
         zero_result_count = int(row.zero_result_count)
         low_confidence_count = int(row.low_confidence_count)
+        expansion_applied_count = int(row.expansion_applied_count)
         return RetrievalAnalyticsSummaryResponse(
             window_days=window_days,
             low_confidence_threshold=self._threshold,
@@ -58,6 +59,8 @@ class RetrievalAnalyticsService:
             zero_result_rate=_rate(zero_result_count, event_count),
             low_confidence_count=low_confidence_count,
             low_confidence_rate=_rate(low_confidence_count, event_count),
+            expansion_applied_count=expansion_applied_count,
+            expansion_applied_rate=_rate(expansion_applied_count, event_count),
             query_group_count=int(row.query_group_count),
         )
 
@@ -208,6 +211,9 @@ def _group(kind: RetrievalAnalyticsGroupKind, row: Any) -> RetrievalQueryGroupRe
         normalized_query=row.normalized_query,
         event_count=int(row.event_count),
         matching_count=int(row.matching_count),
+        expanded_event_count=int(row.expanded_event_count),
+        expanded_zero_result_count=int(row.expanded_zero_result_count),
+        unexpanded_zero_result_count=int(row.unexpanded_zero_result_count),
         best_top_score=float(row.best_top_score) if row.best_top_score is not None else None,
         surfaces=sorted(row.surfaces),
         first_seen_at=row.first_seen_at,

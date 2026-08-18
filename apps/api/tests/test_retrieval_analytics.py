@@ -34,6 +34,9 @@ def _row(query: str, matching: int, *, disposition_status: str | None = None) ->
         normalized_query=query,
         event_count=matching + 1,
         matching_count=matching,
+        expanded_event_count=2,
+        expanded_zero_result_count=0,
+        unexpanded_zero_result_count=matching,
         best_top_score=0.005,
         surfaces=["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"],
         first_seen_at=SEEN,
@@ -83,6 +86,9 @@ def test_listing_maps_rows_and_reports_has_more() -> None:
     assert listing.items[0].disposition is not None
     assert listing.items[0].disposition.disposition_status == "SOURCE_CANDIDATE"
     assert listing.items[0].disposition.row_version == 2
+    assert listing.items[0].expanded_event_count == 2
+    assert listing.items[0].expanded_zero_result_count == 0
+    assert listing.items[0].unexpanded_zero_result_count == 3
     assert listing.items[1].disposition is None
     assert listing.low_confidence_threshold == 0.01
 
@@ -99,6 +105,8 @@ class FakeAnalyticsService:
             zero_result_rate=0.4,
             low_confidence_count=2,
             low_confidence_rate=0.2,
+            expansion_applied_count=3,
+            expansion_applied_rate=0.3,
             query_group_count=6,
         )
 
@@ -137,6 +145,8 @@ def test_summary_endpoint_returns_rates_for_read_admin() -> None:
     assert payload["window_days"] == 7
     assert payload["zero_result_rate"] == 0.4
     assert payload["low_confidence_threshold"] == 0.01
+    assert payload["expansion_applied_count"] == 3
+    assert payload["expansion_applied_rate"] == 0.3
 
 
 def test_analytics_requires_authentication(client: TestClient) -> None:

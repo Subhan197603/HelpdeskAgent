@@ -5008,6 +5008,14 @@ export function retrievalAnalyticsRate(rate: number): string {
   return `${(rate * 100).toFixed(1)}%`;
 }
 
+export function expansionEvidenceLabel(row: {
+  expanded_event_count: number;
+  expanded_zero_result_count: number;
+}): string {
+  if (row.expanded_event_count === 0) return "—";
+  return `${String(row.expanded_event_count)} · ${String(row.expanded_zero_result_count)} zero`;
+}
+
 type GapDispositionStatus =
   components["schemas"]["KnowledgeGapDispositionCommand"]["disposition_status"];
 
@@ -5073,6 +5081,11 @@ function retrievalGroupColumns(
       key: "surfaces",
       render: (row: RetrievalQueryGroupRow) =>
         row.surfaces.map(retrievalSurfaceLabel).join(", "),
+    },
+    {
+      header: "Expanded",
+      key: "expanded",
+      render: (row: RetrievalQueryGroupRow) => expansionEvidenceLabel(row),
     },
     {
       header: "Last seen",
@@ -5210,7 +5223,9 @@ function AdminKnowledgeAnalyticsPage() {
           {totals.event_count} retrieval queries · {totals.zero_result_count}{" "}
           zero-result ({retrievalAnalyticsRate(totals.zero_result_rate)}) ·{" "}
           {totals.low_confidence_count} low-confidence (
-          {retrievalAnalyticsRate(totals.low_confidence_rate)}) · threshold{" "}
+          {retrievalAnalyticsRate(totals.low_confidence_rate)}) ·{" "}
+          {totals.expansion_applied_count} expanded (
+          {retrievalAnalyticsRate(totals.expansion_applied_rate)}) · threshold{" "}
           {totals.low_confidence_threshold} · {totals.query_group_count}{" "}
           distinct queries
         </p>

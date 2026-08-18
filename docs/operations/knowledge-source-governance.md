@@ -224,3 +224,16 @@ so the Task 15.3 analytics can report expansion effectiveness. Ranking
 weights, fusion, candidate selection, top-k, thresholds, embeddings, and
 reranking are unchanged, and the retrieval regression suite runs unmodified
 with both settings at their off defaults.
+
+## Expansion effectiveness analytics
+
+Milestone 15 Task 15.3 extends the Milestone 14 retrieval analytics
+read-only with the expansion evidence captured by Task 15.2. The summary
+adds the expansion-applied count and rate, and every zero-result and
+low-confidence query group reports how many of its events ran with
+expansion applied and how zero results split between expanded and
+unexpanded events — the zero-result movement an administrator needs to
+judge whether approved vocabulary closes an observed gap. Rows captured
+before Task 15.2 count as unexpanded. The Analytics tab presents the new
+summary fragment and an Expanded column; there is no new mutation surface,
+no export, no cross-tenant aggregation, and no retrieval behavior change.

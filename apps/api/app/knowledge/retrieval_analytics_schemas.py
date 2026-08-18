@@ -38,6 +38,8 @@ class RetrievalAnalyticsSummaryResponse(BaseModel):
     zero_result_rate: float = 0.0
     low_confidence_count: int = 0
     low_confidence_rate: float = 0.0
+    expansion_applied_count: int = 0
+    expansion_applied_rate: float = 0.0
     query_group_count: int = 0
 
 
@@ -46,6 +48,9 @@ class RetrievalQueryGroupResponse(BaseModel):
     normalized_query: str
     event_count: int
     matching_count: int
+    expanded_event_count: int = 0
+    expanded_zero_result_count: int = 0
+    unexpanded_zero_result_count: int = 0
     best_top_score: float | None
     surfaces: list[str]
     first_seen_at: datetime

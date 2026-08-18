@@ -244,6 +244,9 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
     "**/api/v1/admin/knowledge/retrieval-analytics/low-confidence-queries*";
   const group = {
     event_count: 3,
+    expanded_event_count: 2,
+    expanded_zero_result_count: 1,
+    unexpanded_zero_result_count: 2,
     surfaces: ["EMPLOYEE_AGENT", "EVIDENCE_SEARCH"],
     first_seen_at: "2026-08-10T09:00:00Z",
     last_seen_at: "2026-08-16T10:00:00Z",
@@ -259,6 +262,8 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
         zero_result_rate: 0.1,
         low_confidence_count: 2,
         low_confidence_rate: 0.05,
+        expansion_applied_count: 6,
+        expansion_applied_rate: 0.15,
         query_group_count: 18,
       },
     });
@@ -339,6 +344,8 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
   await expect(page.getByText("Employee agent, Evidence search")).toHaveCount(
     2,
   );
+  await expect(page.getByText("6 expanded (15.0%)")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "2 · 1 zero" })).toHaveCount(2);
   await expect(page.getByRole("cell", { name: "Acknowledged" })).toBeVisible();
   await page.getByLabel("Window").selectOption("7");
   await expect(page.getByText("40 retrieval queries")).toBeVisible();
