@@ -10,6 +10,7 @@ import {
   corpusFindingPresentation,
   DynamicField,
   gapDispositionLabel,
+  synonymStatusLabel,
   insertCannedResponse,
   LoginPage,
   retrievalAnalyticsRate,
@@ -342,6 +343,12 @@ describe("knowledge source refresh lifecycle presentation", () => {
     expect(gapDispositionLabel("SOURCE_CANDIDATE")).toBe("Source candidate");
     expect(gapDispositionLabel("NOT_A_GAP")).toBe("Not a gap");
     expect(gapDispositionLabel("RESOLVED")).toBe("Resolved");
+  });
+
+  it("labels every synonym status deterministically", () => {
+    expect(synonymStatusLabel("DRAFT")).toBe("Draft");
+    expect(synonymStatusLabel("APPROVED")).toBe("Approved");
+    expect(synonymStatusLabel("RETIRED")).toBe("Retired");
   });
 });
 

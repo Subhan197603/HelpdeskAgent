@@ -42,6 +42,7 @@ from apps.api.app.knowledge.corpus_validation_service import CorpusValidationSer
 from apps.api.app.knowledge.document_service import KnowledgeDocumentService
 from apps.api.app.knowledge.reader_service import KnowledgeReaderService
 from apps.api.app.knowledge.retrieval_analytics_service import RetrievalAnalyticsService
+from apps.api.app.knowledge.retrieval_synonym_service import RetrievalSynonymService
 from apps.api.app.knowledge.service import KnowledgeSourceService
 from apps.api.app.notifications.service import NotificationService
 from apps.api.app.queues.service import QueueService
@@ -211,6 +212,9 @@ def create_app(
     )
     app.state.retrieval_analytics_service = RetrievalAnalyticsService(
         unit_of_work_factory, app.state.authorization_service, settings
+    )
+    app.state.retrieval_synonym_service = RetrievalSynonymService(
+        unit_of_work_factory, app.state.authorization_service
     )
     app.state.knowledge_reader_service = KnowledgeReaderService(
         unit_of_work_factory, app.state.authorization_service, settings

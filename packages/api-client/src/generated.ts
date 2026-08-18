@@ -600,6 +600,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/admin/knowledge/retrieval-synonyms": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Retrieval Synonyms */
+    get: operations["list_retrieval_synonyms_api_v1_admin_knowledge_retrieval_synonyms_get"];
+    /** Put Retrieval Synonym */
+    put: operations["put_retrieval_synonym_api_v1_admin_knowledge_retrieval_synonyms_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/admin/knowledge/sources": {
     parameters: {
       query?: never;
@@ -6235,6 +6253,64 @@ export interface components {
       /** Surfaces */
       surfaces: string[];
     };
+    /** RetrievalSynonymCommand */
+    RetrievalSynonymCommand: {
+      /** Expansion */
+      expansion: string;
+      /** Expected Row Version */
+      expected_row_version?: number | null;
+      /** Synonym Note */
+      synonym_note?: string | null;
+      /**
+       * Synonym Status
+       * @default DRAFT
+       * @enum {string}
+       */
+      synonym_status: "DRAFT" | "APPROVED" | "RETIRED";
+      /** Term */
+      term: string;
+    };
+    /** RetrievalSynonymListResponse */
+    RetrievalSynonymListResponse: {
+      /**
+       * Has More
+       * @default false
+       */
+      has_more: boolean;
+      /** Items */
+      items: components["schemas"]["RetrievalSynonymResponse"][];
+    };
+    /** RetrievalSynonymResponse */
+    RetrievalSynonymResponse: {
+      /**
+       * Decided At
+       * Format: date-time
+       */
+      decided_at: string;
+      /** Expansion */
+      expansion: string;
+      /**
+       * Replayed
+       * @default false
+       */
+      replayed: boolean;
+      /** Row Version */
+      row_version: number;
+      /**
+       * Synonym Id
+       * Format: uuid
+       */
+      synonym_id: string;
+      /** Synonym Note */
+      synonym_note: string | null;
+      /**
+       * Synonym Status
+       * @enum {string}
+       */
+      synonym_status: "DRAFT" | "APPROVED" | "RETIRED";
+      /** Term */
+      term: string;
+    };
     /** RouteCommand */
     RouteCommand: {
       /** Row Version */
@@ -9722,6 +9798,129 @@ export interface operations {
         };
       };
       /** @description Retrieval analytics request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  list_retrieval_synonyms_api_v1_admin_knowledge_retrieval_synonyms_get: {
+    parameters: {
+      query?: {
+        status?: ("DRAFT" | "APPROVED" | "RETIRED") | null;
+        term?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetrievalSynonymListResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Synonym registry permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Synonym registry conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Synonym registry request invalid */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+    };
+  };
+  put_retrieval_synonym_api_v1_admin_knowledge_retrieval_synonyms_put: {
+    parameters: {
+      query?: never;
+      header: {
+        "Idempotency-Key": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetrievalSynonymCommand"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetrievalSynonymResponse"];
+        };
+      };
+      /** @description Authentication required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Synonym registry permission denied */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Synonym registry conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProblemResponse"];
+        };
+      };
+      /** @description Synonym registry request invalid */
       422: {
         headers: {
           [name: string]: unknown;

@@ -10720,6 +10720,132 @@
         "title": "RetrievalQueryGroupResponse",
         "type": "object"
       },
+      "RetrievalSynonymCommand": {
+        "properties": {
+          "expansion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Expansion",
+            "type": "string"
+          },
+          "expected_row_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Row Version"
+          },
+          "synonym_note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synonym Note"
+          },
+          "synonym_status": {
+            "default": "DRAFT",
+            "enum": ["DRAFT", "APPROVED", "RETIRED"],
+            "title": "Synonym Status",
+            "type": "string"
+          },
+          "term": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": ["term", "expansion"],
+        "title": "RetrievalSynonymCommand",
+        "type": "object"
+      },
+      "RetrievalSynonymListResponse": {
+        "properties": {
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievalSynonymResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": ["items"],
+        "title": "RetrievalSynonymListResponse",
+        "type": "object"
+      },
+      "RetrievalSynonymResponse": {
+        "properties": {
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "expansion": {
+            "title": "Expansion",
+            "type": "string"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "row_version": {
+            "title": "Row Version",
+            "type": "integer"
+          },
+          "synonym_id": {
+            "format": "uuid",
+            "title": "Synonym Id",
+            "type": "string"
+          },
+          "synonym_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Synonym Note"
+          },
+          "synonym_status": {
+            "enum": ["DRAFT", "APPROVED", "RETIRED"],
+            "title": "Synonym Status",
+            "type": "string"
+          },
+          "term": {
+            "title": "Term",
+            "type": "string"
+          }
+        },
+        "required": [
+          "synonym_id",
+          "term",
+          "expansion",
+          "synonym_status",
+          "synonym_note",
+          "decided_at",
+          "row_version"
+        ],
+        "title": "RetrievalSynonymResponse",
+        "type": "object"
+      },
       "RouteCommand": {
         "additionalProperties": false,
         "properties": {
@@ -17321,6 +17447,216 @@
         ],
         "summary": "Zero Result Queries",
         "tags": ["knowledge-analytics"]
+      }
+    },
+    "/api/v1/admin/knowledge/retrieval-synonyms": {
+      "get": {
+        "operationId": "list_retrieval_synonyms_api_v1_admin_knowledge_retrieval_synonyms_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["DRAFT", "APPROVED", "RETIRED"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "term",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Term"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalSynonymListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Synonym registry permission denied"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Synonym registry conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Synonym registry request invalid"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Retrieval Synonyms",
+        "tags": ["knowledge-synonyms"]
+      },
+      "put": {
+        "operationId": "put_retrieval_synonym_api_v1_admin_knowledge_retrieval_synonyms_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 8,
+              "pattern": "^[A-Za-z0-9._:-]+$",
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetrievalSynonymCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetrievalSynonymResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Authentication required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Synonym registry permission denied"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Synonym registry conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemResponse"
+                }
+              }
+            },
+            "description": "Synonym registry request invalid"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Put Retrieval Synonym",
+        "tags": ["knowledge-synonyms"]
       }
     },
     "/api/v1/admin/knowledge/sources": {

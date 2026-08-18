@@ -61,6 +61,7 @@ The only post-v1 revisions currently present are:
 → 0030_corpus_publication
 → 0031_retrieval_query_events
 → 0032_knowledge_gap_disposition
+→ 0033_retrieval_synonyms
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -145,8 +146,8 @@ role solely for the bounded tenant-scoped retention sweep. No retrieval
 behavior changes; it follows `0030_corpus_publication`; the physical
 PostgreSQL baseline is unchanged.
 
-Milestone 14 Task 14.3 introduces `0032_knowledge_gap_disposition`, the
-current development head. It adds the single tenant-isolated
+Milestone 14 Task 14.3 introduces `0032_knowledge_gap_disposition`. It adds
+the single tenant-isolated
 `kb.knowledge_gap_disposition` table holding one current-state row per tenant
 and normalized query with a bounded deterministic status set, optimistic row
 versioning, and narrow `SELECT`/`INSERT`/`UPDATE` application grants —
@@ -154,6 +155,17 @@ versioning, and narrow `SELECT`/`INSERT`/`UPDATE` application grants —
 immutable audit trail. Dispositions record human decisions only and never
 change retrieval behavior; it follows `0031_retrieval_query_events`; the
 physical PostgreSQL baseline is unchanged.
+
+Milestone 15 Task 15.1 introduces `0033_retrieval_synonyms`, the current
+development head. It adds the single tenant-isolated `kb.retrieval_synonym`
+registry table holding one bounded term-to-expansion pair per row with the
+deterministic lifecycle `DRAFT`, `APPROVED`, `RETIRED`, optimistic row
+versioning, and narrow `SELECT`/`INSERT`/`UPDATE` application grants —
+`DELETE` is revoked everywhere because entries are retired, never deleted,
+and their history lives in the immutable audit trail. The registry records
+administrative vocabulary decisions only; nothing reads it from the retrieval
+path in this task. It follows `0032_knowledge_gap_disposition`; the physical
+PostgreSQL baseline is unchanged.
 
 ## Adopt a new local database
 

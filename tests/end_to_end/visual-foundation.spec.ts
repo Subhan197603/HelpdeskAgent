@@ -788,6 +788,62 @@ test("approved employee and analyst screens remain visually stable", async ({
   await page.unroute(retrievalAnalyticsZeroRoute);
   await page.unroute(retrievalAnalyticsLowRoute);
 
+  const retrievalSynonymsRoute =
+    "**/api/v1/admin/knowledge/retrieval-synonyms*";
+  await page.route(retrievalSynonymsRoute, async (route) => {
+    await route.fulfill({
+      json: {
+        items: [
+          {
+            synonym_id: "31000000-0000-0000-0000-000000000001",
+            term: "sso",
+            expansion: "single sign on",
+            synonym_status: "DRAFT",
+            synonym_note: null,
+            decided_at: "2026-08-17T09:00:00Z",
+            row_version: 1,
+            replayed: false,
+          },
+          {
+            synonym_id: "31000000-0000-0000-0000-000000000002",
+            term: "vpn",
+            expansion: "virtual private network",
+            synonym_status: "APPROVED",
+            synonym_note: "From zero-result analytics",
+            decided_at: "2026-08-16T10:00:00Z",
+            row_version: 2,
+            replayed: false,
+          },
+          {
+            synonym_id: "31000000-0000-0000-0000-000000000003",
+            term: "vpn",
+            expansion: "remote access tunnel",
+            synonym_status: "RETIRED",
+            synonym_note: "Superseded wording",
+            decided_at: "2026-08-15T10:00:00Z",
+            row_version: 3,
+            replayed: false,
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Synonyms" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Synonyms", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "virtual private network" }),
+  ).toBeVisible();
+  await expectAccessible(page);
+  await expectNoHorizontalScroll(page);
+  await expect(page).toHaveScreenshot(
+    "admin-knowledge-synonyms.png",
+    screenshotOptions,
+  );
+  await page.unroute(retrievalSynonymsRoute);
+
   await page.getByRole("tab", { name: "Documents" }).click();
   await expect(
     page.getByRole("heading", { name: "Knowledge", exact: true }),

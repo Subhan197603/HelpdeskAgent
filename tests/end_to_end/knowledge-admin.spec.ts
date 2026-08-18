@@ -376,6 +376,92 @@ test("administrator reviews retrieval search analytics", async ({ page }) => {
   await page.unroute(dispositionRoute);
 });
 
+test("administrator manages the synonym registry", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Continue as administrator" }).click();
+  await page.locator('a[href="/admin/knowledge"]').click();
+
+  const synonymsRoute = "**/api/v1/admin/knowledge/retrieval-synonyms*";
+  await page.route(synonymsRoute, async (route) => {
+    if (route.request().method() === "PUT") {
+      await route.fulfill({
+        status: 201,
+        json: {
+          synonym_id: "31000000-0000-0000-0000-000000000002",
+          term: "vpn",
+          expansion: "virtual private network",
+          synonym_status: "RETIRED",
+          synonym_note: "Superseded wording",
+          decided_at: "2026-08-18T12:00:00Z",
+          row_version: 3,
+          replayed: false,
+        },
+      });
+      return;
+    }
+    await route.fulfill({
+      json: {
+        items: [
+          {
+            synonym_id: "31000000-0000-0000-0000-000000000001",
+            term: "sso",
+            expansion: "single sign on",
+            synonym_status: "DRAFT",
+            synonym_note: null,
+            decided_at: "2026-08-17T09:00:00Z",
+            row_version: 1,
+            replayed: false,
+          },
+          {
+            synonym_id: "31000000-0000-0000-0000-000000000002",
+            term: "vpn",
+            expansion: "virtual private network",
+            synonym_status: "APPROVED",
+            synonym_note: "From zero-result analytics",
+            decided_at: "2026-08-16T10:00:00Z",
+            row_version: 2,
+            replayed: false,
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.getByRole("tab", { name: "Synonyms" }).click();
+  await expect(page.getByRole("heading", { name: "Synonyms" })).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Synonym registry" }),
+  ).toBeVisible();
+  await expect(page.getByRole("cell", { name: "sso" })).toBeVisible();
+  await expect(
+    page.getByRole("cell", { name: "virtual private network" }),
+  ).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Approved" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Draft" })).toBeVisible();
+
+  await page
+    .getByRole("row", { name: /virtual private network/ })
+    .getByRole("button", { name: "Change" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Change synonym entry" }),
+  ).toBeVisible();
+  await expect(page.getByText(/never alter retrieval behavior/)).toBeVisible();
+  await expect(page.getByRole("dialog").getByLabel("Term")).toBeDisabled();
+  await page.getByRole("dialog").getByRole("combobox").selectOption("RETIRED");
+  await page.getByRole("dialog").getByLabel("Note").fill("Superseded wording");
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Record change" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Change synonym entry" }),
+  ).toBeHidden();
+  await page.unroute(synonymsRoute);
+});
+
 test("caller without knowledge administration permission is denied", async ({
   page,
 }) => {
@@ -394,6 +480,10 @@ test("caller without knowledge administration permission is denied", async ({
     page.getByRole("heading", { name: "You are not authorized" }),
   ).toBeVisible();
   await page.goto("/admin/knowledge/analytics");
+  await expect(
+    page.getByRole("heading", { name: "You are not authorized" }),
+  ).toBeVisible();
+  await page.goto("/admin/knowledge/synonyms");
   await expect(
     page.getByRole("heading", { name: "You are not authorized" }),
   ).toBeVisible();

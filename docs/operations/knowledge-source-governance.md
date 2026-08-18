@@ -176,3 +176,27 @@ recorded result with `Idempotent-Replayed`. Every mutation appends an immutable
 carry the current disposition, and the Analytics tab offers the disposition dialog to
 authorized administrators. A disposition records a human decision only — it never creates
 sources, starts acquisition, or changes retrieval behavior.
+
+## Synonym and acronym registry
+
+Milestone 15 Task 15.1 adds the governed, tenant-isolated synonym and acronym
+registry. `GET /api/v1/admin/knowledge/retrieval-synonyms` requires
+`KNOWLEDGE_DOCUMENT_READ_ADMIN` and lists bounded term-to-expansion entries
+with status and term-prefix filters. `PUT /api/v1/admin/knowledge/retrieval-synonyms`
+requires `KNOWLEDGE_SOURCE_UPDATE` and an `Idempotency-Key`; terms and
+expansions are normalized (lowercased, trimmed, whitespace-collapsed) and
+bounded, new entries always start in `DRAFT`, and each later change must
+supply the current row version and follows the deterministic lifecycle
+`DRAFT` → `APPROVED` → `RETIRED` (a retired entry may be reopened to
+`DRAFT`). A term keeps at most ten active expansions. Replaying the same
+idempotency key returns the recorded result with `Idempotent-Replayed`.
+Every mutation appends an immutable `KNOWLEDGE_SYNONYM_CHANGE` audit event;
+entries are retired, never deleted. The knowledge administration Synonyms tab
+presents the registry with the create and change dialogs for authorized
+administrators.
+
+The registry records administrative vocabulary decisions only. Nothing in
+this task reads the registry from the retrieval path: ranking, fusion,
+eligibility, and the retrieval regression suite are unchanged. Only the
+separately approved Task 15.2 may apply `APPROVED` entries during retrieval,
+tenant-opt-in and default off.

@@ -3917,7 +3917,13 @@ function AdminKnowledgePage() {
 function KnowledgeAdminTabs({
   active,
 }: {
-  active: "documents" | "sources" | "validation" | "publication" | "analytics";
+  active:
+    | "documents"
+    | "sources"
+    | "validation"
+    | "publication"
+    | "analytics"
+    | "synonyms";
 }) {
   const identity = useCurrentIdentity();
   const navigate = useNavigate();
@@ -3936,6 +3942,7 @@ function KnowledgeAdminTabs({
         { id: "validation", label: "Validation" },
         { id: "publication", label: "Publication" },
         { id: "analytics", label: "Analytics" },
+        { id: "synonyms", label: "Synonyms" },
       ]}
       label="Knowledge administration areas"
       onChange={(id) => {
@@ -3943,6 +3950,7 @@ function KnowledgeAdminTabs({
         else if (id === "validation") navigate("/admin/knowledge/validation");
         else if (id === "publication") navigate("/admin/knowledge/publication");
         else if (id === "analytics") navigate("/admin/knowledge/analytics");
+        else if (id === "synonyms") navigate("/admin/knowledge/synonyms");
         else navigate("/admin/knowledge");
       }}
     />
@@ -5293,6 +5301,258 @@ function AdminKnowledgeAnalyticsPage() {
             }}
             type="text"
             value={dispositionNote}
+          />
+        </label>
+      </ConfirmationDialog>
+    </div>
+  );
+}
+
+type RetrievalSynonymRow = components["schemas"]["RetrievalSynonymResponse"];
+type SynonymStatus =
+  components["schemas"]["RetrievalSynonymCommand"]["synonym_status"];
+
+const SYNONYM_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Draft",
+  APPROVED: "Approved",
+  RETIRED: "Retired",
+};
+
+export function synonymStatusLabel(status: string): string {
+  return SYNONYM_STATUS_LABELS[status] ?? humanizeCode(status);
+}
+
+function AdminKnowledgeSynonymsPage() {
+  const client = useIdentityClient();
+  const identity = useCurrentIdentity();
+  const queryClient = useQueryClient();
+  const [statusFilter, setStatusFilter] = useState<"" | SynonymStatus>("");
+  const [dialogRow, setDialogRow] = useState<RetrievalSynonymRow | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formTerm, setFormTerm] = useState("");
+  const [formExpansion, setFormExpansion] = useState("");
+  const [formStatus, setFormStatus] = useState<SynonymStatus>("DRAFT");
+  const [formNote, setFormNote] = useState("");
+  const listing = useQuery({
+    queryKey: ["admin-retrieval-synonyms", statusFilter],
+    queryFn: async () =>
+      unwrap(
+        await client.GET("/api/v1/admin/knowledge/retrieval-synonyms", {
+          params: {
+            query: statusFilter === "" ? {} : { status: statusFilter },
+          },
+        }),
+      ),
+  });
+  const changeMutation = useMutation({
+    mutationFn: async () =>
+      unwrap(
+        await client.PUT("/api/v1/admin/knowledge/retrieval-synonyms", {
+          params: {
+            header: { "Idempotency-Key": newIdempotencyKey("synonym") },
+          },
+          body: {
+            term: formTerm,
+            expansion: formExpansion,
+            synonym_status: formStatus,
+            synonym_note: formNote.trim() === "" ? null : formNote.trim(),
+            expected_row_version: dialogRow?.row_version ?? null,
+          },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: ["admin-retrieval-synonyms"],
+      });
+      setDialogOpen(false);
+      setDialogRow(null);
+    },
+  });
+  const canMutate =
+    identity?.permission_codes.includes("KNOWLEDGE_SOURCE_UPDATE") ?? false;
+  const openCreate = () => {
+    changeMutation.reset();
+    setDialogRow(null);
+    setFormTerm("");
+    setFormExpansion("");
+    setFormStatus("DRAFT");
+    setFormNote("");
+    setDialogOpen(true);
+  };
+  const openEdit = (row: RetrievalSynonymRow) => {
+    changeMutation.reset();
+    setDialogRow(row);
+    setFormTerm(row.term);
+    setFormExpansion(row.expansion);
+    setFormStatus(row.synonym_status);
+    setFormNote(row.synonym_note ?? "");
+    setDialogOpen(true);
+  };
+  const columns = [
+    {
+      header: "Term",
+      key: "term",
+      render: (row: RetrievalSynonymRow) => (
+        <span className="mono">{row.term}</span>
+      ),
+    },
+    {
+      header: "Expansion",
+      key: "expansion",
+      render: (row: RetrievalSynonymRow) => (
+        <span className="mono">{row.expansion}</span>
+      ),
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (row: RetrievalSynonymRow) =>
+        synonymStatusLabel(row.synonym_status),
+    },
+    {
+      header: "Note",
+      key: "note",
+      render: (row: RetrievalSynonymRow) => row.synonym_note ?? "—",
+    },
+    {
+      header: "Updated",
+      key: "updated",
+      render: (row: RetrievalSynonymRow) => formatDateTime(row.decided_at),
+    },
+    ...(canMutate
+      ? [
+          {
+            header: "Actions",
+            key: "actions",
+            render: (row: RetrievalSynonymRow) => (
+              <Button
+                onClick={() => {
+                  openEdit(row);
+                }}
+                variant="secondary"
+              >
+                Change
+              </Button>
+            ),
+          },
+        ]
+      : []),
+  ];
+  return (
+    <div className="page admin-page">
+      <PageHeader
+        description="Manage the governed synonym and acronym registry. Entries record administrative vocabulary decisions only; retrieval behavior is unchanged until a separately approved expansion task applies approved entries."
+        title="Synonyms"
+      />
+      <KnowledgeAdminTabs active="synonyms" />
+      <TableToolbar label="Synonym registry filters">
+        <label className="sort-control">
+          Status
+          <select
+            onChange={(event) => {
+              setStatusFilter(event.target.value as "" | SynonymStatus);
+            }}
+            value={statusFilter}
+          >
+            <option value="">All statuses</option>
+            {Object.entries(SYNONYM_STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        {canMutate && <Button onClick={openCreate}>New synonym</Button>}
+      </TableToolbar>
+      {listing.isPending && (
+        <LoadingSkeleton label="Loading synonym registry" />
+      )}
+      {listing.error != null && <ErrorSummary error={listing.error} />}
+      {changeMutation.error != null && (
+        <ErrorSummary error={changeMutation.error} />
+      )}
+      {listing.data != null && (
+        <DataTable
+          caption="Synonym registry"
+          columns={columns}
+          empty={
+            <EmptyState
+              description="Synonym entries record vocabulary decisions for later governed expansion. Create entries from the zero-result queries surfaced in Analytics."
+              title="No synonym entries"
+            />
+          }
+          getRowKey={(row) => row.synonym_id}
+          rows={listing.data.items}
+        />
+      )}
+      <ConfirmationDialog
+        confirmLabel={dialogRow == null ? "Create entry" : "Record change"}
+        onCancel={() => {
+          setDialogOpen(false);
+          setDialogRow(null);
+        }}
+        onConfirm={() => {
+          changeMutation.mutate();
+        }}
+        open={dialogOpen}
+        pending={changeMutation.isPending}
+        title={
+          dialogRow == null ? "Create synonym entry" : "Change synonym entry"
+        }
+      >
+        <p>
+          Entries are audited and retired rather than deleted. Registry changes
+          never alter retrieval behavior.
+        </p>
+        <label className="sort-control">
+          Term
+          <input
+            disabled={dialogRow != null}
+            maxLength={100}
+            onChange={(event) => {
+              setFormTerm(event.target.value);
+            }}
+            type="text"
+            value={formTerm}
+          />
+        </label>
+        <label className="sort-control">
+          Expansion
+          <input
+            disabled={dialogRow != null}
+            maxLength={100}
+            onChange={(event) => {
+              setFormExpansion(event.target.value);
+            }}
+            type="text"
+            value={formExpansion}
+          />
+        </label>
+        <label className="sort-control">
+          Status
+          <select
+            disabled={dialogRow == null}
+            onChange={(event) => {
+              setFormStatus(event.target.value as SynonymStatus);
+            }}
+            value={formStatus}
+          >
+            {Object.entries(SYNONYM_STATUS_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="sort-control">
+          Note
+          <input
+            maxLength={500}
+            onChange={(event) => {
+              setFormNote(event.target.value);
+            }}
+            type="text"
+            value={formNote}
           />
         </label>
       </ConfirmationDialog>
@@ -9158,6 +9418,16 @@ export function App() {
             <RequireSession>
               <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
                 <AdminKnowledgeAnalyticsPage />
+              </RequirePermission>
+            </RequireSession>
+          }
+        />
+        <Route
+          path="/admin/knowledge/synonyms"
+          element={
+            <RequireSession>
+              <RequirePermission permission="KNOWLEDGE_DOCUMENT_READ_ADMIN">
+                <AdminKnowledgeSynonymsPage />
               </RequirePermission>
             </RequireSession>
           }

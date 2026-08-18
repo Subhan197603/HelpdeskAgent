@@ -25,6 +25,9 @@ from apps.api.app.knowledge.reader_api import router as knowledge_reader_router
 from apps.api.app.knowledge.retrieval_analytics_api import (
     router as retrieval_analytics_router,
 )
+from apps.api.app.knowledge.retrieval_synonym_api import (
+    router as retrieval_synonym_router,
+)
 from apps.api.app.notifications.api import router as notifications_router
 from apps.api.app.observability.api import router as observability_router
 from apps.api.app.queues.api import router as queues_router
@@ -51,6 +54,7 @@ api_router.include_router(knowledge_document_router)
 api_router.include_router(corpus_validation_router)
 api_router.include_router(corpus_publication_router)
 api_router.include_router(retrieval_analytics_router)
+api_router.include_router(retrieval_synonym_router)
 api_router.include_router(knowledge_reader_router)
 api_router.include_router(ingestion_router)
 api_router.include_router(retrieval_router)

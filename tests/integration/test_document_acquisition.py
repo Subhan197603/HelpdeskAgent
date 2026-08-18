@@ -370,9 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert (
-        _value("SELECT version_num FROM config.alembic_version") == "0032_knowledge_gap_disposition"
-    )
+    assert _value("SELECT version_num FROM config.alembic_version") == "0033_retrieval_synonyms"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -2723,6 +2721,197 @@ def test_retrieval_analytics_summary_groups_windows_and_authorization(
         check=False,
     )
     assert forged_disposition.returncode != 0
+    assert (
+        _value(
+            "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
+            f"SELECT count(*) FROM {table} WHERE tenant_id='{TENANT_ID}'"
+        )
+        == "0"
+    )
+
+
+@pytest.mark.integration
+def test_retrieval_synonym_registry_lifecycle_privileges_and_isolation(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    client, _, _ = application
+    base = "/api/v1/admin/knowledge/retrieval-synonyms"
+    _psql("DELETE FROM kb.retrieval_synonym")
+
+    assert client.get(base, headers=_headers("customer")).status_code == 403
+    assert (
+        client.put(
+            base,
+            headers=_headers("customer", "synonym-denied"),
+            json={"term": "vpn", "expansion": "virtual private network"},
+        ).status_code
+        == 403
+    )
+
+    created = client.put(
+        base,
+        headers=_headers("platform-admin", "synonym-create"),
+        json={
+            "term": "  VPN ",
+            "expansion": "Virtual  Private Network",
+            "synonym_note": "From zero-result analytics",
+        },
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["term"] == "vpn"
+    assert created.json()["expansion"] == "virtual private network"
+    assert created.json()["synonym_status"] == "DRAFT"
+    assert created.json()["row_version"] == 1
+
+    # New entries must start in DRAFT, and equal term/expansion is rejected.
+    assert (
+        client.put(
+            base,
+            headers=_headers("platform-admin", "synonym-approved-create"),
+            json={
+                "term": "sso",
+                "expansion": "single sign on",
+                "synonym_status": "APPROVED",
+            },
+        ).status_code
+        == 409
+    )
+    assert (
+        client.put(
+            base,
+            headers=_headers("platform-admin", "synonym-same-terms"),
+            json={"term": "VPN", "expansion": " vpn "},
+        ).status_code
+        == 409
+    )
+    assert (
+        client.put(
+            base,
+            headers=_headers("platform-admin", "synonym-duplicate"),
+            json={"term": "vpn", "expansion": "virtual private network"},
+        ).status_code
+        == 409
+    )
+
+    approved = client.put(
+        base,
+        headers=_headers("platform-admin", "synonym-approve"),
+        json={
+            "term": "vpn",
+            "expansion": "virtual private network",
+            "synonym_status": "APPROVED",
+            "expected_row_version": 1,
+        },
+    )
+    assert approved.status_code == 201, approved.text
+    assert approved.json()["synonym_status"] == "APPROVED"
+    assert approved.json()["row_version"] == 2
+
+    # APPROVED cannot return to DRAFT, and stale versions conflict.
+    assert (
+        client.put(
+            base,
+            headers=_headers("platform-admin", "synonym-bad-transition"),
+            json={
+                "term": "vpn",
+                "expansion": "virtual private network",
+                "synonym_status": "DRAFT",
+                "expected_row_version": 2,
+            },
+        ).status_code
+        == 409
+    )
+    assert (
+        client.put(
+            base,
+            headers=_headers("platform-admin", "synonym-stale"),
+            json={
+                "term": "vpn",
+                "expansion": "virtual private network",
+                "synonym_status": "RETIRED",
+                "expected_row_version": 99,
+            },
+        ).status_code
+        == 409
+    )
+
+    replayed = client.put(
+        base,
+        headers=_headers("platform-admin", "synonym-approve"),
+        json={
+            "term": "vpn",
+            "expansion": "virtual private network",
+            "synonym_status": "APPROVED",
+            "expected_row_version": 1,
+        },
+    )
+    assert replayed.status_code == 200
+    assert replayed.headers["Idempotent-Replayed"] == "true"
+    assert replayed.json()["replayed"] is True
+    assert replayed.json()["row_version"] == 2
+
+    retired = client.put(
+        base,
+        headers=_headers("platform-admin", "synonym-retire"),
+        json={
+            "term": "vpn",
+            "expansion": "virtual private network",
+            "synonym_status": "RETIRED",
+            "expected_row_version": 2,
+        },
+    )
+    assert retired.status_code == 201, retired.text
+    assert retired.json()["row_version"] == 3
+
+    listing = client.get(base, headers=_headers("platform-admin"))
+    assert listing.status_code == 200, listing.text
+    assert [item["expansion"] for item in listing.json()["items"]] == ["virtual private network"]
+    filtered = client.get(base, params={"status": "RETIRED"}, headers=_headers("platform-admin"))
+    assert len(filtered.json()["items"]) == 1
+    assert (
+        client.get(base, params={"status": "APPROVED"}, headers=_headers("platform-admin")).json()[
+            "items"
+        ]
+        == []
+    )
+    prefixed = client.get(base, params={"term": "VP"}, headers=_headers("platform-admin"))
+    assert len(prefixed.json()["items"]) == 1
+
+    assert (
+        _value(
+            "SELECT count(*) FROM audit.audit_event WHERE action_code='KNOWLEDGE_SYNONYM_CHANGE'"
+        )
+        == "3"
+    )
+
+    # Migration surface: RLS, grant matrix, and tenant containment.
+    table = "kb.retrieval_synonym"
+    assert _value(f"SELECT relrowsecurity FROM pg_class WHERE oid='{table}'::regclass") == "t"
+    assert (
+        _value(
+            "SELECT count(*) FROM pg_policies "
+            "WHERE schemaname='kb' AND tablename='retrieval_synonym'"
+        )
+        == "1"
+    )
+    assert _value(
+        "SELECT string_agg(grantee||':'||privilege_type,',' ORDER BY grantee,privilege_type) "
+        "FROM information_schema.role_table_grants "
+        "WHERE table_schema='kb' AND table_name='retrieval_synonym' "
+        "AND grantee LIKE 'helpdesk%'"
+    ) == (
+        "helpdesk_app:INSERT,helpdesk_app:SELECT,helpdesk_app:UPDATE,"
+        "helpdesk_readonly:SELECT,helpdesk_reporting:SELECT"
+    )
+    delete_denied = _psql(f"SET ROLE helpdesk_app; DELETE FROM {table} WHERE false", check=False)
+    assert delete_denied.returncode != 0
+    forged_synonym = _psql(
+        "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
+        f"INSERT INTO {table} (tenant_id,term,expansion,decided_by) "
+        f"VALUES ('{TENANT_ID}','forged','forged expansion','{AUTHOR_ID}')",
+        check=False,
+    )
+    assert forged_synonym.returncode != 0
     assert (
         _value(
             "SET ROLE helpdesk_app; SET app.tenant_id='20000000-0000-0000-0000-000000000002'; "
