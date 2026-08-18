@@ -364,13 +364,26 @@ roadmap amendment below.
 
 ## Post-v1 Milestone 16 — Governed Error-Code Retrieval
 
-Status: `AUTHORIZED — NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
-Milestone 16 is a bounded retrieval-recall milestone on `develop`. It closes
-the recall gap for error-code queries: the fusion layer already applies an
-exact-identifier boost to candidates that reach it, and Milestone 16 ensures
-that published chunks containing an error code present in the query become
-candidates at all, even when the lexical and vector channels miss them.
+Milestone 16 was a bounded retrieval-recall milestone on `develop`. All
+three tasks are complete, individually tagged (`milestone-16-task-16.1`
+through `milestone-16-task-16.3`, final head
+`76db32fe7885bc05b73f64c566e9c60c37a8f46a`), each validated by an all-green
+canonical CI run at its exact tag target. Formal closure is recorded by the
+annotated tag `milestone-16-closure`. The development Alembic head is
+`0036_event_error_codes`; the milestone delivered exactly one
+retrieval-behavior change — governed exact error-code candidate matching,
+per-tenant opt-in and default off behind a global kill switch — with the
+retrieval regression suite byte-unmodified and green throughout, the
+physical PostgreSQL baseline unchanged, and production frozen at v1.0.0
+(`cc9d768`).
+
+Milestone 16 closed the recall gap for error-code queries: the fusion layer
+already applies an exact-identifier boost to candidates that reach it, and
+Milestone 16 ensures that published chunks indexed under an error code
+present in the query become candidates at all, even when the lexical and
+vector channels miss them.
 
 The roadmap amendment was authorized by
 `APPROVE MILESTONE 16 ROADMAP AMENDMENT: GOVERNED ERROR-CODE RETRIEVAL`.

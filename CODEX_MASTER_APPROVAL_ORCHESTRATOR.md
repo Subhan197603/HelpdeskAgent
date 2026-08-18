@@ -2473,12 +2473,14 @@ automatic content actions, production deployment, and image publication.
 
 ## Milestone 16 — Governed Error-Code Retrieval
 
-Status: `AUTHORIZED — NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
 The documentation-only roadmap amendment was authorized by
 `APPROVE MILESTONE 16 ROADMAP AMENDMENT: GOVERNED ERROR-CODE RETRIEVAL`.
-This ratifies the roadmap only; no task implementation is authorized by this
-section alone.
+All three tasks were subsequently implemented, validated, committed, tagged,
+and pushed through their individual human-approved gates, and formal closure
+is recorded by the annotated tag `milestone-16-closure` (see Milestone 16
+Closure State below).
 
 Milestone 16 closes the recall gap for error-code queries through exactly one
 governed retrieval-relevance strategy: deterministic exact error-code
@@ -2524,7 +2526,8 @@ any later task from this section alone.
 
 ### Task 16.1 — Error-Code Extraction and Index Evidence
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-16-task-16.1` at
+`3d8b4f933365bb6706038595b113ea9aa0d8348f`.
 
 Scope:
 
@@ -2561,7 +2564,8 @@ APPROVE MILESTONE 16 TASK 16.1 COMMIT
 
 ### Task 16.2 — Governed Exact Error-Code Matching in Retrieval
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-16-task-16.2` at
+`8088bb0b573228a78d2466055a22fc2817583632`.
 
 Scope:
 
@@ -2600,7 +2604,8 @@ APPROVE MILESTONE 16 TASK 16.2 COMMIT
 
 ### Task 16.3 — Error-Code Effectiveness Analytics
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-16-task-16.3` at
+`76db32fe7885bc05b73f64c566e9c60c37a8f46a`.
 
 Scope:
 
@@ -2625,6 +2630,68 @@ Commit approval phrase after successful implementation and validation:
 ```text
 APPROVE MILESTONE 16 TASK 16.3 COMMIT
 ```
+
+### Milestone 16 Closure State
+
+Milestone 16 implementation, validation, Linux baseline adoption, and final
+validation are complete. Formal closure is recorded by the approved
+documentation-only governance commit and annotated tag `milestone-16-closure`.
+
+| Task | Evidence                                 | Tag                      | Commit                                     |
+| ---- | ---------------------------------------- | ------------------------ | ------------------------------------------ |
+| 16.1 | Error-Code Extraction and Index Evidence | `milestone-16-task-16.1` | `3d8b4f933365bb6706038595b113ea9aa0d8348f` |
+| 16.2 | Governed Exact Error-Code Matching       | `milestone-16-task-16.2` | `8088bb0b573228a78d2466055a22fc2817583632` |
+| 16.3 | Error-Code Effectiveness Analytics       | `milestone-16-task-16.3` | `76db32fe7885bc05b73f64c566e9c60c37a8f46a` |
+
+Each task's tag target is the head of its approved lineage of implementation
+and Linux-baseline-adoption commits, and each target is exactly the head
+commit of an all-green canonical CI run: 16.1 run `32184057442`, 16.2 run
+`32188135625` (fully green on its first attempt with no remediation
+commits), and 16.3 run `32194849378` (quality, foundation integration,
+retrieval regression, portal end-to-end — 27 of 27 Playwright tests at the
+final head, including all Task 16.1–16.3 functional, accessibility, and
+visual assertions — secret scan, and vulnerability scan). Task 16.1
+realigned the admin-system 768 baseline on both platforms after the
+migration head string changed, and Task 16.3 regenerated every
+knowledge-analytics baseline on both platforms for the new Matched column
+and summary fragment.
+
+Milestone 16 delivered exactly one retrieval-behavior change: governed exact
+error-code candidate matching, per-tenant opt-in and default off behind a
+global kill switch — both settings default off in the committed source. The
+added channel reuses the shared eligibility CTE, so ACLs, retrieval filters,
+and corpus suppression apply identically, and it can only broaden candidate
+selection; matched candidates rank through the unchanged fusion formula via
+the existing boosts. The existing retrieval regression suite is byte-for-byte
+unmodified and green at every task head. All other retrieval behavior —
+ranking formulas, fusion scoring and the existing exact-identifier boost,
+candidate selection outside the governed channel, top-k, runtime thresholds,
+embeddings, reranking, synonym expansion, the publication lifecycle, and
+source governance — is unchanged.
+
+The development Alembic head is `0036_event_error_codes`, reached through
+the linear Milestone 16 sequence `0035_chunk_error_codes` →
+`0036_event_error_codes` on top of `0034_query_event_expansion` (Task 16.3
+introduced no migration). The physical PostgreSQL baseline is unchanged
+across the entire milestone.
+
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
+`0020_reporting_views`. No Milestone 16 work has been promoted to production,
+and no production deployment or image publication is authorized.
+
+Draft PR #1 remains open and unmerged. Draft PRs #14, #16, and #17 were
+automatically marked merged by GitHub when their validation head commits
+landed on `develop` through approved fast-forward pushes; no merge commits
+exist and no manual merge was performed. During Task 16.1, PR #14 was
+auto-marked merged before its validation-branch update, so draft PR #15
+(the canonical branch against the pre-task base branch
+`validation/milestone-16-task-16.1-base-7475e73`) re-triggered the canonical
+run at the remediated head; PR #15 remains a draft and is never merged.
+Later tasks pushed `develop` only at their final-push gates so their draft
+PRs stayed open for reruns. The closure tag does not authorize a production
+promotion, a merge of Draft PR #1, validation branch cleanup, or the start
+of Milestone 17.
 
 ### Milestone 16 Completion Gate
 
