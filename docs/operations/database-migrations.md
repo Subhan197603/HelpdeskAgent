@@ -38,6 +38,13 @@ The validated Milestone 13 application baseline is commit
 `0027` → `0028` → `0029` → `0030`. The Milestone 13 closure governance commit
 is documentation-only and does not change that migration state.
 
+The validated Milestone 14 application baseline is commit
+`9b70333426781793ae924da7561b54c244fbb535` with Alembic head
+`0032_knowledge_gap_disposition`, reached through the linear Task 14.1–14.3
+sequence `0031` → `0032` (Task 14.2 introduced no migration). The Milestone 14
+closure governance commit is documentation-only and does not change that
+migration state.
+
 The only post-v1 revisions currently present are:
 
 ```text

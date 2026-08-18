@@ -2033,12 +2033,14 @@ production deployment, and image publication.
 
 ## Milestone 14 — Retrieval Quality and Knowledge Gap Analytics
 
-Status: `RATIFIED — NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
 The documentation-only roadmap amendment was authorized by
 `APPROVE MILESTONE 14 ROADMAP AMENDMENT: RETRIEVAL QUALITY AND KNOWLEDGE GAP ANALYTICS`.
-Ratification defines scope only; it does not authorize implementation of any
-task.
+All three tasks were subsequently implemented, validated, committed, tagged,
+and pushed through their individual human-approved gates, and formal closure
+is recorded by the annotated tag `milestone-14-closure` (see Milestone 14
+Closure State below).
 
 Milestone 14 makes retrieval effectiveness observable and actionable. It adds
 append-only retrieval query-event capture, read-only zero-result and
@@ -2073,7 +2075,8 @@ any later task from this section alone.
 
 ### Task 14.1 — Retrieval Query-Event Capture
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-14-task-14.1` at
+`2a1bd77e8b3feb76af5ba13b63694e7abb3eb8df`.
 
 Scope:
 
@@ -2108,7 +2111,8 @@ APPROVE MILESTONE 14 TASK 14.1 COMMIT
 
 ### Task 14.2 — Zero-Result and Low-Confidence Analytics Administration
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-14-task-14.2` at
+`d3ccc87a26252233659a1a818db2f88f65377d97`.
 
 Scope:
 
@@ -2140,7 +2144,8 @@ APPROVE MILESTONE 14 TASK 14.2 COMMIT
 
 ### Task 14.3 — Knowledge-Gap Disposition and Audit
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-14-task-14.3` at
+`9b70333426781793ae924da7561b54c244fbb535`.
 
 Scope:
 
@@ -2167,6 +2172,54 @@ Commit approval phrase after successful implementation and validation:
 ```text
 APPROVE MILESTONE 14 TASK 14.3 COMMIT
 ```
+
+### Milestone 14 Closure State
+
+Milestone 14 implementation, validation, Linux baseline adoption, and final
+validation are complete. Formal closure is recorded by the approved
+documentation-only governance commit and annotated tag `milestone-14-closure`.
+
+| Task | Evidence                                     | Tag                      | Commit                                     |
+| ---- | -------------------------------------------- | ------------------------ | ------------------------------------------ |
+| 14.1 | Retrieval Query-Event Capture                | `milestone-14-task-14.1` | `2a1bd77e8b3feb76af5ba13b63694e7abb3eb8df` |
+| 14.2 | Zero-Result & Low-Confidence Analytics Admin | `milestone-14-task-14.2` | `d3ccc87a26252233659a1a818db2f88f65377d97` |
+| 14.3 | Knowledge-Gap Disposition & Audit            | `milestone-14-task-14.3` | `9b70333426781793ae924da7561b54c244fbb535` |
+
+Each task's tag target is the head of its approved lineage of implementation,
+remediation, and Linux-baseline-adoption commits, and each target is exactly
+the head commit of an all-green canonical CI run: 14.1 run `32053258080`,
+14.2 run `32059899331`, and 14.3 run `32080827327` (quality, foundation
+integration, retrieval regression, portal end-to-end — 26 of 26 Playwright
+tests at the final head, including all Task 14.1–14.3 functional,
+accessibility, and visual assertions — secret scan, and vulnerability scan).
+Task 14.3 additionally required an approved, narrowly scoped
+`.gitleaksignore` fingerprint for a verified non-secret idempotency-key test
+literal, pinned to the Task 14.3 implementation commit, and a deliberate
+regeneration of the analytics visual baselines on both platforms after the
+snapshot tolerance was found to mask the new disposition columns.
+
+The complete Milestone 14 diff over the shared retrieval service is purely
+additive observation: the retrieval regression suite is byte-for-byte
+unmodified and green at every task head, and no ranking, fusion, eligibility,
+threshold, embedding, reranking, rewriting, publication-lifecycle, or
+source-governance behavior changed.
+
+The development Alembic head is `0032_knowledge_gap_disposition`, reached
+through the linear Milestone 14 sequence `0031_retrieval_query_events` →
+`0032_knowledge_gap_disposition` on top of `0030_corpus_publication`. The
+physical PostgreSQL baseline is unchanged across the entire milestone.
+
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
+`0020_reporting_views`. No Milestone 14 work has been promoted to production,
+and no production deployment or image publication is authorized.
+
+Draft PR #1 remains open and unmerged. Draft PRs #8 through #10 were
+automatically marked merged by GitHub when their validation head commits
+landed on `develop` through approved fast-forward pushes; no merge commits
+exist and no manual merge was performed. The closure tag does not authorize a
+production promotion, a merge of Draft PR #1, validation branch cleanup, or
+the start of Milestone 15.
 
 ### Milestone 14 Completion Gate
 

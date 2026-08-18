@@ -251,14 +251,20 @@ roadmap amendment below.
 
 ## Post-v1 Milestone 14 — Retrieval Quality and Knowledge Gap Analytics
 
-Status: `RATIFIED — NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
-Milestone 14 is a bounded retrieval-quality analytics milestone on `develop`.
+Milestone 14 was a bounded retrieval-quality analytics milestone on
+`develop`. All three tasks are complete, individually tagged
+(`milestone-14-task-14.1` through `milestone-14-task-14.3`, final head
+`9b70333426781793ae924da7561b54c244fbb535`), each validated by an all-green
+canonical CI run at its exact tag target. Formal closure is recorded by the
+annotated tag `milestone-14-closure`. The development Alembic head is
+`0032_knowledge_gap_disposition`; retrieval behavior and the retrieval
+regression suite are unchanged, the physical PostgreSQL baseline is
+unchanged, and production remains frozen at v1.0.0 (`cc9d768`).
+
 The roadmap amendment was authorized by
 `APPROVE MILESTONE 14 ROADMAP AMENDMENT: RETRIEVAL QUALITY AND KNOWLEDGE GAP ANALYTICS`.
-Ratification defines scope only; each task requires its own plan and explicit
-implementation and commit approvals through
-`CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
 
 Included capabilities:
 
