@@ -11,6 +11,13 @@ from apps.api.app.core.exceptions import AuthorizationError, ConflictError, Exte
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService, Permission
+from apps.api.app.retrieval.error_code_matching import (
+    UNMATCHED,
+    ErrorCodeMatch,
+    matched_error_code_count,
+    matching_tenant_ids,
+    query_error_codes,
+)
 from apps.api.app.retrieval.expansion import (
     ExpandedQuery,
     expand_query,
@@ -81,10 +88,13 @@ class RetrievalService:
         persona: str,
         surface: RetrievalSurface = "EVIDENCE_SEARCH",
     ) -> RetrievalEvidenceSet:
-        self._principal(context, persona)
+        principal = self._principal(context, persona)
         normalized_query = _query(query)
         normalized_filters = _filters(filters)
         expanded = await self._expanded_query(context, normalized_query)
+        matched = await self._error_code_matches(
+            context, principal, normalized_query, normalized_filters, limit
+        )
         try:
             embedding = await self._embeddings.embed(expanded.search_query)
             candidates = await self.search(
@@ -100,7 +110,10 @@ class RetrievalService:
             )
             configuration = await self._configuration(context)
             authorized = tuple(
-                {item.chunk_id: item for item in (*candidates.lexical, *candidates.vector)}.values()
+                {
+                    item.chunk_id: item
+                    for item in (*matched.candidates, *candidates.lexical, *candidates.vector)
+                }.values()
             )
             rerank_scores: dict[UUID, float] | None = None
             if configuration.reranking_enabled:
@@ -118,6 +131,7 @@ class RetrievalService:
             normalized_filters,
             configuration,
             rerank_scores,
+            error_code_matches=matched.candidates,
             limit=limit,
         )
         await self._capture_query_event(
@@ -128,6 +142,8 @@ class RetrievalService:
             top_score=evidence[0].score if evidence else None,
             expansion_applied=expanded.applied,
             expanded_term_count=expanded.expanded_term_count,
+            error_code_matching_applied=matched.applied,
+            matched_error_code_count=matched.matched_error_code_count,
         )
         return RetrievalEvidenceSet(
             normalized_query=normalized_query,
@@ -158,6 +174,41 @@ class RetrievalService:
             logger.warning("Synonym expansion failed; using unexpanded query.", exc_info=True)
             return unexpanded
 
+    async def _error_code_matches(
+        self,
+        context: RequestContext,
+        principal: RetrievalPrincipal,
+        normalized_query: str,
+        filters: RetrievalFilters,
+        limit: int,
+    ) -> ErrorCodeMatch:
+        # The single governed retrieval-behavior change (Task 16.2): applied
+        # only when the global switch is on, the tenant opted in, AND the
+        # query contains an error code; any failure falls back to the
+        # unmatched candidate set so the index can never break retrieval.
+        if not self._settings.retrieval_error_code_matching_enabled:
+            return UNMATCHED
+        if context.tenant_id is None or str(context.tenant_id).lower() not in matching_tenant_ids(
+            self._settings.retrieval_error_code_matching_tenant_ids
+        ):
+            return UNMATCHED
+        error_codes = query_error_codes(normalized_query)
+        if not error_codes:
+            return UNMATCHED
+        try:
+            async with self._factory(context) as uow:
+                repository = RetrievalRepository(
+                    uow.session, self._settings.retrieval_statement_timeout_ms
+                )
+                candidates = await repository.error_code(principal, error_codes, filters, limit)
+                await uow.commit()
+        except Exception:
+            logger.warning("Error-code matching failed; using unmatched candidates.", exc_info=True)
+            return UNMATCHED
+        if not candidates:
+            return UNMATCHED
+        return ErrorCodeMatch(True, matched_error_code_count(candidates, error_codes), candidates)
+
     async def _capture_query_event(
         self,
         context: RequestContext,
@@ -168,6 +219,8 @@ class RetrievalService:
         top_score: float | None,
         expansion_applied: bool = False,
         expanded_term_count: int = 0,
+        error_code_matching_applied: bool = False,
+        matched_error_code_count: int = 0,
     ) -> None:
         # Observation only: a capture failure must never change the retrieval
         # response, so every error is contained here.
@@ -184,6 +237,8 @@ class RetrievalService:
                     top_score=top_score,
                     expansion_applied=expansion_applied,
                     expanded_term_count=expanded_term_count,
+                    error_code_matching_applied=error_code_matching_applied,
+                    matched_error_code_count=matched_error_code_count,
                 )
                 await repository.enforce_retention(
                     tenant_id=context.tenant_id,

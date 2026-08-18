@@ -370,7 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0035_chunk_error_codes"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0036_event_error_codes"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -3200,3 +3200,211 @@ def test_chunk_error_code_index_extraction_privileges_and_evidence(
         )
         == "0"
     )
+
+
+async def _retrieve_evidence_error_code(
+    context: RequestContext,
+    query: str,
+    filters: RetrievalFilters,
+    *,
+    enabled: bool = True,
+    tenant_ids: str = TENANT_ID,
+) -> RetrievalEvidenceSet:
+    # Parallel to _retrieve_evidence with the Task 16.2 governed error-code
+    # matching opt-in configured; the regression harness above stays
+    # byte-unmodified and always runs with both matching settings at their
+    # off defaults.
+    settings = Settings.model_validate(
+        {
+            "app_env": "integration",
+            "database_url": (f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"),
+            "rls_enabled": True,
+            "retrieval_error_code_matching_enabled": enabled,
+            "retrieval_error_code_matching_tenant_ids": tenant_ids,
+        }
+    )
+    engine = create_async_engine(settings.database_url.get_secret_value())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    service = RetrievalService(
+        lambda identity: SqlAlchemyUnitOfWork(sessions, identity, rls_enabled=True),
+        AuthorizationService(),
+        settings,
+    )
+    try:
+        return await service.evidence(
+            context, query=query, filters=filters, limit=8, persona="EMPLOYEE"
+        )
+    finally:
+        await engine.dispose()
+
+
+def _seed_error_code_only_chunk() -> str:
+    # A published, employee-eligible chunk with NO embedding row: invisible to
+    # the vector channel by construction and to the lexical channel for any
+    # query with a word its content lacks — so only the governed error-code
+    # channel can surface it. The index row is owner-seeded because the
+    # corpus fixture bypasses the processing worker.
+    chunk_id = "37000000-0000-0000-0000-000000000006"
+    apps_release = _value(
+        "SELECT release_id FROM kb.release "
+        "WHERE release_family='FUSION_APPLICATIONS' AND release_code='26C'"
+    )
+    _psql(
+        f"""
+        INSERT INTO kb.document(document_id,tenant_id,source_id,product_node_id,release_id,
+          external_document_key,document_title,document_type,audience_code,language_code,
+          security_classification,approval_status,active_flag)
+        VALUES ('34000000-0000-0000-0000-000000000006','{TENANT_ID}',
+          '31000000-0000-0000-0000-000000000001','33000000-0000-0000-0000-000000000002',
+          '{apps_release}','retrieval-error-code-only','Diagnostic Marker Reference','RUNBOOK',
+          'EMPLOYEE','en','INTERNAL','APPROVED',true)
+        ON CONFLICT (document_id) DO NOTHING;
+        INSERT INTO kb.document_version(document_version_id,document_id,version_number,
+          original_file_uri,content_type,sha256_checksum,acquired_at,extraction_status,
+          validation_status,current_version_flag)
+        VALUES ('35000000-0000-0000-0000-000000000006','34000000-0000-0000-0000-000000000006',
+          1,'test://retrieval/error-code-only','text/plain',repeat('6',64),now(),'COMPLETED',
+          'PASSED',false)
+        ON CONFLICT (document_version_id) DO NOTHING;
+        INSERT INTO kb.document_processing_version(processing_version_id,tenant_id,document_id,
+          document_version_id,processing_number,parser_name,parser_version,chunker_name,
+          chunker_version,chunking_configuration_json,chunking_configuration_hash,
+          embedding_model_code,processing_status,chunk_count,embedded_chunk_count,
+          validation_status,completed_at)
+        VALUES ('36000000-0000-0000-0000-000000000006','{TENANT_ID}',
+          '34000000-0000-0000-0000-000000000006','35000000-0000-0000-0000-000000000006',1,
+          'integration','1','semantic-structure','1','{{}}',repeat('6',64),'DEFAULT_1536',
+          'COMPLETED',1,0,'PASSED',now())
+        ON CONFLICT (processing_version_id) DO NOTHING;
+        INSERT INTO kb.document_chunk(chunk_id,document_version_id,chunk_sequence,heading_path,
+          section_title,content_text,token_count,content_hash,processing_version_id,tenant_id,
+          document_id,source_id,audience_code,security_classification,embedding_input_hash)
+        VALUES ('{chunk_id}','35000000-0000-0000-0000-000000000006',1,'Diagnostics > Markers',
+          'Marker reference','ZZQ-441 diagnostic marker reference context.',7,repeat('7',64),
+          '36000000-0000-0000-0000-000000000006','{TENANT_ID}',
+          '34000000-0000-0000-0000-000000000006','31000000-0000-0000-0000-000000000001',
+          'EMPLOYEE','INTERNAL',repeat('7',64))
+        ON CONFLICT (chunk_id) DO NOTHING;
+        UPDATE kb.document_version SET current_version_flag=true,published_at=now(),
+          published_processing_version_id='36000000-0000-0000-0000-000000000006'
+        WHERE document_version_id='35000000-0000-0000-0000-000000000006';
+        INSERT INTO kb.chunk_error_code(chunk_id,tenant_id,error_code)
+        VALUES ('{chunk_id}','{TENANT_ID}','ZZQ-441'),
+          ('37000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000002',
+            'ZZQ-441')
+        ON CONFLICT (chunk_id,error_code) DO NOTHING;
+        """
+    )
+    return chunk_id
+
+
+@pytest.mark.integration
+def test_retrieval_error_code_matching_is_governed_and_observable(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    del application
+    _ensure_retrieval_corpus()
+    target_chunk = UUID(_seed_error_code_only_chunk())
+    other_tenant_chunk = UUID("37000000-0000-0000-0000-000000000005")
+    _psql("DELETE FROM kb.retrieval_query_event")
+    other_tenant = "20000000-0000-0000-0000-000000000002"
+    customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
+    filters = RetrievalFilters()
+    events = "kb.retrieval_query_event"
+    query = "zzq-441 qqfiller"
+
+    # Kill switch off (the platform default): the embedding-less chunk is
+    # unreachable by every channel and the event records that matching did
+    # not apply.
+    baseline = asyncio.run(
+        _retrieve_evidence(customer, query, filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.chunk_id != target_chunk for item in baseline.evidence)
+    assert (
+        _value(
+            "SELECT concat_ws('|',error_code_matching_applied::text,"
+            f"matched_error_code_count::text) FROM {events} WHERE tenant_id='{TENANT_ID}' "
+            "ORDER BY captured_at DESC LIMIT 1"
+        )
+        == "false|0"
+    )
+
+    # Opted-in tenant: the indexed chunk joins the candidate set through the
+    # governed channel alone — no lexical or vector contribution, ranked by
+    # the existing boosts — the original normalized query is preserved, and
+    # the evidence is recorded.
+    matched = asyncio.run(
+        _retrieve_evidence_error_code(customer, query, filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert matched.normalized_query == query
+    injected = next(item for item in matched.evidence if item.chunk_id == target_chunk)
+    assert injected.components.lexical is None
+    assert injected.components.vector is None
+    assert injected.components.fusion == 0.0
+    assert injected.components.exact_identifier_boost > 0
+    assert all(item.chunk_id != other_tenant_chunk for item in matched.evidence)
+    assert (
+        _value(
+            "SELECT concat_ws('|',normalized_query,error_code_matching_applied::text,"
+            f"matched_error_code_count::text) FROM {events} WHERE tenant_id='{TENANT_ID}' "
+            "ORDER BY captured_at DESC LIMIT 1"
+        )
+        == "zzq-441 qqfiller|true|1"
+    )
+
+    # Flipping the kill switch deterministically restores unmatched candidate
+    # selection even for an opted-in tenant, and an unlisted tenant never
+    # matches.
+    killed = asyncio.run(
+        _retrieve_evidence_error_code(customer, query, filters, enabled=False),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.chunk_id != target_chunk for item in killed.evidence)
+    unlisted = asyncio.run(
+        _retrieve_evidence_error_code(customer, query, filters, tenant_ids=other_tenant),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.chunk_id != target_chunk for item in unlisted.evidence)
+
+    # The governed channel respects retrieval filters: a module filter that
+    # excludes the chunk's document keeps it out even when matching is on.
+    filtered = asyncio.run(
+        _retrieve_evidence_error_code(
+            customer, query, RetrievalFilters(module_codes=("FDI_FINANCIALS",))
+        ),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.chunk_id != target_chunk for item in filtered.evidence)
+
+    # A query without an error code skips matching entirely.
+    no_code = asyncio.run(
+        _retrieve_evidence_error_code(customer, "printer qqfiller", filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.chunk_id != target_chunk for item in no_code.evidence)
+    assert (
+        _value(
+            "SELECT string_agg(error_code_matching_applied::text,',' ORDER BY captured_at) "
+            f"FROM {events} WHERE tenant_id='{TENANT_ID}'"
+        )
+        == "false,true,false,false,false,false"
+    )
+
+    # Migration surface: both evidence columns are additive and nullable, and
+    # the event table's update immutability still holds.
+    assert (
+        _value(
+            "SELECT string_agg(column_name||':'||is_nullable,',' ORDER BY column_name) "
+            "FROM information_schema.columns "
+            "WHERE table_schema='kb' AND table_name='retrieval_query_event' "
+            "AND column_name IN ('error_code_matching_applied','matched_error_code_count')"
+        )
+        == "error_code_matching_applied:YES,matched_error_code_count:YES"
+    )
+    update_denied = _psql(
+        f"UPDATE {events} SET error_code_matching_applied=true WHERE tenant_id='{TENANT_ID}'",
+        check=False,
+    )
+    assert update_denied.returncode != 0

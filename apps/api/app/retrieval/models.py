@@ -10,6 +10,7 @@ from uuid import UUID
 class CandidateKind(StrEnum):
     LEXICAL = "LEXICAL"
     VECTOR = "VECTOR"
+    ERROR_CODE = "ERROR_CODE"
 
 
 @dataclass(frozen=True, slots=True)

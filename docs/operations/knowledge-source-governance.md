@@ -261,3 +261,33 @@ like the stored codes. Retrieval behavior is unchanged in this task: nothing
 reads the index from the retrieval path, and the retrieval regression suite
 runs byte-unmodified. Only the separately approved Task 16.2 may consult the
 index during retrieval.
+
+## Governed error-code matching in retrieval
+
+Milestone 16 Task 16.2 is the single retrieval-behavior change ratified for
+Milestone 16. Behind the `RETRIEVAL_ERROR_CODE_MATCHING_ENABLED` global kill
+switch (default off) and the `RETRIEVAL_ERROR_CODE_MATCHING_TENANT_IDS`
+opt-in allowlist (default empty), a query containing an error code gains a
+third candidate channel: published chunks indexed under that exact code by
+the Task 16.1 index join the candidate set inside the single shared
+retrieval service boundary. The channel runs the same eligibility CTE as
+the lexical and vector channels, so ACLs, retrieval filters, and corpus
+suppression apply identically, and it can only broaden candidate selection
+— never remove or reorder what the other channels found.
+
+Ranking is untouched: matched candidates flow through the unchanged fusion
+formula, where a candidate without a lexical or vector rank scores through
+the existing exact-identifier, metadata, and source-authority boosts alone.
+The original normalized query is always preserved in the API response and
+in query-event grouping. Turning the global switch off deterministically
+restores unmatched candidate selection, a query without an error code skips
+the channel entirely, and an index lookup failure falls back to the
+unmatched candidate set.
+
+Migration `0036_event_error_codes` adds two nullable observation columns to
+`kb.retrieval_query_event` (`error_code_matching_applied`,
+`matched_error_code_count`) so the Task 16.3 analytics can report matching
+effectiveness. Ranking weights, fusion scoring, candidate selection outside
+the governed channel, top-k, thresholds, embeddings, reranking, and synonym
+expansion are unchanged, and the retrieval regression suite runs
+byte-unmodified with both settings at their off defaults.

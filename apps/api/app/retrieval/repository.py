@@ -223,6 +223,32 @@ LIMIT :result_limit
 """
 )
 
+# The governed Task 16.2 channel: exact matches from the Task 16.1 error-code
+# index, constrained by the same eligibility CTE (ACLs, filters, suppression)
+# as the other channels. EXISTS avoids duplicate rows when one chunk matches
+# several query codes, and the constant score defers all ranking to fusion.
+_ERROR_CODE = text(
+    _ELIGIBLE_CTE
+    + """
+, ranked AS (
+  SELECT eligible.*,1.0::real AS score
+  FROM eligible_chunks eligible
+  WHERE EXISTS (
+    SELECT 1 FROM kb.chunk_error_code entry
+    WHERE entry.chunk_id=eligible.chunk_id
+      AND entry.tenant_id=:tenant_id
+      AND entry.error_code=ANY(CAST(:error_codes AS text[]))
+  )
+)
+SELECT """
+    + _COLUMNS
+    + """,score
+FROM ranked
+ORDER BY chunk_id
+LIMIT :result_limit
+"""
+)
+
 
 class RetrievalRepository:
     def __init__(self, session: AsyncSession, statement_timeout_ms: int) -> None:
@@ -287,6 +313,22 @@ class RetrievalRepository:
         if not _valid_configuration(configuration):
             return None
         return configuration
+
+    async def error_code(
+        self,
+        principal: RetrievalPrincipal,
+        error_codes: tuple[str, ...],
+        filters: RetrievalFilters,
+        limit: int,
+    ) -> tuple[RetrievalCandidate, ...]:
+        return await self._execute(
+            _ERROR_CODE,
+            CandidateKind.ERROR_CODE,
+            principal,
+            filters,
+            limit,
+            {"error_codes": list(error_codes)},
+        )
 
     async def vector(
         self,

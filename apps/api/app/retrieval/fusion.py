@@ -26,11 +26,17 @@ def fuse_candidates(
     configuration: RetrievalConfiguration,
     rerank_scores: dict[UUID, float] | None = None,
     *,
+    error_code_matches: tuple[RetrievalCandidate, ...] = (),
     limit: int,
 ) -> tuple[RetrievalEvidence, ...]:
     lexical_scores = _normalized(lexical)
     vector_scores = _normalized(vector)
-    candidates = {candidate.chunk_id: candidate for candidate in (*lexical, *vector)}
+    # Governed error-code matches only broaden the candidate set: without a
+    # lexical or vector rank they score through the unchanged formula as
+    # boosts alone, and duplicates collapse onto the ranked channels.
+    candidates = {
+        candidate.chunk_id: candidate for candidate in (*error_code_matches, *lexical, *vector)
+    }
     ranks: dict[UUID, dict[str, int]] = defaultdict(dict)
     for candidate in lexical:
         ranks[candidate.chunk_id]["lexical"] = candidate.rank

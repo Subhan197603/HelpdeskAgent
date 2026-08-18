@@ -130,7 +130,7 @@ def test_application_migration_head_resolves_from_revision_files() -> None:
 
     head = application_migration_head()
     assert head is not None
-    assert head == "0035_chunk_error_codes"
+    assert head == "0036_event_error_codes"
 
 
 def test_admin_permissions_are_granted_to_expected_roles_only() -> None:

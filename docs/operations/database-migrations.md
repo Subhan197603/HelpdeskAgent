@@ -71,6 +71,7 @@ The only post-v1 revisions currently present are:
 → 0033_retrieval_synonyms
 → 0034_query_event_expansion
 → 0035_chunk_error_codes
+→ 0036_event_error_codes
 ```
 
 Revision `0021_admin_access_privileges` supplies narrowly scoped runtime grants
@@ -183,8 +184,7 @@ row-level security, and the update-immutability trigger are unchanged. It
 follows `0033_retrieval_synonyms`; the physical PostgreSQL baseline is
 unchanged.
 
-Milestone 16 Task 16.1 introduces `0035_chunk_error_codes`, the current
-development head. It adds the single tenant-isolated `kb.chunk_error_code`
+Milestone 16 Task 16.1 introduces `0035_chunk_error_codes`. It adds the single tenant-isolated `kb.chunk_error_code`
 index table holding one immutable per-chunk error-code fact per row,
 extracted with the same identifier grammar the fusion boost applies to
 queries and candidates. Rows are written only by the processing worker
@@ -194,6 +194,15 @@ codes for chunks that existed before it ran. Publishedness is never stored:
 readers join `kb.v_active_document_chunk` at query time. Nothing reads the
 index from the retrieval path in this task. It follows
 `0034_query_event_expansion`; the physical PostgreSQL baseline is unchanged.
+
+Milestone 16 Task 16.2 introduces `0036_event_error_codes`, the current
+development head. It adds two additive, nullable observation columns to
+`kb.retrieval_query_event` — `error_code_matching_applied` and
+`matched_error_code_count` — recording whether governed error-code matching
+applied to a query. Legacy rows stay NULL and count as unmatched; grants,
+row-level security, and the update-immutability trigger are unchanged. It
+follows `0035_chunk_error_codes`; the physical PostgreSQL baseline is
+unchanged.
 
 ## Adopt a new local database
 

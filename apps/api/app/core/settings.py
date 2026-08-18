@@ -156,6 +156,12 @@ class Settings(BaseSettings):
     # deterministically restores unexpanded retrieval for every tenant.
     retrieval_synonym_expansion_enabled: bool = False
     retrieval_synonym_expansion_tenant_ids: str = ""
+    # Task 16.2 governed error-code matching: the global kill switch and the
+    # per-tenant opt-in allowlist both default off — flipping the switch off
+    # deterministically restores unmatched candidate selection for every
+    # tenant.
+    retrieval_error_code_matching_enabled: bool = False
+    retrieval_error_code_matching_tenant_ids: str = ""
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:

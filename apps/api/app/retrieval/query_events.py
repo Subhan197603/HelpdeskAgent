@@ -14,10 +14,12 @@ RetrievalSurface = Literal["EVIDENCE_SEARCH", "EMPLOYEE_AGENT", "ANALYST_COPILOT
 _INSERT_SQL = """
 INSERT INTO kb.retrieval_query_event (
   tenant_id,surface,normalized_query,result_count,zero_result_flag,top_score,
-  expansion_applied,expanded_term_count,corpus_version_id
+  expansion_applied,expanded_term_count,error_code_matching_applied,
+  matched_error_code_count,corpus_version_id
 )
 SELECT :tenant_id,:surface,:normalized_query,:result_count,:zero_result_flag,
   :top_score,:expansion_applied,:expanded_term_count,
+  :error_code_matching_applied,:matched_error_code_count,
   (SELECT corpus_version_id FROM kb.corpus_version
    WHERE tenant_id=:tenant_id AND active_flag)
 """
@@ -43,6 +45,8 @@ class RetrievalQueryEventRepository:
         top_score: float | None,
         expansion_applied: bool = False,
         expanded_term_count: int = 0,
+        error_code_matching_applied: bool = False,
+        matched_error_code_count: int = 0,
     ) -> None:
         await self._session.execute(
             text(_INSERT_SQL),
@@ -55,6 +59,8 @@ class RetrievalQueryEventRepository:
                 "top_score": top_score,
                 "expansion_applied": expansion_applied,
                 "expanded_term_count": expanded_term_count,
+                "error_code_matching_applied": error_code_matching_applied,
+                "matched_error_code_count": matched_error_code_count,
             },
         )
 
