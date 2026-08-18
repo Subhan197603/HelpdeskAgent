@@ -2247,12 +2247,14 @@ automatic content actions, production deployment, and image publication.
 
 ## Milestone 15 — Governed Retrieval Vocabulary Expansion
 
-Status: `RATIFIED — NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
 The documentation-only roadmap amendment was authorized by
 `APPROVE MILESTONE 15 ROADMAP AMENDMENT: GOVERNED RETRIEVAL VOCABULARY EXPANSION`.
-Ratification defines scope only; it does not authorize implementation of any
-task.
+All three tasks were subsequently implemented, validated, committed, tagged,
+and pushed through their individual human-approved gates, and formal closure
+is recorded by the annotated tag `milestone-15-closure` (see Milestone 15
+Closure State below).
 
 Milestone 15 acts on the vocabulary gaps proven by the Milestone 14 analytics
 through exactly one governed retrieval-relevance strategy:
@@ -2293,7 +2295,8 @@ any later task from this section alone.
 
 ### Task 15.1 — Synonym and Acronym Registry Administration
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-15-task-15.1` at
+`09c7b2c6a768649cf6f5a7f2f55d16969ecd0255`.
 
 Scope:
 
@@ -2327,7 +2330,8 @@ APPROVE MILESTONE 15 TASK 15.1 COMMIT
 
 ### Task 15.2 — Governed Expansion Application in Retrieval
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-15-task-15.2` at
+`d8562183908b61882e3e07de32798b033bc8018a`.
 
 Scope:
 
@@ -2363,7 +2367,8 @@ APPROVE MILESTONE 15 TASK 15.2 COMMIT
 
 ### Task 15.3 — Expansion Effectiveness Analytics
 
-Status: `NOT STARTED`.
+Status: `COMPLETE` — tag `milestone-15-task-15.3` at
+`b1db0c6d842508a633ce44b289c82425ac1c5f93`.
 
 Scope:
 
@@ -2388,6 +2393,60 @@ Commit approval phrase after successful implementation and validation:
 ```text
 APPROVE MILESTONE 15 TASK 15.3 COMMIT
 ```
+
+### Milestone 15 Closure State
+
+Milestone 15 implementation, validation, Linux baseline adoption, and final
+validation are complete. Formal closure is recorded by the approved
+documentation-only governance commit and annotated tag `milestone-15-closure`.
+
+| Task | Evidence                                    | Tag                      | Commit                                     |
+| ---- | ------------------------------------------- | ------------------------ | ------------------------------------------ |
+| 15.1 | Synonym & Acronym Registry Administration   | `milestone-15-task-15.1` | `09c7b2c6a768649cf6f5a7f2f55d16969ecd0255` |
+| 15.2 | Governed Expansion Application in Retrieval | `milestone-15-task-15.2` | `d8562183908b61882e3e07de32798b033bc8018a` |
+| 15.3 | Expansion Effectiveness Analytics           | `milestone-15-task-15.3` | `b1db0c6d842508a633ce44b289c82425ac1c5f93` |
+
+Each task's tag target is the head of its approved lineage of implementation,
+remediation, and Linux-baseline-adoption commits, and each target is exactly
+the head commit of an all-green canonical CI run: 15.1 run `32163607614`,
+15.2 run `32169978301`, and 15.3 run `32175391402` (quality, foundation
+integration, retrieval regression, portal end-to-end — 27 of 27 Playwright
+tests at the final head, including all Task 15.1–15.3 functional,
+accessibility, and visual assertions — secret scan, and vulnerability scan).
+Task 15.1 additionally regenerated every tab-bearing knowledge-administration
+baseline on both platforms after the snapshot tolerance was found to mask the
+new Synonyms tab, and Task 15.3 did the same for the analytics baselines and
+the new Expanded column. Task 15.2 required a lexical-channel design
+correction discovered by its dedicated regression evidence: because
+websearch_to_tsquery ANDs plain words, expansions join the lexical query as
+alternative quoted phrases so expansion can only broaden, never narrow, the
+lexical match.
+
+Milestone 15 delivered exactly one retrieval-behavior change: governed
+application of approved synonym and acronym expansions, per-tenant opt-in and
+default off behind a global kill switch — both settings default off in the
+committed source. The existing retrieval regression suite is byte-for-byte
+unmodified and green at every task head. All other retrieval behavior —
+ranking, fusion, candidate selection, top-k, runtime thresholds, embeddings,
+reranking, the publication lifecycle, and source governance — is unchanged.
+
+The development Alembic head is `0034_query_event_expansion`, reached through
+the linear Milestone 15 sequence `0033_retrieval_synonyms` →
+`0034_query_event_expansion` on top of `0032_knowledge_gap_disposition`
+(Task 15.3 introduced no migration). The physical PostgreSQL baseline is
+unchanged across the entire milestone.
+
+Production `main` and `v1.0.0` remain frozen at
+`cc9d76885e181230bd91f5b9bfd0605a9b23fb07` with historical migration head
+`0020_reporting_views`. No Milestone 15 work has been promoted to production,
+and no production deployment or image publication is authorized.
+
+Draft PR #1 remains open and unmerged. Draft PRs #11 through #13 were
+automatically marked merged by GitHub when their validation head commits
+landed on `develop` through approved fast-forward pushes; no merge commits
+exist and no manual merge was performed. The closure tag does not authorize a
+production promotion, a merge of Draft PR #1, validation branch cleanup, or
+the start of Milestone 16.
 
 ### Milestone 15 Completion Gate
 

@@ -305,14 +305,22 @@ ratified roadmap amendment below.
 
 ## Post-v1 Milestone 15 — Governed Retrieval Vocabulary Expansion
 
-Status: `RATIFIED — NOT STARTED`.
+Status: `COMPLETE — FORMALLY CLOSED`.
 
-Milestone 15 is a bounded retrieval-vocabulary milestone on `develop`. The
-roadmap amendment was authorized by
+Milestone 15 was a bounded retrieval-vocabulary milestone on `develop`. All
+three tasks are complete, individually tagged (`milestone-15-task-15.1`
+through `milestone-15-task-15.3`, final head
+`b1db0c6d842508a633ce44b289c82425ac1c5f93`), each validated by an all-green
+canonical CI run at its exact tag target. Formal closure is recorded by the
+annotated tag `milestone-15-closure`. The development Alembic head is
+`0034_query_event_expansion`; the milestone delivered exactly one
+retrieval-behavior change — governed synonym expansion, per-tenant opt-in
+and default off behind a global kill switch — with the retrieval regression
+suite byte-unmodified and green throughout, the physical PostgreSQL baseline
+unchanged, and production frozen at v1.0.0 (`cc9d768`).
+
+The roadmap amendment was authorized by
 `APPROVE MILESTONE 15 ROADMAP AMENDMENT: GOVERNED RETRIEVAL VOCABULARY EXPANSION`.
-Ratification defines scope only; each task requires its own plan and explicit
-implementation and commit approvals through
-`CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
 
 Included capabilities:
 

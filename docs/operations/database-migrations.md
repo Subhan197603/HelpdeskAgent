@@ -45,6 +45,13 @@ sequence `0031` → `0032` (Task 14.2 introduced no migration). The Milestone 14
 closure governance commit is documentation-only and does not change that
 migration state.
 
+The validated Milestone 15 application baseline is commit
+`b1db0c6d842508a633ce44b289c82425ac1c5f93` with Alembic head
+`0034_query_event_expansion`, reached through the linear Task 15.1–15.3
+sequence `0033` → `0034` (Task 15.3 introduced no migration). The Milestone 15
+closure governance commit is documentation-only and does not change that
+migration state.
+
 The only post-v1 revisions currently present are:
 
 ```text
