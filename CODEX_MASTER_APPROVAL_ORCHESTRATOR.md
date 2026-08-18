@@ -2471,6 +2471,185 @@ new-release discovery, stale-content penalties, advanced reranking,
 embedding-model migration, query rewriting beyond the approved expansion,
 automatic content actions, production deployment, and image publication.
 
+## Milestone 16 — Governed Error-Code Retrieval
+
+Status: `AUTHORIZED — NOT STARTED`.
+
+The documentation-only roadmap amendment was authorized by
+`APPROVE MILESTONE 16 ROADMAP AMENDMENT: GOVERNED ERROR-CODE RETRIEVAL`.
+This ratifies the roadmap only; no task implementation is authorized by this
+section alone.
+
+Milestone 16 closes the recall gap for error-code queries through exactly one
+governed retrieval-relevance strategy: deterministic exact error-code
+candidate matching. The fusion layer already applies an exact-identifier
+boost to candidates that reach it; Milestone 16 ensures that published chunks
+containing an error code present in the query become candidates at all, even
+when the lexical and vector channels miss them. It adds deterministic,
+tenant-isolated error-code extraction and indexing from published chunk
+content, governed tenant-opt-in exact error-code candidate matching at the
+single shared retrieval service boundary, and read-only
+error-code-effectiveness analytics. It reuses the existing shared retrieval
+service boundary, knowledge-administration screens and permission family,
+tenant row-level security, audit trail, idempotency, and canonical validation
+foundations. Exact error-code matching, previously deferred from Milestones
+13 through 15, is assigned to this milestone.
+
+Milestone 16 authorizes exactly one retrieval-behavior change: governed exact
+error-code candidate matching, per-tenant opt-in and default off, behind a
+global kill switch. All other retrieval behavior — ranking formulas, fusion
+scoring and the existing exact-identifier boost, candidate selection outside
+the governed error-code path, top-k, runtime thresholds, embeddings,
+reranking, synonym-expansion behavior, query rewriting, the publication
+lifecycle, and source governance — remains unchanged, and the existing
+retrieval regression suite must remain green and byte-unmodified across the
+milestone.
+
+Implementation must proceed one task at a time through the ordinary workflow:
+
+```text
+PLAN
+→ human implementation approval
+→ IMPLEMENT
+→ focused and full validation
+→ human commit approval
+→ COMMIT + TAG
+→ verify
+→ push when authorized
+→ stop
+```
+
+Roadmap definition is not implementation approval. Do not start Task 16.1 or
+any later task from this section alone.
+
+### Task 16.1 — Error-Code Extraction and Index Evidence
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- deterministic extraction of error-code identifiers from published chunk
+  content using the identifier grammar already established in the fusion
+  layer;
+- a tenant-isolated index table populated at publication time, with a
+  backfill for already-published content;
+- read-only administrative index evidence behind the existing
+  knowledge-administration permission family with accessibility and visual
+  evidence where screens change; and
+- focused unit, PostgreSQL, RLS, and retrieval-regression evidence followed
+  by the full task gate.
+
+Excluded: any retrieval behavior change, manual index editing, automatic
+content mutation, cross-tenant aggregation, and export.
+
+Database expectation: task-specific additive and reversible development
+migration `0035` after `0034_query_event_expansion`, with tenant constraints,
+RLS, and least-privilege runtime grants. The physical baseline remains
+unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 16 TASK 16.1 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 16 TASK 16.1 COMMIT
+```
+
+### Task 16.2 — Governed Exact Error-Code Matching in Retrieval
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- inclusion of exact-matching published chunks in the candidate set inside
+  the single shared retrieval service boundary used by employee search, the
+  employee agent, and the analyst copilot, when the normalized query contains
+  an indexed error code;
+- a per-tenant enablement setting that defaults to off and a global kill
+  switch that deterministically restores unmatched behavior;
+- ranking of added candidates through the existing fusion scoring, including
+  the existing exact-identifier boost, unchanged;
+- additive, backward-compatible query-event evidence recording whether
+  error-code matching applied; and
+- dedicated error-code regression evidence added alongside the existing
+  retrieval regression suite, which must remain green and byte-unmodified.
+
+Excluded: ranking-formula, fusion-scoring, top-k, threshold, embedding, and
+reranking changes; changes to synonym-expansion behavior; matching against
+unpublished or foreign-tenant content; and any default-on behavior.
+
+Database expectation: at most one task-specific additive and reversible
+migration after the approved Task 16.1 head for the query-event extension.
+The physical baseline remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 16 TASK 16.2 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 16 TASK 16.2 COMMIT
+```
+
+### Task 16.3 — Error-Code Effectiveness Analytics
+
+Status: `NOT STARTED`.
+
+Scope:
+
+- read-only extension of the Milestone 14 analytics with error-code-match
+  evidence and zero-result movement per query group; and
+- analytics screens updated with accessibility and visual evidence.
+
+Excluded: mutations, export, cross-tenant aggregation, and retrieval behavior
+changes.
+
+Database expectation: no new migration expected. The physical baseline
+remains unchanged.
+
+Implementation approval phrase:
+
+```text
+APPROVE MILESTONE 16 TASK 16.3 IMPLEMENTATION
+```
+
+Commit approval phrase after successful implementation and validation:
+
+```text
+APPROVE MILESTONE 16 TASK 16.3 COMMIT
+```
+
+### Milestone 16 Completion Gate
+
+Milestone 16 is complete only when all three tasks have their approved
+commits and tags, the migration history is linear, the physical baseline
+checksum is unchanged, tenant/RLS tests pass, OpenAPI and generated clients
+agree, affected accessibility and visual gates pass, unrelated approved
+baselines are unchanged, the existing retrieval regression suite passes
+byte-unmodified, the dedicated error-code regression evidence passes, and the
+complete backend, frontend, PostgreSQL integration, Playwright, security,
+build, and Compose gates pass.
+
+The completion evidence must prove that error-code matching draws only on
+deterministically indexed, published, same-tenant content, that matching is
+off by default and deterministically disabled by the kill switch, that index
+rows and match evidence are strictly tenant isolated, and that the existing
+exact-identifier boost and all other fusion scoring are unchanged. A
+separately approved documentation-only closure record is required after final
+validation; completion of Task 16.3 alone does not close the milestone.
+
+The following remain outside Milestone 16: new-release discovery,
+stale-content penalties, advanced reranking, embedding-model migration,
+query rewriting, automatic content actions, production deployment, and image
+publication.
+
 ---
 
 # 6. Project Completion Gate

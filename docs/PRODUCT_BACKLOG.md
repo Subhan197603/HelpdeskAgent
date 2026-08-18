@@ -359,6 +359,59 @@ The following backlog items remain deferred and outside Milestone 15:
 - Advanced reranking
 - Embedding-model migration
 
+Exact error-code matching was later assigned to Milestone 16 by the ratified
+roadmap amendment below.
+
+## Post-v1 Milestone 16 — Governed Error-Code Retrieval
+
+Status: `AUTHORIZED — NOT STARTED`.
+
+Milestone 16 is a bounded retrieval-recall milestone on `develop`. It closes
+the recall gap for error-code queries: the fusion layer already applies an
+exact-identifier boost to candidates that reach it, and Milestone 16 ensures
+that published chunks containing an error code present in the query become
+candidates at all, even when the lexical and vector channels miss them.
+
+The roadmap amendment was authorized by
+`APPROVE MILESTONE 16 ROADMAP AMENDMENT: GOVERNED ERROR-CODE RETRIEVAL`.
+
+Included capabilities:
+
+- Deterministic, tenant-isolated extraction and indexing of error-code
+  identifiers from published chunk content, with read-only administrative
+  evidence
+- Governed exact error-code candidate matching at the single shared retrieval
+  service boundary, per-tenant opt-in and default off, behind a global kill
+  switch
+- Read-only error-code-effectiveness analytics built on the Milestone 14
+  query-event evidence
+
+Bounded task sequence:
+
+1. **16.1 — Error-code extraction and index evidence**
+2. **16.2 — Governed exact error-code matching in retrieval**
+3. **16.3 — Error-code effectiveness analytics**
+
+Milestone 16 authorizes exactly one retrieval-behavior change: governed exact
+error-code candidate matching. All other retrieval behavior — ranking
+formulas, fusion scoring and the existing exact-identifier boost, candidate
+selection outside the governed error-code path, top-k, runtime thresholds,
+embeddings, reranking, synonym-expansion behavior, query rewriting, the
+publication lifecycle, and source governance — remains unchanged, and the
+existing retrieval regression suite must remain green and byte-unmodified.
+
+The physical PostgreSQL baseline remains immutable. Any development migration
+must follow `0034_query_event_expansion`, remain task-specific, additive and
+reversible, and preserve tenant isolation, least-privilege runtime grants,
+and a single Alembic head.
+
+The following backlog items remain deferred and outside Milestone 16:
+
+- New-release discovery
+- Stale-content penalties
+- Advanced reranking
+- Embedding-model migration
+
 ## Future Milestone — Advanced AI Operations
 
 - Mutable provider, model, policy, budget, and retrieval controls

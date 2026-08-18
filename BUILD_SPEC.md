@@ -3579,6 +3579,82 @@ publication are not part of Milestone 15.
 
 ---
 
+## 36E. Post-v1 Milestone 16 — Governed Error-Code Retrieval
+
+Milestone 16 is a bounded post-v1 product milestone on `develop`. It closes
+the recall gap for error-code queries through exactly one governed
+retrieval-relevance strategy: deterministic exact error-code candidate
+matching. The fusion layer already applies an exact-identifier boost to
+candidates that reach it; this milestone ensures that published chunks
+containing an error code present in the query become candidates at all, even
+when the lexical and vector channels miss them. It reuses the existing shared
+retrieval service boundary, knowledge-administration screens and permission
+family, tenant row-level security, audit trail, idempotency, and canonical
+validation foundations. It does not authorize implementation by itself; each
+task requires the separate approval workflow in
+`CODEX_MASTER_APPROVAL_ORCHESTRATOR.md`.
+
+The milestone includes exactly these capabilities:
+
+- deterministic, tenant-isolated extraction and indexing of error-code
+  identifiers from published chunk content, with read-only administrative
+  evidence;
+- governed exact error-code candidate matching at the single shared retrieval
+  service boundary, tenant-opt-in and default off, with a kill switch; and
+- read-only error-code-effectiveness analytics built on the Milestone 14
+  query-event evidence.
+
+### Task 16.1 — Error-code extraction and index evidence
+
+Extract error-code identifiers deterministically from published chunk content
+using the identifier grammar already established in the fusion layer, and
+maintain them in a tenant-isolated index table populated at publication time
+with a backfill for already-published content. Provide knowledge
+administrators read-only index evidence behind the existing
+knowledge-administration permission family. Retrieval behavior does not
+change in this task. Automatic content mutation, manual index editing, and
+cross-tenant aggregation are out of scope.
+
+### Task 16.2 — Governed exact error-code matching in retrieval
+
+When the normalized query contains an indexed error code, include
+exact-matching published chunks in the candidate set inside the single shared
+retrieval service boundary, behind a per-tenant enablement setting that
+defaults to off and a global kill switch. Ranking of the added candidates
+uses the existing fusion scoring, including the existing exact-identifier
+boost, unchanged. The existing retrieval regression suite must remain green
+and byte-unmodified; dedicated error-code regression evidence is added
+separately. Query events record whether error-code matching applied through
+an additive, backward-compatible extension.
+
+### Task 16.3 — Error-code effectiveness analytics
+
+Extend the Milestone 14 analytics read-only with error-code-match evidence
+and zero-result movement per query group so administrators can judge whether
+exact matching closes the observed gaps. No new mutation surface and no
+retrieval behavior change.
+
+### Milestone 16 database and scope boundary
+
+The physical PostgreSQL baseline remains immutable. Any required development
+migration follows `0034_query_event_expansion`, is additive and reversible,
+preserves one linear Alembic head, applies tenant isolation and
+least-privilege grants, and receives upgrade/downgrade validation.
+
+Milestone 16 authorizes exactly one retrieval-behavior change: governed,
+tenant-opt-in exact error-code candidate matching. All other retrieval
+behavior — ranking formulas, fusion scoring and the existing
+exact-identifier boost, candidate selection outside the governed error-code
+path, top-k, runtime thresholds, embeddings, reranking, synonym-expansion
+behavior, query rewriting, the publication lifecycle, and source governance
+— remains unchanged, and the existing retrieval regression suite must
+remain green and unmodified. New-release discovery, stale-content penalties,
+advanced reranking, embedding-model migration, and all other deferred
+capability families remain out of scope. Production deployment and image
+publication are not part of Milestone 16.
+
+---
+
 ## 37. Definition of done for every task
 
 A task is complete only when:
