@@ -130,7 +130,7 @@ def test_application_migration_head_resolves_from_revision_files() -> None:
 
     head = application_migration_head()
     assert head is not None
-    assert head == "0033_retrieval_synonyms"
+    assert head == "0034_query_event_expansion"
 
 
 def test_admin_permissions_are_granted_to_expected_roles_only() -> None:

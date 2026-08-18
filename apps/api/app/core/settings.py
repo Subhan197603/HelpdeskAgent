@@ -151,6 +151,11 @@ class Settings(BaseSettings):
     # Analytics-only classification floor for Task 14.2; never read by the
     # retrieval path itself. Default mirrors ai_employee_minimum_evidence_score.
     retrieval_low_confidence_threshold: float = Field(default=0.01, ge=0, le=10)
+    # Task 15.2 governed expansion: the global kill switch and the per-tenant
+    # opt-in allowlist both default off — flipping the switch off
+    # deterministically restores unexpanded retrieval for every tenant.
+    retrieval_synonym_expansion_enabled: bool = False
+    retrieval_synonym_expansion_tenant_ids: str = ""
 
     @model_validator(mode="after")
     def validate_runtime_safety(self) -> Self:

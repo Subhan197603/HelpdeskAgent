@@ -370,7 +370,7 @@ def _create_run(client: TestClient, entry_id: str, key: str) -> dict[str, Any]:
 
 @pytest.mark.integration
 def test_knowledge_admin_runtime_privileges_and_migration_are_minimal() -> None:
-    assert _value("SELECT version_num FROM config.alembic_version") == "0033_retrieval_synonyms"
+    assert _value("SELECT version_num FROM config.alembic_version") == "0034_query_event_expansion"
     assert (
         _value(
             "SELECT count(*) FROM pg_indexes WHERE schemaname='kb' "
@@ -2919,3 +2919,135 @@ def test_retrieval_synonym_registry_lifecycle_privileges_and_isolation(
         )
         == "0"
     )
+
+
+async def _retrieve_evidence_expanded(
+    context: RequestContext,
+    query: str,
+    filters: RetrievalFilters,
+    *,
+    enabled: bool = True,
+    tenant_ids: str = TENANT_ID,
+) -> RetrievalEvidenceSet:
+    # Parallel to _retrieve_evidence with the Task 15.2 governed expansion
+    # opt-in configured; the regression harness above stays byte-unmodified
+    # and always runs with both expansion settings at their off defaults.
+    settings = Settings.model_validate(
+        {
+            "app_env": "integration",
+            "database_url": (f"postgresql+psycopg://helpdesk:helpdesk@127.0.0.1:{PORT}/{DATABASE}"),
+            "rls_enabled": True,
+            "retrieval_synonym_expansion_enabled": enabled,
+            "retrieval_synonym_expansion_tenant_ids": tenant_ids,
+        }
+    )
+    engine = create_async_engine(settings.database_url.get_secret_value())
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    service = RetrievalService(
+        lambda identity: SqlAlchemyUnitOfWork(sessions, identity, rls_enabled=True),
+        AuthorizationService(),
+        settings,
+    )
+    try:
+        return await service.evidence(
+            context, query=query, filters=filters, limit=8, persona="EMPLOYEE"
+        )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.integration
+def test_retrieval_synonym_expansion_is_governed_and_observable(
+    application: tuple[TestClient, FastAPI, MemoryStorage],
+) -> None:
+    del application
+    _ensure_retrieval_corpus()
+    _psql("DELETE FROM kb.retrieval_query_event")
+    _psql("DELETE FROM kb.retrieval_synonym")
+    other_tenant = "20000000-0000-0000-0000-000000000002"
+    _psql(
+        "INSERT INTO kb.retrieval_synonym "
+        "(tenant_id,term,expansion,synonym_status,decided_by) VALUES "
+        f"('{TENANT_ID}','zzqvpnx','invoice validation holds','APPROVED','{AUTHOR_ID}'),"
+        f"('{TENANT_ID}','zzqvpnx','draft words ignored','DRAFT','{AUTHOR_ID}'),"
+        f"('{TENANT_ID}','zzqvpnx','retired words ignored','RETIRED','{AUTHOR_ID}'),"
+        f"('{other_tenant}','zzqvpnx','cross tenant leak','APPROVED','{AUTHOR_ID}')"
+    )
+    customer = _retrieval_context("CUSTOMER", "EMPLOYEE")
+    filters = RetrievalFilters(
+        module_codes=("ACCOUNTS_PAYABLE",),
+        release_families=("FUSION_APPLICATIONS",),
+        release_codes=("26C",),
+    )
+    events = "kb.retrieval_query_event"
+
+    # Kill switch off (the platform default): no lexical contribution for the
+    # unknown term and the event records that expansion did not apply.
+    baseline = asyncio.run(
+        _retrieve_evidence(customer, "zzqvpnx problem", filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.components.lexical is None for item in baseline.evidence)
+    assert (
+        _value(
+            "SELECT concat_ws('|',expansion_applied::text,expanded_term_count::text) "
+            f"FROM {events} WHERE tenant_id='{TENANT_ID}' "
+            "ORDER BY captured_at DESC LIMIT 1"
+        )
+        == "false|0"
+    )
+
+    # Opted-in tenant: only the APPROVED entry applies, the lexical channel
+    # now matches the expanded vocabulary, the response and the stored event
+    # both keep the original normalized query, and the evidence is recorded.
+    expanded = asyncio.run(
+        _retrieve_evidence_expanded(customer, "zzqvpnx problem", filters),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert expanded.normalized_query == "zzqvpnx problem"
+    assert any(item.components.lexical is not None for item in expanded.evidence)
+    assert (
+        _value(
+            "SELECT concat_ws('|',normalized_query,expansion_applied::text,"
+            f"expanded_term_count::text) FROM {events} WHERE tenant_id='{TENANT_ID}' "
+            "ORDER BY captured_at DESC LIMIT 1"
+        )
+        == "zzqvpnx problem|true|1"
+    )
+
+    # Flipping the kill switch deterministically restores unexpanded behavior
+    # even for an opted-in tenant, and an unlisted tenant never expands.
+    killed = asyncio.run(
+        _retrieve_evidence_expanded(customer, "zzqvpnx problem", filters, enabled=False),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.components.lexical is None for item in killed.evidence)
+    unlisted = asyncio.run(
+        _retrieve_evidence_expanded(customer, "zzqvpnx problem", filters, tenant_ids=other_tenant),
+        loop_factory=asyncio.SelectorEventLoop,
+    )
+    assert all(item.components.lexical is None for item in unlisted.evidence)
+    assert (
+        _value(
+            "SELECT string_agg(expansion_applied::text,',' ORDER BY captured_at) "
+            f"FROM {events} WHERE tenant_id='{TENANT_ID}'"
+        )
+        == "false,true,false,false"
+    )
+
+    # Migration surface: both evidence columns are additive and nullable, and
+    # the event table's update immutability still holds.
+    assert (
+        _value(
+            "SELECT string_agg(column_name||':'||is_nullable,',' ORDER BY column_name) "
+            "FROM information_schema.columns "
+            "WHERE table_schema='kb' AND table_name='retrieval_query_event' "
+            "AND column_name IN ('expansion_applied','expanded_term_count')"
+        )
+        == "expanded_term_count:YES,expansion_applied:YES"
+    )
+    update_denied = _psql(
+        f"UPDATE {events} SET expansion_applied=true WHERE tenant_id='{TENANT_ID}'",
+        check=False,
+    )
+    assert update_denied.returncode != 0

@@ -11,6 +11,12 @@ from apps.api.app.core.exceptions import AuthorizationError, ConflictError, Exte
 from apps.api.app.core.settings import Settings
 from apps.api.app.db.unit_of_work import SqlAlchemyUnitOfWork
 from apps.api.app.identity.authorization import AuthorizationService, Permission
+from apps.api.app.retrieval.expansion import (
+    ExpandedQuery,
+    expand_query,
+    expansion_tenant_ids,
+    load_approved_entries,
+)
 from apps.api.app.retrieval.fusion import fuse_candidates
 from apps.api.app.retrieval.models import (
     RetrievalCandidates,
@@ -78,12 +84,13 @@ class RetrievalService:
         self._principal(context, persona)
         normalized_query = _query(query)
         normalized_filters = _filters(filters)
+        expanded = await self._expanded_query(context, normalized_query)
         try:
-            embedding = await self._embeddings.embed(normalized_query)
+            embedding = await self._embeddings.embed(expanded.search_query)
             candidates = await self.search(
                 context,
                 RetrievalRequest(
-                    query=normalized_query,
+                    query=expanded.lexical_query,
                     query_embedding=embedding,
                     filters=normalized_filters,
                     limit=limit,
@@ -99,13 +106,13 @@ class RetrievalService:
             if configuration.reranking_enabled:
                 if self._reranker is None:
                     raise ExternalDependencyError("Approved reranking is not configured.")
-                rerank_scores = await self._reranker.rerank(normalized_query, authorized)
+                rerank_scores = await self._reranker.rerank(expanded.search_query, authorized)
         except RetrievalProviderError as error:
             raise ExternalDependencyError("Retrieval provider is unavailable.") from error
         except RetrievalQueryTimeout as error:
             raise RetrievalDeadlineExceeded("Retrieval deadline exceeded.") from error
         evidence = fuse_candidates(
-            normalized_query,
+            expanded.search_query,
             candidates.lexical,
             candidates.vector,
             normalized_filters,
@@ -119,12 +126,37 @@ class RetrievalService:
             normalized_query=normalized_query,
             result_count=len(evidence),
             top_score=evidence[0].score if evidence else None,
+            expansion_applied=expanded.applied,
+            expanded_term_count=expanded.expanded_term_count,
         )
         return RetrievalEvidenceSet(
             normalized_query=normalized_query,
             retrieval_configuration_version_id=configuration.version_id,
             evidence=evidence,
         )
+
+    async def _expanded_query(
+        self, context: RequestContext, normalized_query: str
+    ) -> ExpandedQuery:
+        # The single governed retrieval-behavior change (Task 15.2): applied
+        # only when the global switch is on AND the tenant opted in; any
+        # failure falls back to the unexpanded query so the registry can
+        # never break retrieval.
+        unexpanded = ExpandedQuery(normalized_query, normalized_query, False, 0)
+        if not self._settings.retrieval_synonym_expansion_enabled:
+            return unexpanded
+        if context.tenant_id is None or str(context.tenant_id).lower() not in expansion_tenant_ids(
+            self._settings.retrieval_synonym_expansion_tenant_ids
+        ):
+            return unexpanded
+        try:
+            async with self._factory(context) as uow:
+                entries = await load_approved_entries(uow.session, context.tenant_id)
+                await uow.commit()
+            return expand_query(normalized_query, entries)
+        except Exception:
+            logger.warning("Synonym expansion failed; using unexpanded query.", exc_info=True)
+            return unexpanded
 
     async def _capture_query_event(
         self,
@@ -134,6 +166,8 @@ class RetrievalService:
         normalized_query: str,
         result_count: int,
         top_score: float | None,
+        expansion_applied: bool = False,
+        expanded_term_count: int = 0,
     ) -> None:
         # Observation only: a capture failure must never change the retrieval
         # response, so every error is contained here.
@@ -148,6 +182,8 @@ class RetrievalService:
                     normalized_query=normalized_query,
                     result_count=result_count,
                     top_score=top_score,
+                    expansion_applied=expansion_applied,
+                    expanded_term_count=expanded_term_count,
                 )
                 await repository.enforce_retention(
                     tenant_id=context.tenant_id,

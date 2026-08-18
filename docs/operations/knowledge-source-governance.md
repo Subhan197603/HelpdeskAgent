@@ -196,7 +196,31 @@ presents the registry with the create and change dialogs for authorized
 administrators.
 
 The registry records administrative vocabulary decisions only. Nothing in
-this task reads the registry from the retrieval path: ranking, fusion,
+Task 15.1 reads the registry from the retrieval path: ranking, fusion,
 eligibility, and the retrieval regression suite are unchanged. Only the
-separately approved Task 15.2 may apply `APPROVED` entries during retrieval,
-tenant-opt-in and default off.
+separately approved Task 15.2 (below) may apply `APPROVED` entries during
+retrieval, tenant-opt-in and default off.
+
+## Governed synonym expansion in retrieval
+
+Milestone 15 Task 15.2 applies the registry inside the shared retrieval
+service — the single retrieval-behavior change ratified for Milestone 15.
+When the global switch `RETRIEVAL_SYNONYM_EXPANSION_ENABLED` is on (default
+off) and the tenant appears in the
+`RETRIEVAL_SYNONYM_EXPANSION_TENANT_IDS` opt-in allowlist (default empty),
+`APPROVED` entries whose term appears whole-word in the normalized query
+append their expansions — deduplicated, at most five, never exceeding the
+500-character query bound — to the query used for embedding, lexical and
+vector search, and fusion input. The original normalized query is always
+preserved in the API response and in query-event grouping, so analytics
+group identity is stable across expansion on and off. `DRAFT` and `RETIRED`
+entries and other tenants' entries never apply. Turning the global switch
+off deterministically restores unexpanded behavior, and a registry lookup
+failure falls back to the unexpanded query.
+
+Migration `0034_query_event_expansion` adds two nullable observation columns
+to `kb.retrieval_query_event` (`expansion_applied`, `expanded_term_count`)
+so the Task 15.3 analytics can report expansion effectiveness. Ranking
+weights, fusion, candidate selection, top-k, thresholds, embeddings, and
+reranking are unchanged, and the retrieval regression suite runs unmodified
+with both settings at their off defaults.
