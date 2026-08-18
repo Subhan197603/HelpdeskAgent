@@ -52,6 +52,13 @@ sequence `0033` → `0034` (Task 15.3 introduced no migration). The Milestone 15
 closure governance commit is documentation-only and does not change that
 migration state.
 
+The validated Milestone 16 application baseline is commit
+`76db32fe7885bc05b73f64c566e9c60c37a8f46a` with Alembic head
+`0036_event_error_codes`, reached through the linear Task 16.1–16.2
+sequence `0035` → `0036` (Task 16.3 introduced no migration). The Milestone 16
+closure governance commit is documentation-only and does not change that
+migration state.
+
 The only post-v1 revisions currently present are:
 
 ```text
